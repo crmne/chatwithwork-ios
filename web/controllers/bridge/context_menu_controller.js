@@ -1,15 +1,20 @@
 import { BridgeComponent, BridgeElement } from "@hotwired/hotwire-native-bridge"
 
-// A message's actions as one native menu, opened from a "more" button.
+// A message's actions as one native menu, opened from a "more" button. It
+// goes on the message itself, so the hidden copy source beside the actions
+// is one of its targets:
 //
-//   <footer class="message__footer" data-controller="bridge--context-menu">
-//     <pre data-bridge--context-menu-target="copySource" hidden>…the message as text…</pre>
-//     <button data-bridge--context-menu-target="item" data-bridge-title="Copy"
-//             data-bridge-ios-image="doc.on.doc" data-bridge-copy="true">…</button>
-//     <button data-bridge--context-menu-target="item" data-bridge-title="Retry" …>…</button>
-//     <button class="message__more" data-bridge--context-menu-target="trigger"
-//             data-action="bridge--context-menu#show" aria-label="More actions">…</button>
-//   </footer>
+//   <div class="message message--assistant" data-controller="markdown clipboard bridge--context-menu">
+//     <pre data-clipboard-target="source" data-bridge--context-menu-target="copySource" hidden>…the message as text…</pre>
+//     …
+//     <div class="message__actions">
+//       <button data-bridge--context-menu-target="item" data-bridge-title="Copy"
+//               data-bridge-ios-image="doc.on.doc" data-bridge-copy="true">…</button>
+//       <button data-bridge--context-menu-target="item" data-bridge-title="Retry" …>…</button>
+//       <button class="message__action message__more" data-bridge--context-menu-target="trigger"
+//               data-action="bridge--context-menu#show" aria-label="More actions">…</button>
+//     </div>
+//   </div>
 //
 // Items take data-bridge-title (else the aria-label or text),
 // data-bridge-ios-image, data-bridge-android-image and

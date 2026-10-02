@@ -438,11 +438,14 @@ Android ignores, are marked "iOS". Every message the bridge sends also carries
 Rules for every component:
 
 - **Once per page.** A page renders each component's controller once (one
-  `bridge--button`, one `bridge--menu`, one `bridge--form`...). The app
-  keeps one native control per component and page, so a second element
-  overwrites the first: the last payload wins. Watch for layouts that render
-  the same partial twice (a desktop and a phone variant): render the
-  controller in one of them only, or in a hidden holder.
+  `bridge--button`, one `bridge--menu`, one `bridge--form`, one
+  `bridge--search`...). The app keeps one native control per component and
+  page, so a second element overwrites the first: the last payload wins.
+  Watch for layouts that render the same partial twice (a desktop and a
+  phone variant): render the controller in one of them only, or in a hidden
+  holder. `toast`, `haptic` and `context-menu` send one-off events instead,
+  so they may appear on as many elements as needed (every message has its
+  own context menu).
 - **Behavior never follows a title.** Titles are for people and will be
   translated; the apps never decide what to do from one. Where the app must
   do something itself beyond clicking the element (none yet; printing would
@@ -531,15 +534,22 @@ click.
   Move to project `folder`/`drive_file_move`, Delete `trash`/`delete` with
   `data-bridge-destructive="true"`. The pin item must keep the id that
   `pins/update.turbo_stream.erb` replaces, so the menu updates in place.
-- **Message actions** (`messages/_assistant`, `messages/_user`): wrap
-  `.message__actions` in `data-controller="bridge--context-menu"`, mark each
-  action `data-bridge--context-menu-target="item"` with a short
+- **Message actions** (`messages/_assistant`, `messages/_user`): add
+  `bridge--context-menu` to the message's own controllers
+  (`data-controller="markdown clipboard bridge--context-menu"` on
+  `.message--assistant`, `"clipboard bridge--context-menu"` on
+  `.message--user`). It goes on the message, not on `.message__actions`,
+  because the hidden copy source it reads sits beside the actions, and a
+  Stimulus target has to be inside its controller's element. Then mark the
+  copy source (`_assistant`'s `<pre data-clipboard-target="source">`,
+  `_user`'s `<div data-clipboard-target="source">`) as
+  `data-bridge--context-menu-target="copySource"`, mark each action in
+  `.message__actions` `data-bridge--context-menu-target="item"` with a short
   `data-bridge-title` and symbols (Copy `doc.on.doc`/`content_copy` with
   `data-bridge-copy="true"`, Retry `arrow.clockwise`/`refresh`, Branch into a
   new chat `arrow.triangle.branch`/`call_split`, Share link `link`/`link`),
-  add the existing hidden copy source as
-  `data-bridge--context-menu-target="copySource"`, and add one more button,
-  shown only in apps that draw the menu:
+  and add one more button at the end of `.message__actions`, shown only in
+  apps that draw the menu:
 
   ```erb
   <button type="button" class="message__action message__more" aria-label="More actions"
