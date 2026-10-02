@@ -62,6 +62,13 @@ Live Wire design system and the chat UI. Read the README here first, then
   themselves otherwise.
 - The playground's pages are fixtures. When the server contract changes,
   update them so they keep showing what the contract asks for.
+- Write the fixtures in the web app's own markup: copy each partial's
+  elements, wrappers and classes from `app/views/` (`chats/_form`,
+  `messages/_assistant`, `activities/_activity`...) rather than
+  approximating them. The real stylesheet styles them, so a missing wrapper
+  moves things: without `.model-picker`, send sat mid-bar in the composer.
+- `Playground/server.py` must run on macOS's own `python3` (3.9): nothing
+  newer, such as a backslash inside an f-string's `{}` or `match`.
 - Never claim a platform or flow was tested unless it was actually run, and
   say whether it ran against the playground or a real server.
 - Build headless when working remotely: `xcodebuild` and `xcrun simctl`
