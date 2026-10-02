@@ -113,8 +113,9 @@ docs/             the server contract and design notes
 - **Web screens** are plain `HotwireWebViewController`s configured from
   outside (`WebScreen`), never subclassed: a subclass recreating the bridge
   delegate is what crashed Cluster Headache Tracker's app. The web view
-  shrinks above the keyboard, so the composer rides on it, and its page zoom
-  follows the system text size. Files open in Quick Look.
+  shrinks above the keyboard, so the composer rides on it, its page zoom
+  follows the system text size, and its title follows the page's `<title>`
+  whenever it changes. Files open in Quick Look.
 - **Bridge components**: Joe Masilotti's `alert`, `review-prompt` and `theme`
   as they are; iOS versions of `button`, `menu`, `search`, `form`, `share`,
   `toast` and `haptic` with his messages, which share the navigation bar
