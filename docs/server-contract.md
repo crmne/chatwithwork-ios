@@ -595,8 +595,10 @@ change, except that `MessagesController#create`'s HTML fallback
 
 ### Projects (`projects/index`, `projects/show`)
 
-- `projects/index`: the header gets `.native-hidden`; New project becomes a
-  `bridge--button` (`plus`/`add`).
+- `projects/index`: the heading's kicker and `<h1>` get `.native-hidden`
+  (the app shows a large "Projects" title), and the lede under them stays;
+  New project becomes a `bridge--button` (`plus`/`add`), its
+  `.page__actions` hidden.
 - `projects/show`: keep the header's summary and description; New chat here
   becomes the `bridge--button` (`square.and.pencil`/`edit_square`); Pin,
   Settings, Leave and Archive go into a `bridge--menu` in a hidden holder.

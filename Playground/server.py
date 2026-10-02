@@ -815,6 +815,8 @@ def new_chat(handler, account, project_number=None):
 
 
 def projects_index(handler, account):
+    """projects/index: the heading under the app's large title, the lede
+    kept, New project in the navigation bar."""
     rows = "".join(f"""
         <a class="rows__row" href="/{account}/projects/{number}">
           <span class="rows__logo">{project_icon(project, "size-4")}</span>
@@ -826,12 +828,18 @@ def projects_index(handler, account):
         </a>""" for number, project in PROJECTS.items())
     body = f"""
     <div class="page">
-      <header class="page__header native-hidden">
-        <div class="page__heading"><span class="micro">{ACCOUNTS[account]}</span><h1>Projects</h1></div>
+      <header class="page__header">
+        <div class="page__heading">
+          <span class="micro native-hidden">{ACCOUNTS[account]}</span>
+          <h1 class="native-hidden">Projects</h1>
+          <p class="page__lede">Chats in a project are shared with the people on it. Everything else stays private to whoever started it.</p>
+        </div>
+        <div class="page__actions native-hidden">
+          <a class="btn btn-sm btn-primary" href="/{account}/projects/new" data-controller="bridge--button" data-bridge-title="New project"
+             data-bridge-ios-image="plus" data-bridge-android-image="add">{icon("plus", "size-4")} New project</a>
+        </div>
       </header>
-      <a href="/{account}/projects/new" class="native-hidden" data-controller="bridge--button" data-bridge-title="New project"
-         data-bridge-ios-image="plus" data-bridge-android-image="add">New project</a>
-      <p class="page__lede">Chats in a project are shared with the people on it. Everything else stays private to whoever started it.</p>
+
       <section class="page__section">
         <div class="rows">{rows}
         </div>
