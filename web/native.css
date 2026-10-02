@@ -1,0 +1,112 @@
+/*
+  The Chat with Work apps for iOS and Android (Hotwire Native).
+
+  Rails marks every page it renders for an app, on the root element:
+
+    <html data-native-app="ios">        (or "android")
+
+  and the bridge marks what the running app can draw, once it connects:
+
+    <html data-bridge-platform="ios" data-bridge-components="button menu form …">
+
+  Server-rendered differences (no sidebar, no marketing header) key off
+  data-native-app. Anything a bridge component stands in for stays in the
+  page, because the component clicks it, and hides only once the app says
+  it draws that component: an older app without it still shows the web one.
+
+  Hiding rules are !important: daisyUI's component rules (.btn, .input)
+  live in the later utilities layer and would otherwise win.
+
+  Goes in app/assets/tailwind/components/native.css, imported last.
+*/
+
+@layer components {
+  /* Chrome the native shell replaces: page headings under a native large
+     title, the drawer toggle, keyboard hints, hover tooltips, and the
+     staging band (under the status bar here; the build's name says it). */
+  [data-native-app] :is(.native-hidden, .app-main__toggle, .kbd-hint, .environment-label) {
+    display: none !important;
+  }
+
+  [data-native-app] .tooltip::before,
+  [data-native-app] .tooltip::after {
+    display: none !important;
+  }
+
+  /* Holders for the elements bridge components click. */
+  .native-actions {
+    display: none !important;
+  }
+
+  /* Pages fill the screen with the platform's gutter. The document itself
+     scrolls (never an inner pane), so the app's bars can collapse their
+     large titles and tint as content passes under them. WebKit insets the
+     page below the bars (no viewport-fit=cover), so no safe-area padding. */
+  [data-native-app] .native-main {
+    display: flex;
+    flex-direction: column;
+    padding-inline: 1rem;
+  }
+
+  [data-native-app] :is(.chat-history, .page, .settings) {
+    padding-block: 0.5rem 2rem;
+  }
+
+  /* No highlight flash on tap, and no callout or selection on controls. */
+  [data-native-app] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  [data-native-app] :is(a, button, summary, label, .rows__row, .btn) {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* The conversation scrolls the document; the composer stays at the
+     bottom of what's visible, which WebKit keeps above the home indicator
+     and the app keeps above the keyboard (it resizes the web view). */
+  [data-native-app] .chat-view .conversation {
+    block-size: auto;
+    flex: 1;
+  }
+
+  [data-native-app] .chat-view .conversation__scroll {
+    padding-block: 0.75rem 10rem;
+  }
+
+  /* A native search bar replaces the page's search field. */
+  html[data-bridge-components~="search"] .native-search-field {
+    display: none !important;
+  }
+
+  /* A form's submit button moves to the navigation bar. */
+  html[data-bridge-components~="form"] [data-bridge--form-target~="submit"] {
+    display: none !important;
+  }
+
+  /* A message's actions collapse into one "more" button with a native menu;
+     without the menu, the more button never shows. */
+  html:not([data-bridge-components~="context-menu"]) .message__more,
+  html[data-bridge-components~="context-menu"] .message__actions > :not(.message__more) {
+    display: none !important;
+  }
+
+  /* Flash messages become native toasts. */
+  html[data-bridge-components~="toast"] .flash__item {
+    display: none !important;
+  }
+
+  /* Push notification settings: show what fits the device's state. */
+  :is(.push-row__status, .push-row__action) {
+    display: none !important;
+  }
+
+  [data-push-status="authorized"] [data-status="authorized"],
+  [data-push-status="provisional"] [data-status="authorized"],
+  [data-push-status="ephemeral"] [data-status="authorized"],
+  [data-push-status="denied"] [data-status="denied"],
+  [data-push-status="not_determined"] [data-status="not_determined"] {
+    display: revert !important;
+  }
+}
