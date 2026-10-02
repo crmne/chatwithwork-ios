@@ -40,12 +40,15 @@ application.register("search", class extends Controller {
   }
 })
 
+// Stands in for the chat form's controllers (chat, attachments) and its
+// Lexxy editor: a textarea whose text goes into the form's hidden content
+// field, as the editor's does.
 application.register("composer", class extends Controller {
-  static targets = ["input", "send"]
+  static targets = ["input", "content", "send"]
 
   update() {
     this.inputTarget.style.height = "auto"
-    this.inputTarget.style.height = `${Math.min(this.inputTarget.scrollHeight, 160)}px`
+    this.inputTarget.style.height = `${Math.min(this.inputTarget.scrollHeight, 192)}px`
     if (this.hasSendTarget) this.sendTarget.disabled = this.inputTarget.value.trim() === ""
   }
 
@@ -55,13 +58,46 @@ application.register("composer", class extends Controller {
     } else if (event.type === "keydown") {
       event.preventDefault()
       this.element.querySelector("form").requestSubmit()
+    } else {
+      this.contentTarget.value = this.inputTarget.value
     }
   }
 
-  suggest(event) {
-    this.inputTarget.value = event.currentTarget.dataset.text
+  reset(event) {
+    if (!event.detail.success) return
+    this.inputTarget.value = ""
     this.update()
-    this.inputTarget.focus()
+  }
+})
+
+// Opens a <dialog> by id, like the web app's modal-opener.
+application.register("modal-opener", class extends Controller {
+  static values = { dialogId: String }
+
+  open() {
+    document.getElementById(this.dialogIdValue)?.showModal()
+  }
+})
+
+// The model picker's choice, like the web app's model-select.
+application.register("model-select", class extends Controller {
+  static targets = ["model", "provider", "icon", "label", "option"]
+
+  select(event) {
+    const { modelId, provider, name, rate, icon, invert } = event.params
+    this.modelTarget.value = modelId
+    this.providerTarget.value = provider
+    this.labelTarget.textContent = name
+    this.iconTarget.src = icon
+    this.iconTarget.classList.toggle("dark:brightness-0", invert)
+    this.iconTarget.classList.toggle("dark:invert", invert)
+    this.element.dataset.tip = rate
+    this.optionTargets.forEach(option => {
+      const chosen = option === event.currentTarget
+      option.classList.toggle("active", chosen)
+      option.setAttribute("aria-selected", chosen)
+    })
+    document.activeElement?.blur()
   }
 })
 

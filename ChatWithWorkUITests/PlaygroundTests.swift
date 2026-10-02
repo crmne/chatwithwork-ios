@@ -105,7 +105,7 @@ final class PlaygroundTests: XCTestCase {
 
         // New chat opens as a sheet over Chats.
         app.tabBars.buttons["New chat"].tap()
-        XCTAssertTrue(app.webViews.staticTexts["Good afternoon, Carmine"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.webViews.staticTexts["What are we working on, Carmine?"].waitForExistence(timeout: 20))
         settle()
         keep("new-chat")
     }

@@ -23,4 +23,5 @@ AuthKey_*.p8
 
 # macOS and tools
 .DS_Store
+__pycache__/
 .claude/
