@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      ui-tests:
+        description: Also run the UI tests against the playground
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use the newest Xcode on the runner
+        run: |
+          xcode=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: .build/SourcePackages
+          key: spm-${{ hashFiles('ChatWithWork.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+
+      - name: Resolve packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project ChatWithWork.xcodeproj -scheme ChatWithWork \
+            -clonedSourcePackagesDirPath .build/SourcePackages
+
+      - name: Unit tests
+        env:
+          SOURCE_PACKAGES: .build/SourcePackages
+          RESULT_BUNDLE: .build/unit.xcresult
+        run: script/test
+
+      - name: Release build (unsigned)
+        run: |
+          xcodebuild build \
+            -project ChatWithWork.xcodeproj -scheme ChatWithWork -configuration Release \
+            -destination "generic/platform=iOS" \
+            -clonedSourcePackagesDirPath .build/SourcePackages \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: UI tests against the playground
+        if: ${{ inputs.ui-tests }}
+        env:
+          SOURCE_PACKAGES: .build/SourcePackages
+          RESULT_BUNDLE: .build/ui.xcresult
+        run: |
+          python3 Playground/server.py --port 8765 > .build/playground.log 2>&1 &
+          sleep 5
+          script/test "" ui
+
+      - name: Keep the test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: .build/*.xcresult
+          if-no-files-found: ignore

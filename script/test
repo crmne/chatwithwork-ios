@@ -1,0 +1,35 @@
+#!/bin/bash
+# Builds and runs the unit tests on an iPhone simulator.
+#
+#   script/test                 # the first available iPhone simulator
+#   script/test <udid>          # a particular one
+#   script/test <udid> ui       # the UI tests (start the playground first)
+#
+# DERIVED_DATA and SOURCE_PACKAGES move Xcode's build products and package
+# checkouts somewhere else.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+udid="${1:-}"
+if [ -z "$udid" ]; then
+  udid=$(xcrun simctl list devices available -j | /usr/bin/python3 -c '
+import json, sys
+runtimes = json.load(sys.stdin)["devices"]
+ios = sorted((r for r in runtimes if "iOS" in r), key=lambda r: [int(x) for x in r.rsplit("-", 2)[-2:] if x.isdigit()], reverse=True)
+for runtime in ios:
+    for device in runtimes[runtime]:
+        if device["name"].startswith("iPhone"):
+            print(device["udid"]); sys.exit(0)
+sys.exit("No iPhone simulator found")
+')
+fi
+
+scheme=ChatWithWork
+[ "${2:-}" = "ui" ] && scheme=ChatWithWorkUITests
+
+args=(-project ChatWithWork.xcodeproj -scheme "$scheme" -destination "platform=iOS Simulator,id=$udid" -parallel-testing-enabled NO)
+[ -n "${DERIVED_DATA:-}" ] && args+=(-derivedDataPath "$DERIVED_DATA")
+[ -n "${SOURCE_PACKAGES:-}" ] && args+=(-clonedSourcePackagesDirPath "$SOURCE_PACKAGES")
+[ -n "${RESULT_BUNDLE:-}" ] && args+=(-resultBundlePath "$RESULT_BUNDLE")
+
+exec xcodebuild test "${args[@]}" CODE_SIGNING_ALLOWED=NO

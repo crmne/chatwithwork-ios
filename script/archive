@@ -1,0 +1,32 @@
+#!/bin/bash
+# Archives a release build from a vX.Y.Z tag, numbering the build
+# MAJOR*10000 + MINOR*100 + PATCH (v1.2.3 is build 10203).
+#
+#   script/archive                  # HEAD must be at a vX.Y.Z tag
+#   script/archive v1.2.3 [build] [archive-path] [configuration]
+#
+# Needs Config/Signing.xcconfig with your DEVELOPMENT_TEAM.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+tag="${1:-$(git describe --tags --exact-match 2>/dev/null || true)}"
+version="${tag#v}"
+if [[ ! "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+  echo "Give a stable tag like v1.2.3 (HEAD isn't at one)." >&2
+  exit 1
+fi
+
+build="${2:-$((BASH_REMATCH[1] * 10000 + BASH_REMATCH[2] * 100 + BASH_REMATCH[3]))}"
+archive="${3:-build/ChatWithWork-$version.xcarchive}"
+configuration="${4:-Release}"
+
+xcodebuild archive \
+  -project ChatWithWork.xcodeproj \
+  -scheme ChatWithWork \
+  -configuration "$configuration" \
+  -destination "generic/platform=iOS" \
+  -archivePath "$archive" \
+  MARKETING_VERSION="$version" \
+  CURRENT_PROJECT_VERSION="$build"
+
+echo "Archived $version ($build) to $archive"
