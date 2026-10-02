@@ -27,7 +27,9 @@ final class PlaygroundTests: XCTestCase {
     @MainActor
     func testSignedInShell() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground]
+        // Notices stay up until tapped away, so the test sees them however
+        // long the app takes to settle after a tap.
+        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground, "-CWWToastSeconds", "30"]
         app.launch()
 
         // Signing in rebuilds the shell on the Chats tab.
@@ -39,8 +41,14 @@ final class PlaygroundTests: XCTestCase {
         let chat = app.webViews.staticTexts["Q3 launch commitments for Acme"]
         XCTAssertTrue(chat.waitForExistence(timeout: 20), "Signing in should land on the chat list")
         XCTAssertTrue(app.buttons["bridge.button"].waitForExistence(timeout: 5), "New chat should be in the navigation bar")
+        // The server's flash arrives as a native notice.
+        let signedIn = app.descendants(matching: .any)["toast"]
+        XCTAssertTrue(signedIn.waitForExistence(timeout: 10), "The sign-in flash should show as a toast")
+        XCTAssertEqual(signedIn.label, "Signed in.")
         settle()
         keep("chats")
+        signedIn.tap()
+        XCTAssertTrue(signedIn.waitForNonExistence(timeout: 5), "A tap should put the toast away")
 
         // A conversation, with New chat and the chat's menu in the bar.
         chat.tap()
@@ -69,10 +77,14 @@ final class PlaygroundTests: XCTestCase {
         settle(0.6)
         keep("message-menu")
 
-        // The toast lasts a few seconds: look for it at once.
+        // Copying confirms with a notice, which a tap puts away.
         app.buttons["Copy"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["toast"].waitForExistence(timeout: 2), "Copying should confirm with a toast")
+        let toast = app.descendants(matching: .any)["toast"]
+        XCTAssertTrue(toast.waitForExistence(timeout: 10), "Copying should confirm with a toast")
+        XCTAssertEqual(toast.label, "Copied")
         keep("copied-toast")
+        toast.tap()
+        XCTAssertTrue(toast.waitForNonExistence(timeout: 5), "A tap should put the toast away")
 
         // The composer rides on the keyboard.
         let composer = app.webViews.textViews["Message"].firstMatch

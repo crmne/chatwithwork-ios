@@ -92,7 +92,7 @@ final class ToastCenter {
         UIAccessibility.post(notification: .announcement, argument: message)
 
         dismissal?.cancel()
-        let duration = Self.duration(for: message)
+        let duration = LaunchOptions.toastSeconds ?? Self.duration(for: message)
         dismissal = Task { [weak self, weak toast] in
             try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled, let self, let toast else { return }

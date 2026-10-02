@@ -59,4 +59,16 @@ enum LaunchOptions {
             nil
         #endif
     }
+
+    /// `-CWWToastSeconds 10` keeps notices up that long (development builds).
+    /// UI tests wait for the app to settle before they look, which can take
+    /// longer than a short notice lasts.
+    static var toastSeconds: Double? {
+        #if DEBUG
+            let seconds = UserDefaults.standard.double(forKey: "CWWToastSeconds")
+            return seconds > 0 ? seconds : nil
+        #else
+            nil
+        #endif
+    }
 }
