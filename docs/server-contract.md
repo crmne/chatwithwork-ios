@@ -250,8 +250,10 @@ If a public page ever renders differently for the apps, add
 Copy `web/native.css` to `app/assets/tailwind/components/native.css` and
 import it last in `application.css`. It:
 
-- hides `.native-hidden`, the drawer toggle, keyboard hints and tooltips in
-  the apps;
+- hides, in the apps, `.native-hidden`, the drawer toggle
+  (`.app-main__toggle`), the staging band (`.environment-label`), tooltips
+  (`.tooltip`'s bubbles), and keyboard-shortcut hints (`.kbd-hint`, such as
+  the composer's "⌘ /" or "Ctrl /"), which mean nothing on a touch screen;
 - lets the document scroll, with the platform's gutter;
 - keeps the conversation's composer at the bottom of what's visible: above
   the home indicator, and above the keyboard while it's up (the app resizes
@@ -575,7 +577,9 @@ click.
   `data-bridge-feedback="light"` to `#new_message`, and
   `turbo:submit-start->bridge--haptic#vibrate` to the form's actions.
   The composer itself stays the web's (the rainbow edge is the brand); the
-  app keeps it above the keyboard and above the home indicator.
+  app keeps it above the keyboard and above the home indicator. Its
+  keyboard-shortcut hint (`.kbd-hint`, "⌘ /" or "Ctrl /") stays in the
+  markup: native.css hides it in the apps, where it means nothing.
 - **Share link dialog** (`chats/share_links/_dialog`): next to Copy link, a
   Share button for the public link, so it can go to Messages or Mail:
   `data: { controller: "bridge--share", action: "bridge--share#share",
