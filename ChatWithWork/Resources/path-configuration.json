@@ -1,0 +1,72 @@
+{
+  "settings": {},
+  "rules": [
+    {
+      "patterns": [
+        ".*"
+      ],
+      "properties": {
+        "context": "default",
+        "pull_to_refresh_enabled": true
+      }
+    },
+    {
+      "patterns": [
+        "/new(\\?|$)",
+        "/edit(\\?|$)"
+      ],
+      "properties": {
+        "context": "modal",
+        "modal_style": "large",
+        "pull_to_refresh_enabled": false
+      }
+    },
+    {
+      "patterns": [
+        "^/users/sign_in(\\?|$)",
+        "^/users/sign_up(\\?|$)",
+        "^/users(\\?|$)",
+        "^/users/password(/new|/edit)?(\\?|$)",
+        "^/users/confirmation(/new|/sent)?(\\?|$)",
+        "^/users/unlock(/new)?(\\?|$)"
+      ],
+      "properties": {
+        "context": "modal",
+        "modal_style": "large",
+        "pull_to_refresh_enabled": false
+      }
+    },
+    {
+      "patterns": [
+        "/chats/new(\\?|$)"
+      ],
+      "properties": {
+        "context": "modal",
+        "modal_style": "large",
+        "modal_dismiss_gesture_enabled": true,
+        "pull_to_refresh_enabled": false
+      }
+    },
+    {
+      "patterns": [
+        "/chats/\\d+(\\?|#|$)",
+        "^/shared/"
+      ],
+      "properties": {
+        "context": "default",
+        "pull_to_refresh_enabled": false
+      }
+    },
+    {
+      "patterns": [
+        "/chats(\\?|$)",
+        "/projects(\\?|$)",
+        "/settings(\\?|$)"
+      ],
+      "properties": {
+        "context": "default",
+        "pull_to_refresh_enabled": true
+      }
+    }
+  ]
+}

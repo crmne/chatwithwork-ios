@@ -1,0 +1,15 @@
+#include "Base.xcconfig"
+
+CWW_ENVIRONMENT = development
+CWW_BUNDLE_IDENTIFIER_SUFFIX = .debug
+CWW_DISPLAY_NAME = CWW Dev
+
+// The Rails app under devhost. Point a build at a computer on your network
+// with CWW_BASE_URL in Local.xcconfig, or at launch with -CWWBaseURL.
+CWW_BASE_URL = https:/$()/chatwithwork.localhost
+
+CWW_APS_ENVIRONMENT = development
+CWW_ASSOCIATED_DOMAIN = staging.chatwithwork.com?mode=developer
+
+// Local.xcconfig is git-ignored, for overrides on one machine.
+#include? "Local.xcconfig"

@@ -1,0 +1,26 @@
+# Xcode
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.moved-aside
+*.xcresult
+
+# Swift Package Manager (Package.resolved inside the project is committed)
+.build/
+/.swiftpm/
+
+# Local configuration. Never commit these: the repository is public.
+Config/Signing.xcconfig
+Config/Local.xcconfig
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+AuthKey_*.p8
+
+# macOS and tools
+.DS_Store
+.claude/

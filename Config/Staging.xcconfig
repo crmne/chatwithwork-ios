@@ -1,0 +1,11 @@
+#include "Base.xcconfig"
+
+CWW_ENVIRONMENT = staging
+CWW_BUNDLE_IDENTIFIER_SUFFIX = .staging
+CWW_DISPLAY_NAME = CWW Staging
+CWW_BASE_URL = https:/$()/staging.chatwithwork.com
+
+CWW_APS_ENVIRONMENT = production
+CWW_ASSOCIATED_DOMAIN = staging.chatwithwork.com
+
+#include? "Local.xcconfig"

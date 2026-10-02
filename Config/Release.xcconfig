@@ -1,0 +1,9 @@
+#include "Base.xcconfig"
+
+CWW_ENVIRONMENT = production
+CWW_BUNDLE_IDENTIFIER_SUFFIX =
+CWW_DISPLAY_NAME = Chat with Work
+CWW_BASE_URL = https:/$()/chatwithwork.com
+
+CWW_APS_ENVIRONMENT = production
+CWW_ASSOCIATED_DOMAIN = chatwithwork.com

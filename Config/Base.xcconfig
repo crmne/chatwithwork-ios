@@ -1,0 +1,35 @@
+// Shared by every configuration. Values that differ per environment live in
+// Debug.xcconfig, Staging.xcconfig, and Release.xcconfig.
+//
+// xcconfig treats "//" as the start of a comment, so URLs are written as
+// https:/$()/host: the empty $() keeps the second slash.
+
+PRODUCT_NAME = ChatWithWork
+CWW_BUNDLE_IDENTIFIER_BASE = com.chatwithwork.app
+PRODUCT_BUNDLE_IDENTIFIER = $(CWW_BUNDLE_IDENTIFIER_BASE)$(CWW_BUNDLE_IDENTIFIER_SUFFIX)
+
+// Release builds take their version from the tag (see README).
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+
+IPHONEOS_DEPLOYMENT_TARGET = 18.0
+TARGETED_DEVICE_FAMILY = 1,2
+SDKROOT = iphoneos
+SUPPORTED_PLATFORMS = iphoneos iphonesimulator
+SUPPORTS_MACCATALYST = NO
+SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO
+SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO
+
+SWIFT_VERSION = 6.0
+SWIFT_APPROACHABLE_CONCURRENCY = YES
+SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor
+
+// The custom scheme ASWebAuthenticationSession listens for when the server
+// hands a sign-in or a connector back to the app.
+CWW_CALLBACK_SCHEME = chatwithwork
+
+CODE_SIGN_STYLE = Automatic
+
+// Signing.xcconfig is git-ignored: it holds DEVELOPMENT_TEAM and anything
+// else that identifies an Apple account. Copy Signing.xcconfig.example.
+#include? "Signing.xcconfig"
