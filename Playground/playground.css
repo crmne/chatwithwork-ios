@@ -1,0 +1,54 @@
+/* Stand-ins for what the Rails app draws with its own components (the
+   Lexxy editor, the suggestions under the new chat composer). Not part of
+   the contract. */
+
+.playground-editor {
+  display: block;
+  inline-size: 100%;
+  min-block-size: 2.75rem;
+  max-block-size: 10rem;
+  padding: 0.875rem 1rem 0.25rem;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.playground-editor::placeholder {
+  color: var(--ink-faint);
+}
+
+.playground-suggestions {
+  display: grid;
+  gap: 0.5rem;
+  margin-block-start: 1.5rem;
+}
+
+.suggestion {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.875rem;
+  border: var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+  text-align: start;
+}
+
+.native-form {
+  gap: 1rem;
+}
+
+.native-settings__who {
+  padding-inline: 0.25rem;
+}
+
+.native-settings .rows + .rows {
+  margin-block-start: 1.5rem;
+}
