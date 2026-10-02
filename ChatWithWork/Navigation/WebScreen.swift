@@ -1,4 +1,5 @@
 import HotwireNative
+import ObjectiveC
 import UIKit
 import WebKit
 
@@ -33,6 +34,7 @@ enum WebScreen {
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         TextSize.follow(webView)
+        PageTitle.follow(webView)
         // No white flash before the first paint in dark mode.
         webView.isOpaque = false
         webView.backgroundColor = Palette.canvas
@@ -46,6 +48,35 @@ enum WebScreen {
             webView.isInspectable = true
         #endif
         return webView
+    }
+}
+
+/// A web screen's title is its page's `<title>`, kept in step as it changes.
+/// Hotwire Native reads the title once, when Turbo says a visit rendered, and
+/// WebKit can still report the previous page's title then: a sheet that
+/// reused its web view showed "Move to project" over New chat. The screen
+/// holding the web view follows the title instead, including a page that
+/// retitles itself later.
+enum PageTitle {
+    private nonisolated(unsafe) static var key: UInt8 = 0
+
+    static func follow(_ webView: WKWebView) {
+        let observation = webView.observe(\.title, options: [.new]) { webView, _ in
+            MainActor.assumeIsolated {
+                // Turbo swaps <title> elements while it renders, which passes
+                // through an empty title.
+                guard let title = webView.title, !title.isEmpty, let screen = webView.visitableViewController else { return }
+                screen.navigationItem.title = title
+            }
+        }
+        objc_setAssociatedObject(webView, &key, observation, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+}
+
+private extension UIView {
+    /// The web screen whose view holds this one, if it's on one.
+    var visitableViewController: VisitableViewController? {
+        sequence(first: self as UIResponder, next: \.next).lazy.compactMap { $0 as? VisitableViewController }.first
     }
 }
 

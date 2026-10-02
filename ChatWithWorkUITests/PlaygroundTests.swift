@@ -115,9 +115,11 @@ final class PlaygroundTests: XCTestCase {
         settle()
         keep("settings")
 
-        // New chat opens as a sheet over Chats.
+        // New chat opens as a sheet over Chats, titled by its own page even
+        // though the sheet's web view showed Move to project before.
         app.tabBars.buttons["New chat"].tap()
         XCTAssertTrue(app.webViews.staticTexts["What are we working on, Carmine?"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.navigationBars["New chat"].waitForExistence(timeout: 5), "The sheet should take its page's title")
         settle()
         keep("new-chat")
     }
