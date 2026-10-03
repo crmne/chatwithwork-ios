@@ -433,7 +433,7 @@ Android ignores, are marked "iOS". Every message the bridge sends also carries
 | `alert` | `show` `{title, description?, destructive, confirm, dismiss}` | reply to `show` only when confirmed | `bridge--confirm` (Turbo confirms) |
 | `theme` | `connect` `{theme: "light" \| "dark" \| null}` | none | not used yet: the web and the app both follow the system |
 | `review-prompt` | `prompt` | none | not used yet |
-| `context-menu` | `show` `{items: [{title, iosImage?, androidImage?, destructive?, copy?, nativeAction?}], rect: {x, y, width, height}, scroll: {x, y}, title?}` | reply to `show` `{index}`: click that item (not for `copy` items) | `bridge--context-menu` |
+| `context-menu` | `show` `{items: [{title, iosImage?, androidImage?, destructive?, copy?, copyHtml?, nativeAction?}], rect: {x, y, width, height}, scroll: {x, y}, title?}` | reply to `show` `{index}`: click that item (not for `copy` items) | `bridge--context-menu` |
 | `auth-session` | `start` `{url, ephemeral?}`; `cancel` | reply to `start` `{url}` (the callback URL) or `{error}`: `canceled` \| `invalid_url` \| `unavailable` \| `failed` | `bridge--auth-session` |
 | `notification-token` | `connect`; `get`; `openSettings` | reply to `connect` and `get`: `{status, token?, platform, environment, appId}` | `bridge--notification-token` |
 
@@ -475,7 +475,11 @@ Details the table can't hold:
   `scroll` the window's `scrollX`/`scrollY`, both in CSS pixels; the app
   anchors its menu there. An item with `copy` text is copied by the app
   itself (with a "Copied" toast), because a page can't write the clipboard
-  from a callback no tap of its own started.
+  from a callback no tap of its own started. `copy` is the Markdown source;
+  an answer's Copy item also sends `copyHtml`, the answer rendered as HTML,
+  unless its reader chose "Copy answers as: Markdown" in Settings. With it,
+  the app puts both on the pasteboard as one item (`public.html` and
+  `public.utf8-plain-text`), so rich editors keep the formatting.
 - **`alert`**: through `bridge--confirm` on `<body>`, every
   `data-turbo-confirm` becomes a native alert. The confirm text is the
   alert's title. A DELETE (or `data-bridge-destructive="true"` on the form

@@ -114,6 +114,19 @@ struct BridgeContractTests {
         let data: ContextMenuData = try #require(message("context-menu", "show", json).data())
         #expect(data.items[0].copy == "The answer")
         #expect(data.items[1].copy == nil)
+        #expect(data.items[0].copyHtml == nil)
+        #expect(data.items[0].pasteboardItem?["public.utf8-plain-text"] as? String == "The answer")
+        #expect(data.items[0].pasteboardItem?["public.html"] == nil)
+        #expect(data.items[1].pasteboardItem == nil)
+    }
+
+    @Test("context menu copies an answer as HTML and text together")
+    func contextMenuRichCopy() throws {
+        let json = #"{"items":[{"title":"Copy","copy":"**Hi**","copyHtml":"<p><strong>Hi</strong></p>"}],"rect":{"x":0,"y":0,"width":10,"height":10},\#(metadata)}"#
+        let data: ContextMenuData = try #require(message("context-menu", "show", json).data())
+        let item = try #require(data.items[0].pasteboardItem)
+        #expect(item["public.utf8-plain-text"] as? String == "**Hi**")
+        #expect(item["public.html"] as? String == "<p><strong>Hi</strong></p>")
         #expect(data.scroll == nil)
     }
 

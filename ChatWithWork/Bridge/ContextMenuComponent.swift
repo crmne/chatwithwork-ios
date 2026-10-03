@@ -1,5 +1,6 @@
 import HotwireNative
 import UIKit
+import UniformTypeIdentifiers
 import WebKit
 
 /// `context-menu`: a native menu anchored to an element in the page, for the
@@ -7,7 +8,7 @@ import WebKit
 /// instead of a row of small icons.
 ///
 /// Web → native: `show` with `{items: [{title, iosImage?, androidImage?,
-/// destructive?, copy?}], rect: {x, y, width, height}, scroll: {x, y},
+/// destructive?, copy?, copyHtml?}], rect: {x, y, width, height}, scroll: {x, y},
 /// title?}`, where `rect` is the anchor's `getBoundingClientRect()` and
 /// `scroll` the window's `scrollX`/`scrollY`, both in CSS pixels.
 /// Native → web: a reply to `show` with `{index}` when an item is chosen;
@@ -15,7 +16,9 @@ import WebKit
 ///
 /// An item with `copy` text is handled here: the app copies the text and
 /// says so, because a page can't write to the clipboard from a callback
-/// that no tap of its own started.
+/// that no tap of its own started. With `copyHtml` too (an answer rendered
+/// as HTML), both go on the pasteboard as one item, so rich text editors
+/// paste the formatting and plain ones the Markdown.
 final class ContextMenuComponent: BridgeComponent {
     override nonisolated class var name: String { "context-menu" }
 
@@ -43,8 +46,8 @@ final class ContextMenuComponent: BridgeComponent {
                 image: item.iosImage.flatMap { UIImage(systemName: $0) },
                 attributes: item.destructive == true ? .destructive : []
             ) { [weak self] _ in
-                if let text = item.copy {
-                    UIPasteboard.general.string = text
+                if let pasteboardItem = item.pasteboardItem {
+                    UIPasteboard.general.setItems([pasteboardItem])
                     Haptics.play(.success)
                     ToastCenter.shared.show(String(localized: "Copied"), style: .notice)
                 } else {
@@ -89,6 +92,16 @@ nonisolated struct ContextMenuData: Decodable, Equatable {
         let iosImage: String?
         let destructive: Bool?
         let copy: String?
+        let copyHtml: String?
+
+        /// The pasteboard item for `copy`: the HTML and the text together
+        /// when there's HTML, else the text alone.
+        var pasteboardItem: [String: Any]? {
+            guard let copy else { return nil }
+            var item: [String: Any] = [UTType.utf8PlainText.identifier: copy]
+            if let copyHtml { item[UTType.html.identifier] = copyHtml }
+            return item
+        }
     }
 
     nonisolated struct Rect: Decodable, Equatable {
