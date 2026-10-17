@@ -7,7 +7,10 @@ enum HotwireSetup {
     static func configure(for environment: AppEnvironment) {
         Hotwire.config.applicationUserAgentPrefix = environment.userAgentPrefix
         Hotwire.config.backButtonDisplayMode = .minimal
-        Hotwire.config.hideTabBarWhenPushed = true
+        // Pushed screens cover the bottom tab bar on iPhone. iPad's tab bar
+        // sits at the top, in the navigation bar, and hiding it there hid the
+        // pushed screen's own bar too: no title and no back button.
+        Hotwire.config.hideTabBarWhenPushed = UIDevice.current.userInterfaceIdiom == .phone
         Hotwire.config.animateReplaceActions = true
         // Modals get a close button from AppNavigationController instead,
         // on the leading side where iOS puts it, leaving the trailing side to
