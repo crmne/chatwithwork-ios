@@ -147,6 +147,9 @@ composer, and visit every tab.
 Versions come from tags: `script/archive v1.2.3` archives Release as version
 1.2.3, build 10203 (MAJOR·10000 + MINOR·100 + PATCH). Upload the archive to
 App Store Connect from Xcode's Organizer.
+[docs/app-store.md](docs/app-store.md) has the rest of a submission: the
+listing and screenshots in `fastlane/`, App Privacy answers, the age
+rating, and the demo login for App Review.
 
 ## License
 

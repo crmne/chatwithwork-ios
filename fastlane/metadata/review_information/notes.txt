@@ -1,0 +1,13 @@
+Sign in with the demo account above (Welcome screen > Sign in). It belongs to a made-up organization, Northwind Studio, with synthetic chats and projects.
+
+Things to try:
+1. Chats > "Morning Acme brief": an answer from a scheduled run that searched Slack and Google Drive, with its sources.
+2. Chats > "Acme launch update": a change waiting for approval (a Slack post). The demo account has no Slack connected, so approving it posts nothing anywhere.
+3. New chat: ask anything. The demo account can use the free model (30 answers a day) and trial credits for the other models.
+4. Projects: chats shared with the team. Settings: notifications, schedules, and Account > Delete account.
+
+Services such as Slack or Google Drive are connected on chatwithwork.com from a computer, because their sign-in pages don't work inside an app; the app shows "Connect from chatwithwork.com on a computer" instead.
+
+The app sells nothing. Accounts are free to create, with free daily answers. It is a companion to the Chat with Work web service (guideline 3.1.3(f)).
+
+Microphone: dictation in the composer. Camera: attaching a photo or video to a chat. Notifications: an answer is ready or a change waits for approval; they carry no chat content.
