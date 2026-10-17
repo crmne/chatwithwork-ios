@@ -97,4 +97,31 @@ struct TopEdgeTests {
         }
         #expect(scrollView.contentOffset.y == -168)
     }
+
+    @Test("drops the restore when the page zooms again before it runs")
+    func dropsAStaleRestore() async {
+        let scrollView = page(at: -168)
+        TopEdge.follow(scrollView)
+
+        zoomReset(scrollView)
+        scrollView.fakeZoomScale = 2
+        scrollView.pinching = true
+        scrollView.contentOffset.y = 500
+
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+        #expect(scrollView.contentOffset.y == 500)
+    }
+
+    @Test("lets go of its state with the scroll view")
+    func releasesItsState() {
+        weak var state: TopEdge.ZoomState?
+        autoreleasepool {
+            let scrollView = page(at: -168)
+            state = TopEdge.follow(scrollView)
+            #expect(state != nil)
+        }
+        #expect(state == nil)
+    }
 }

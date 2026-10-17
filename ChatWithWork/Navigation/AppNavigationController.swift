@@ -60,19 +60,27 @@ enum TopEdge {
     /// Puts a page that sat at its top edge back there after WebKit changes
     /// its zoom scale, at the inset it had before, so a large title the zoom
     /// collapsed opens again. Pinches are the person's own and left alone.
-    static func follow(_ scrollView: UIScrollView) {
+    @discardableResult
+    static func follow(_ scrollView: UIScrollView) -> ZoomState {
         let state = ZoomState(scrollView)
-        state.observation = scrollView.observe(\.contentOffset, options: [.new]) { scrollView, _ in
+        // Weakly: the scroll view owns the state, the state the observation.
+        state.observation = scrollView.observe(\.contentOffset, options: [.new]) { [weak state] scrollView, _ in
             MainActor.assumeIsolated {
-                guard let restore = state.offsetToRestore(after: scrollView) else { return }
+                guard let state, let restore = state.offsetToRestore(after: scrollView) else { return }
+                let zoomScale = scrollView.zoomScale
                 // After WebKit finishes the transaction that zoomed, which
-                // sets the offset again itself.
-                DispatchQueue.main.async {
+                // sets the offset again itself. Not if the page zoomed again
+                // or someone took hold of it meanwhile.
+                DispatchQueue.main.async { [weak scrollView] in
+                    guard let scrollView, scrollView.zoomScale == zoomScale,
+                          !scrollView.isTracking, !scrollView.isDecelerating, !scrollView.isZooming
+                    else { return }
                     scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x, y: restore), animated: false)
                 }
             }
         }
         objc_setAssociatedObject(scrollView, &zoomKey, state, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        return state
     }
 
     /// What a scroll view looked like the last time it settled, so a zoom
