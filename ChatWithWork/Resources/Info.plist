@@ -44,7 +44,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Take a photo or video to attach to a chat.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Record sound with a video you attach to a chat.</string>
+	<string>Dictate a message, or record sound with a video you attach to a chat.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
