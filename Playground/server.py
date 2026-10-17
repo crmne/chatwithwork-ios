@@ -149,7 +149,8 @@ def layout(handler, page):
     "imports": {{
       "@hotwired/turbo": "https://cdn.jsdelivr.net/npm/@hotwired/turbo@8.0.23/+esm",
       "@hotwired/stimulus": "https://cdn.jsdelivr.net/npm/@hotwired/stimulus@3.2.2/+esm",
-      "@hotwired/hotwire-native-bridge": "https://cdn.jsdelivr.net/npm/@hotwired/hotwire-native-bridge@1.2.2/+esm"
+      "@hotwired/hotwire-native-bridge": "https://cdn.jsdelivr.net/npm/@hotwired/hotwire-native-bridge@1.2.2/+esm",
+      "helpers/clipboard_helpers": "/playground/clipboard_helpers.js"
     }}
   }}
   </script>
