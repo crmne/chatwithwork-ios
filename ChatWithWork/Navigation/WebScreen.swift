@@ -42,6 +42,8 @@ enum WebScreen {
         webView.scrollView.backgroundColor = Palette.canvas
         // Swiping down the conversation lowers the keyboard, as in Messages.
         webView.scrollView.keyboardDismissMode = .interactive
+        // A new page's zoom reset mustn't collapse the large title.
+        TopEdge.follow(webView.scrollView)
         // A long press on a link shouldn't open a browser preview of an app page.
         webView.allowsLinkPreview = false
         #if DEBUG

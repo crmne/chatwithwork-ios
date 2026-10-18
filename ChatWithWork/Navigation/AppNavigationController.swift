@@ -44,8 +44,72 @@ final class AppNavigationController: HotwireNavigationController {
 /// before its screen was on display. A scroll view keeps its offset when its
 /// insets grow, which would leave the page's top under the bars and the large
 /// title collapsed.
+///
+/// It also keeps it there through WebKit's zoom reset (`follow`). A new
+/// document first lays out at WebKit's 980-point default viewport, zoomed out
+/// to fit, then takes its own `width=device-width, initial-scale=1` and zooms
+/// back to 1. UIScrollView keeps the visible centre while zooming, which
+/// moves the offset hundreds of points down the page; the navigation
+/// controller reads that as a scroll and collapses the large title before
+/// the page is shown. WebKit then puts the page back at its top, but under
+/// the collapsed bar, so every screen arrived with a small title.
 enum TopEdge {
     private nonisolated(unsafe) static var key: UInt8 = 0
+    private nonisolated(unsafe) static var zoomKey: UInt8 = 0
+
+    /// Puts a page that sat at its top edge back there after WebKit changes
+    /// its zoom scale, at the inset it had before, so a large title the zoom
+    /// collapsed opens again. Pinches are the person's own and left alone.
+    @discardableResult
+    static func follow(_ scrollView: UIScrollView) -> ZoomState {
+        let state = ZoomState(scrollView)
+        // Weakly: the scroll view owns the state, the state the observation.
+        state.observation = scrollView.observe(\.contentOffset, options: [.new]) { [weak state] scrollView, _ in
+            MainActor.assumeIsolated {
+                guard let state, let restore = state.offsetToRestore(after: scrollView) else { return }
+                let zoomScale = scrollView.zoomScale
+                // After WebKit finishes the transaction that zoomed, which
+                // sets the offset again itself. Not if the page zoomed again
+                // or someone took hold of it meanwhile.
+                DispatchQueue.main.async { [weak scrollView] in
+                    guard let scrollView, scrollView.zoomScale == zoomScale,
+                          !scrollView.isTracking, !scrollView.isDecelerating, !scrollView.isZooming
+                    else { return }
+                    scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x, y: restore), animated: false)
+                }
+            }
+        }
+        objc_setAssociatedObject(scrollView, &zoomKey, state, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        return state
+    }
+
+    /// What a scroll view looked like the last time it settled, so a zoom
+    /// can be compared with the moment before it.
+    final class ZoomState {
+        var observation: NSKeyValueObservation?
+        private var zoomScale: CGFloat
+        private var top: CGFloat
+        private var wasAtTop: Bool
+
+        init(_ scrollView: UIScrollView) {
+            zoomScale = scrollView.zoomScale
+            top = -scrollView.adjustedContentInset.top
+            wasAtTop = scrollView.contentOffset.y <= top + 0.5
+        }
+
+        /// The offset to put back after this change, if it was a zoom
+        /// WebKit made while the page sat at its top edge.
+        func offsetToRestore(after scrollView: UIScrollView) -> CGFloat? {
+            if abs(scrollView.zoomScale - zoomScale) > 0.001 {
+                zoomScale = scrollView.zoomScale
+                let byPerson = scrollView.isZooming || scrollView.isTracking
+                return wasAtTop && !byPerson ? top : nil
+            }
+            top = -scrollView.adjustedContentInset.top
+            wasAtTop = scrollView.contentOffset.y <= top + 0.5
+            return nil
+        }
+    }
 
     static func keepPinned(_ scrollView: UIScrollView) {
         let top = -scrollView.adjustedContentInset.top
