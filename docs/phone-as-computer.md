@@ -3,7 +3,7 @@
 Status: design note, not built. 2026-10-02.
 
 Chat with Work already lets the assistant search a person's computer through
-the Local Agent (`cww`, crmne/chatwithwork-local-agent): the computer pairs
+Chat with Work Desktop (`cww`, crmne/chatwithwork-local-agent): the computer pairs
 with the device flow, dials out to `/local_agent`, and answers read-only MCP
 tools that appear to the model as `local_<device id>_<tool>`. The phone can be
 one more such computer, answering for what lives only on the phone, each kind
