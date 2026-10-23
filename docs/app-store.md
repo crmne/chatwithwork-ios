@@ -31,6 +31,10 @@ repository).
 
 ## Building and uploading
 
+Pushing to main is enough: Xcode Cloud's "TestFlight" workflow archives
+Release and uploads it to App Store Connect, where it goes to the Internal
+Testing group (see the README's Releasing). To archive by hand instead:
+
 ```sh
 cp Config/Signing.xcconfig.example Config/Signing.xcconfig   # put the team ID in it
 git tag v1.0.0

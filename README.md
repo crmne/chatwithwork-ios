@@ -144,9 +144,18 @@ composer, and visit every tab.
 
 ## Releasing
 
-Versions come from tags: `script/archive v1.2.3` archives Release as version
-1.2.3, build 10203 (MAJOR·10000 + MINOR·100 + PATCH). Upload the archive to
-App Store Connect from Xcode's Organizer.
+Every push to main reaches TestFlight: Xcode Cloud's "TestFlight" workflow
+archives the ChatWithWork scheme (Release, production) and uploads it to
+App Store Connect for the Internal Testing group. `ci_scripts/ci_post_clone.sh`
+gives the build Xcode Cloud's team and build number (`CI_TEAM_ID`,
+`CI_BUILD_NUMBER`), since `Config/Signing.xcconfig` isn't in the repository.
+Xcode Cloud signs automatically but can't change App IDs: a new capability
+in the entitlements means enabling it on `com.chatwithwork.app` in the
+developer portal first.
+
+By hand instead: `script/archive v1.2.3` archives Release as version 1.2.3,
+build 10203 (MAJOR·10000 + MINOR·100 + PATCH). Upload the archive to App
+Store Connect from Xcode's Organizer.
 [docs/app-store.md](docs/app-store.md) has the rest of a submission: the
 listing and screenshots in `fastlane/`, App Privacy answers, the age
 rating, and the demo login for App Review.
