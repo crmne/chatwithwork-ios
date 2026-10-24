@@ -25,7 +25,7 @@ final class StoreScreenshotTests: XCTestCase {
     @MainActor
     func testStoreScreenshots() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", baseURL]
+        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", baseURL, "-CWWAskForNotifications", "NO"]
         app.launch()
 
         signIn(app)

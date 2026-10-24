@@ -126,5 +126,6 @@ for kids, so it stays out of the Kids category.
   sign-ins are hidden in the apps.
 - **5.1.1(v), account deletion.** Settings > Account > Delete account.
 - **Permissions.** Microphone (dictation, and sound with a video),
-  camera (a photo or video to attach), notifications (asked for from
-  Settings > Notifications, never at launch).
+  camera (a photo or video to attach), notifications (offered once after
+  the first sign-in, with a short explanation before iOS's prompt, and from
+  Settings > Notifications).

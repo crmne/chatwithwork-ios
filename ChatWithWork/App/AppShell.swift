@@ -131,6 +131,24 @@ final class AppShell: NSObject {
         if let url {
             route(url, in: tabs)
         }
+
+        offerNotifications(in: tabs)
+    }
+
+    /// Once someone is signed in, offer push notifications, once per install,
+    /// after the first page has had a moment to show.
+    private func offerNotifications(in tabs: MainTabBarController) {
+        guard !PushNotifications.shared.hasAsked else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self, weak tabs] in
+            guard let self, let shown = tabs, case .signedIn(let current) = self.state, current === shown else { return }
+            Task {
+                await PushNotifications.shared.askOnceIfNeeded { [weak shown] in
+                    var top: UIViewController? = shown
+                    while let presented = top?.presentedViewController, !presented.isBeingDismissed { top = presented }
+                    return top
+                }
+            }
+        }
     }
 
     private func didSignIn(continuingTo url: URL? = nil) {

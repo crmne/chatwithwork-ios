@@ -771,11 +771,26 @@ The first notification: **"A change is waiting for your approval"**, when a
 reply parks at a tool call waiting for its driver. Then "A question is
 waiting for your answer" for MCP elicitation.
 
+### Asking
+
+The app offers notifications once per install, after the first sign-in (or
+at the first launch of a build that has this, for someone already signed
+in): a short native explanation ("Turn on notifications?", with Not now and
+Continue), then iOS's own prompt if the person continues. iOS asks only once
+anyway; afterwards Settings › Notifications is the way to turn them on.
+Android does the same on Android 13 and later, where `POST_NOTIFICATIONS`
+is a runtime permission; earlier versions have nothing to ask.
+
 ### Registering a device
 
 The app never talks to the server on its own. A page asks it for a token
 through `notification-token` and posts it with the person's session and CSRF
-token (`web/controllers/bridge/notification_token_controller.js`):
+token (`web/controllers/bridge/notification_token_controller.js`). When the
+person allows notifications anywhere but the page itself (the offer after
+sign-in, or another page's Turn on), the app answers the latest `connect` of
+every `notification-token` on screen again with the new state, so the page
+registers the token without waiting for the next page (the bridge keeps a
+message's callback, so a second reply reaches it):
 
 - In Settings › Notifications, a "Push notifications" row in the apps, with
   `data-controller="bridge--notification-token"` and

@@ -79,6 +79,7 @@ builds ignore the first:
 | `-CWWAssumeSignedIn YES` | start in the tab shell, as after signing in |
 | `-CWWStartTab projects` | start on another tab (`chats`, `projects`, `settings`; Debug only) |
 | `-CWWToastSeconds 30` | keep notices up that long (Debug only; the UI tests tap them away) |
+| `-CWWAskForNotifications NO` | don't offer notifications after signing in (UI tests that aren't about it) |
 
 Push notifications and universal links need the Push Notifications and
 Associated Domains capabilities on the App ID, which automatic signing adds

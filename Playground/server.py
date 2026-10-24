@@ -133,6 +133,11 @@ def layout(handler, page):
     css = "\n".join(f'  <link rel="stylesheet" href="{href}">' for href in ASSETS["css"])
     flash = handler.render_flash()
     native_attr = f' data-native-app="{native}"' if native else ""
+    # Keeps the server's copy of the push token current, as the app layout does
+    # on every signed-in page but Settings > Notifications, which has its own.
+    push_registration = ('  <div hidden data-controller="bridge--notification-token"'
+                         ' data-bridge--notification-token-url-value="/native/push_registrations"></div>\n'
+                         if handler.signed_in and "bridge--notification-token" not in page.body else "")
     return f"""<!DOCTYPE html>
 <html lang="en"{native_attr}>
 <head>
@@ -161,7 +166,7 @@ def layout(handler, page):
   <main class="native-main">
 {page.body}
   </main>
-</body>
+{push_registration}</body>
 </html>"""
 
 

@@ -7,6 +7,11 @@ import UserNotifications
 /// The app never sends the token anywhere itself. A page asks for it through
 /// the `notification-token` bridge component and posts it to the server with
 /// the person's session (docs/server-contract.md, "Push notifications").
+///
+/// The app asks once, after the first sign-in, with a short explanation
+/// before iOS's own prompt. When the person allows notifications, every
+/// `notification-token` on screen hears the new state, so the page registers
+/// the token without waiting for another page.
 final class PushNotifications: NSObject {
     static let shared = PushNotifications()
 
@@ -26,13 +31,18 @@ final class PushNotifications: NSObject {
     var isShowing: ((URL) -> Bool)?
 
     private var environment = AppEnvironment.current
+    private var defaults = UserDefaults.standard
+    /// The components on screen, told when the state changes.
+    private let listeners = NSHashTable<AnyObject>.weakObjects()
+    private var isAsking = false
     private(set) var deviceToken: String?
     private var waitingForToken: [CheckedContinuation<String?, Never>] = []
     /// A notification tapped before the shell was ready to open it.
     private var pendingURL: URL?
 
-    func configure(environment: AppEnvironment) {
+    func configure(environment: AppEnvironment, defaults: UserDefaults = .standard) {
         self.environment = environment
+        self.defaults = defaults
         UNUserNotificationCenter.current().delegate = self
     }
 
@@ -47,6 +57,7 @@ final class PushNotifications: NSObject {
     func requestToken() async -> PushState {
         let center = UNUserNotificationCenter.current()
         var status = await center.notificationSettings().authorizationStatus
+        let allowedBefore = status.allowsDelivery
 
         if status == .notDetermined {
             _ = try? await center.requestAuthorization(options: [.alert, .badge, .sound])
@@ -54,7 +65,53 @@ final class PushNotifications: NSObject {
         }
 
         let token = status.allowsDelivery ? await registeredToken() : nil
-        return state(status: status, token: token)
+        let state = state(status: status, token: token)
+        if status.allowsDelivery, !allowedBefore { tellListeners(state) }
+        return state
+    }
+
+    // MARK: Asking once
+
+    private static let askedKey = "CWWAskedForNotifications"
+
+    /// Whether the app already offered to turn notifications on, on this
+    /// install. It offers once: afterwards the Settings row does it.
+    var hasAsked: Bool {
+        get { defaults.bool(forKey: Self.askedKey) }
+        set { defaults.set(newValue, forKey: Self.askedKey) }
+    }
+
+    /// Offers to turn notifications on, the first time someone is signed in:
+    /// a short explanation, then iOS's prompt if they continue. Does nothing
+    /// once asked, or when iOS has its answer already.
+    func askOnceIfNeeded(over presenter: @escaping () -> UIViewController?) async {
+        guard LaunchOptions.asksForNotifications, !hasAsked, !isAsking else { return }
+        isAsking = true
+        defer { isAsking = false }
+
+        let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+        guard status == .notDetermined else {
+            hasAsked = true
+            return
+        }
+        guard let viewController = presenter(), viewController.viewIfLoaded?.window != nil else { return }
+
+        hasAsked = true
+        if await NotificationPrompt.confirm(over: viewController) {
+            _ = await requestToken()
+        }
+    }
+
+    // MARK: Listeners
+
+    func addListener(_ listener: PushStateListener) {
+        listeners.add(listener)
+    }
+
+    private func tellListeners(_ state: PushState) {
+        for case let listener as PushStateListener in listeners.allObjects {
+            listener.pushStateDidChange(state)
+        }
     }
 
     /// Re-registers on launch and after sign-in, so a token that changed
@@ -164,6 +221,33 @@ extension PushNotifications: UNUserNotificationCenterDelegate {
             MainActor.assumeIsolated { work() }
         } else {
             DispatchQueue.main.async { work() }
+        }
+    }
+}
+
+/// Something on screen that shows or registers the push state.
+protocol PushStateListener: AnyObject {
+    func pushStateDidChange(_ state: PushState)
+}
+
+/// The explanation before iOS's own permission prompt.
+enum NotificationPrompt {
+    static let title = String(localized: "Turn on notifications?")
+    static let message = String(localized: "Chat with Work lets you know when an answer is ready or a change waits for your approval. Notifications never show what you asked or what was answered.")
+
+    /// Whether the person chose to continue to iOS's prompt.
+    static func confirm(over viewController: UIViewController) async -> Bool {
+        await withCheckedContinuation { continuation in
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: String(localized: "Not now"), style: .cancel) { _ in
+                continuation.resume(returning: false)
+            })
+            let allow = UIAlertAction(title: String(localized: "Continue"), style: .default) { _ in
+                continuation.resume(returning: true)
+            }
+            alert.addAction(allow)
+            alert.preferredAction = allow
+            viewController.present(alert, animated: true)
         }
     }
 }

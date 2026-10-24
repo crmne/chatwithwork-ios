@@ -9,7 +9,10 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         let environment = AppEnvironment.current
         if LaunchOptions.isUnitTesting { return true }
-        if LaunchOptions.resetsState { SessionMemory.standard.reset() }
+        if LaunchOptions.resetsState {
+            SessionMemory.standard.reset()
+            PushNotifications.shared.hasAsked = false
+        }
 
         Appearance.configure()
         HotwireSetup.configure(for: environment)
@@ -50,6 +53,12 @@ enum LaunchOptions {
 
     /// `-CWWAssumeSignedIn YES` starts in the tab shell, as after a sign-in.
     static var assumesSignedIn: Bool { UserDefaults.standard.bool(forKey: "CWWAssumeSignedIn") }
+
+    /// `-CWWAskForNotifications NO` skips the offer to turn notifications on
+    /// after signing in, for UI tests that aren't about it.
+    static var asksForNotifications: Bool {
+        UserDefaults.standard.object(forKey: "CWWAskForNotifications") == nil || UserDefaults.standard.bool(forKey: "CWWAskForNotifications")
+    }
 
     /// `-CWWStartTab projects` starts on another tab (development builds).
     static var startTab: AppTab? {

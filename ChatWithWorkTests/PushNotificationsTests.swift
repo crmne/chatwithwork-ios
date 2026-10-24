@@ -108,4 +108,18 @@ struct PushNotificationsTests {
         #expect(same.isEmpty && sameOnMain)
         #expect(other.contains(.banner) && otherOnMain)
     }
+
+    @Test("offers notifications once per install")
+    func asksOnce() async {
+        let defaults = UserDefaults(suiteName: "PushNotificationsTests")!
+        defaults.removePersistentDomain(forName: "PushNotificationsTests")
+        push.configure(environment: environment, defaults: defaults)
+        defer { push.configure(environment: environment) }
+
+        #expect(!push.hasAsked)
+        push.hasAsked = true
+        var presented = false
+        await push.askOnceIfNeeded { presented = true; return nil }
+        #expect(!presented, "Once asked, the app never asks again")
+    }
 }

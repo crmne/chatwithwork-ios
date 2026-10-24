@@ -24,7 +24,7 @@ final class SignedOutTests: XCTestCase {
     @MainActor
     func testWelcomeThenSignInSheet() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", baseURL]
+        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", baseURL, "-CWWAskForNotifications", "NO"]
         app.launch()
 
         let signIn = app.buttons["welcome.signIn"]
@@ -47,7 +47,7 @@ final class SignedOutTests: XCTestCase {
     @MainActor
     func testSignUpSheet() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", baseURL]
+        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", baseURL, "-CWWAskForNotifications", "NO"]
         app.launch()
 
         let signUp = app.buttons["welcome.signUp"]
@@ -64,7 +64,7 @@ final class SignedOutTests: XCTestCase {
     @MainActor
     func testExpiredSessionReturnsToSignIn() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-CWWResetState", "YES", "-CWWAssumeSignedIn", "YES", "-CWWBaseURL", baseURL]
+        app.launchArguments = ["-CWWResetState", "YES", "-CWWAssumeSignedIn", "YES", "-CWWBaseURL", baseURL, "-CWWAskForNotifications", "NO"]
         app.launch()
 
         XCTAssertTrue(app.webViews.textFields.firstMatch.waitForExistence(timeout: 30), "Sign-in should open once the server says there's no session")

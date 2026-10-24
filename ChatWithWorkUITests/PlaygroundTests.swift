@@ -29,7 +29,7 @@ final class PlaygroundTests: XCTestCase {
         let app = XCUIApplication()
         // Notices stay up until tapped away, so the test sees them however
         // long the app takes to settle after a tap.
-        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground, "-CWWToastSeconds", "30"]
+        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground, "-CWWToastSeconds", "30", "-CWWAskForNotifications", "NO"]
         app.launch()
 
         // Signing in rebuilds the shell on the Chats tab.
@@ -122,6 +122,43 @@ final class PlaygroundTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["New chat"].waitForExistence(timeout: 5), "The sheet should take its page's title")
         settle()
         keep("new-chat")
+    }
+
+    /// After the first sign-in the app offers notifications once: its own
+    /// explanation, then iOS's prompt. Launching again doesn't offer them again.
+    /// iOS remembers its answer across reinstalls, so this needs a simulator
+    /// that was never asked (`xcrun simctl erase <udid>` first).
+    @MainActor
+    func testOffersNotificationsOnceAfterSignIn() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground]
+        app.launch()
+
+        app.buttons["welcome.signIn"].tap()
+        let signIn = app.webViews.buttons["Sign in"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 20))
+        signIn.tap()
+
+        // A freshly erased simulator takes a while to answer its first
+        // question about notification settings.
+        let prompt = app.alerts["Turn on notifications?"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 60), "Signing in should offer notifications")
+        keep("notifications-prompt")
+        prompt.buttons["Continue"].tap()
+
+        // iOS's own prompt belongs to SpringBoard.
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let allow = springboard.alerts.buttons["Allow"]
+        XCTAssertTrue(allow.waitForExistence(timeout: 10), "Continue should lead to iOS's prompt")
+        allow.tap()
+        XCTAssertTrue(app.webViews.staticTexts["Q3 launch commitments for Acme"].waitForExistence(timeout: 20))
+
+        // Launched again, signed in: no second offer.
+        app.terminate()
+        app.launchArguments = ["-CWWBaseURL", playground]
+        app.launch()
+        XCTAssertTrue(app.webViews.staticTexts["Q3 launch commitments for Acme"].waitForExistence(timeout: 20))
+        XCTAssertFalse(app.alerts["Turn on notifications?"].waitForExistence(timeout: 4), "The app offers notifications only once")
     }
 
     private func settle(_ seconds: TimeInterval = 1.5) {

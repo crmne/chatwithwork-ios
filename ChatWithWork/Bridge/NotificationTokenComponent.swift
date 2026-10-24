@@ -17,12 +17,17 @@ import UIKit
 /// `ephemeral`, `denied` or `not_determined`; `environment` is the APNs
 /// gateway (`sandbox` or `production`); `appId` the bundle identifier the
 /// server sends to (the APNs topic).
-final class NotificationTokenComponent: BridgeComponent {
+///
+/// When the person allows notifications anywhere else (the prompt after
+/// sign-in, another page's Turn on), the component answers its latest
+/// `connect` again with the new state, so the page registers the token.
+final class NotificationTokenComponent: BridgeComponent, PushStateListener {
     override nonisolated class var name: String { "notification-token" }
 
     override func onReceive(message: Message) {
         switch message.event {
         case "connect":
+            PushNotifications.shared.addListener(self)
             Task { [weak self] in
                 let state = await PushNotifications.shared.currentState()
                 _ = try? await self?.reply(to: "connect", with: state)
@@ -38,6 +43,12 @@ final class NotificationTokenComponent: BridgeComponent {
             }
         default:
             break
+        }
+    }
+
+    func pushStateDidChange(_ state: PushState) {
+        Task { [weak self] in
+            _ = try? await self?.reply(to: "connect", with: state)
         }
     }
 }
