@@ -127,24 +127,43 @@ final class PushNotifications: NSObject {
 }
 
 extension PushNotifications: UNUserNotificationCenterDelegate {
+    // The completion handler variants, not the async ones: Swift runs an
+    // async delegate method off the main thread and calls UIKit's completion
+    // handler from there, and the handler for a tapped notification touches
+    // UIKit, which crashed the app on every tap (build 100). iOS calls these
+    // on the main thread; they answer on it whatever thread they're called on.
+
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification
-    ) async -> UNNotificationPresentationOptions {
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping @Sendable (UNNotificationPresentationOptions) -> Void
+    ) {
         let path = notification.request.content.userInfo["path"] as? String
-        let onScreen = await MainActor.run {
-            PushNotifications.shared.shows(path: path)
+        PushNotifications.onMain {
+            let onScreen = PushNotifications.shared.shows(path: path)
+            completionHandler(onScreen ? [] : [.banner, .list, .sound])
         }
-        return onScreen ? [] : [.banner, .list, .sound]
     }
 
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse
-    ) async {
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping @Sendable () -> Void
+    ) {
         let path = response.notification.request.content.userInfo["path"] as? String
-        await MainActor.run {
+        PushNotifications.onMain {
             PushNotifications.shared.open(path: path)
+            completionHandler()
+        }
+    }
+
+    /// Runs `work` on the main actor: right away when already there (iOS
+    /// calls the delegate on the main thread), else on the main queue.
+    nonisolated static func onMain(_ work: @escaping @MainActor @Sendable () -> Void) {
+        if Thread.isMainThread {
+            MainActor.assumeIsolated { work() }
+        } else {
+            DispatchQueue.main.async { work() }
         }
     }
 }
