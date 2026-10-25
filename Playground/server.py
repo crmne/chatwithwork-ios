@@ -71,7 +71,7 @@ STATE_LOCK = threading.Lock()
 SESSIONS = {}  # cookie value -> {"flash": [(type, message)], "pinned": set(), "asked": {}, "paused": set()}
 CHATS = {
     42: {"title": "Q3 launch commitments for Acme", "project": None, "when": "Today", "processing": False},
-    41: {"title": "Summarize the security review thread", "project": "Acme launch", "when": "Today", "processing": False},
+    41: {"title": "Summarize the security review thread", "project": "Acme launch", "when": "Today", "processing": True},
     38: {"title": "Which customers asked about SSO?", "project": None, "when": "Yesterday", "processing": False},
     35: {"title": "Draft the onboarding checklist", "project": "Onboarding", "when": "Previous 7 days", "processing": False},
     31: {"title": "Find the signed order form from Initech", "project": None, "when": "Previous 7 days", "processing": False},
@@ -467,7 +467,7 @@ def exchange(account, number, index, text, author=None):
             + assistant_message(account, number, message_id + 1, MADE_UP, f"<p>{esc(MADE_UP)}</p>"))
 
 
-def composer(handler, account, number=None, placeholder="Reply to Chat with Work", working=False, project=None):
+def composer(handler, account, number=None, placeholder="Reply to Chat with Work", working=False, project=None, prefill=""):
     """The chat form (chats/_form, _model_picker, _submit_button), with a
     textarea standing in for the Lexxy editor and the contract's haptic."""
     action = f"/{account}/chats/{number}/messages" if number else f"/{account}/messages"
@@ -517,7 +517,7 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
         <div class="chat-prompt__field">
           <textarea rows="1" placeholder="{esc(placeholder)}" aria-label="Message"
                     class="block w-full chat-compose-editor playground-editor" data-composer-target="input" data-chat-target="input"
-                    data-action="input->composer#update keydown.meta+enter->composer#submit"></textarea>
+                    data-action="input->composer#update keydown.meta+enter->composer#submit">{esc(prefill)}</textarea>
 
           <span class="kbd-hint chat-prompt__hint max-sm:hidden" aria-hidden="true">
             <kbd class="kbd">{ctrl}</kbd><kbd class="kbd">/</kbd>
@@ -707,7 +707,7 @@ def conversation(handler, account, number):
           <div class="conversation__dock-inner">
             <button type="button" class="scroll-button" data-scroll-target="scrollButton" data-action="click->scroll#scrollToBottom"
                     aria-label="Scroll to the latest message" inert>{icon("arrow-down")}</button>
-            <turbo-frame id="chat_form">{composer(handler, account, number)}
+            <turbo-frame id="chat_form">{composer(handler, account, number, working=CHATS.get(number, {}).get("processing", False))}
             </turbo-frame>
           </div>
         </div>
@@ -800,7 +800,7 @@ def suggestions(account, paused):
     </ul>"""
 
 
-def new_chat(handler, account, project_number=None):
+def new_chat(handler, account, project_number=None, prefill=""):
     paused = handler.session.setdefault("paused", set())
     project = int(project_number) if project_number and project_number.isdigit() and int(project_number) in PROJECTS else None
     body = f"""
@@ -808,7 +808,7 @@ def new_chat(handler, account, project_number=None):
       <div class="new-chat__backdrop dot-grid dot-grid--fade" aria-hidden="true"></div>
 
       <h1 class="new-chat__greeting">What are we working on, Carmine?</h1>
-{project_context(account, project) if project else ''}{composer(handler, account, placeholder="Ask anything…", project=project)}
+{project_context(account, project) if project else ''}{composer(handler, account, placeholder="Ask anything…", project=project, prefill=prefill)}
 {reach(account, paused)}
 {suggestions(account, paused)}
     </div>
@@ -1253,7 +1253,9 @@ class Handler(BaseHTTPRequestHandler):
         elif rest == "/chats":
             page = chats_index(self, account)
         elif rest == "/chats/new":
-            page = new_chat(self, account, (query.get("project_id") or [None])[0])
+            # What a share or a link puts in the composer, as ChatsHelper#shared_prompt does.
+            shared = [(query.get(key) or [""])[0] for key in ("title", "text", "url")]
+            page = new_chat(self, account, (query.get("project_id") or [None])[0], "\n".join(part for part in shared if part))
         elif m := re.fullmatch(r"/chats/(\d+)", rest):
             page = conversation(self, account, int(m.group(1)))
         elif m := re.fullmatch(r"/chats/(\d+)/edit", rest):
@@ -1302,6 +1304,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(404, "Not found", "text/plain")
         account, rest = match.groups()
 
+        if re.fullmatch(r"/chats/\d+/live_activity", rest):
+            print(f"live activity: {json.dumps(form)}", flush=True)
+            return self.send(201, json.dumps({"ok": True}), "application/json")
         if rest == "/dictations":
             # Stands in for the EU transcription: whatever was said, these words.
             return self.send(200, json.dumps({"text": "Draft the recap for Priya"}), "application/json")

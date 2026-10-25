@@ -157,6 +157,25 @@ final class PlaygroundTests: XCTestCase {
         // New chat from the bar replaces the chat.
         app.buttons["shell.newChat"].tap()
         XCTAssertTrue(app.webViews.staticTexts["What are we working on, Carmine?"].waitForExistence(timeout: 20))
+
+        // Text shared into the app (the share extension's link) waits in a
+        // new chat's composer, never sent by itself.
+        openAppLink(app, "chatwithwork://new-chat?text=Read%20this%20before%20Monday&url=https%3A%2F%2Fexample.com%2Fplan")
+        let filled = NSPredicate(format: "value CONTAINS %@", "Read this before Monday")
+        expectation(for: filled, evaluatedWith: app.textViews["composer.text"])
+        waitForExpectations(timeout: 20)
+        keep("shared-text")
+
+        // A chat still answering, opened from a Live Activity's link: Stop in
+        // the composer. Leaving the app starts its Live Activity.
+        openAppLink(app, "chatwithwork://open?path=/1000001/chats/41")
+        expectation(for: NSPredicate(format: "label == %@", "Stop"), evaluatedWith: app.buttons["composer.send"])
+        waitForExpectations(timeout: 20)
+        settle()
+        keep("working-chat")
+        XCUIDevice.shared.press(.home)
+        settle(3)
+        keep("live-activity")
     }
 
     /// The app offers notifications once, the first time a change waits for
@@ -198,6 +217,17 @@ final class PlaygroundTests: XCTestCase {
         app.launch()
         openChat(app, titled: "Q3 launch commitments for Acme")
         XCTAssertFalse(prompt.waitForExistence(timeout: 6), "The app offers notifications only once")
+    }
+
+    /// Opens one of the app's own links, as a widget or the share extension
+    /// would; iOS asks first when it comes from outside.
+    @MainActor
+    private func openAppLink(_ app: XCUIApplication, _ link: String) {
+        // Through the system, as a widget's tap does: XCUIApplication.open
+        // would launch the app again without its launch arguments.
+        XCUIDevice.shared.system.open(URL(string: link)!)
+        let open = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Open"]
+        if open.waitForExistence(timeout: 10) { open.tap() }
     }
 
     /// Opens a chat from the sidebar.
