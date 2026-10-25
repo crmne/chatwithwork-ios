@@ -22,9 +22,9 @@
 
 @layer components {
   /* Chrome the native shell replaces: page headings under a native large
-     title, the drawer toggle, keyboard hints, hover tooltips, and the
+     title, the browser's top bar and drawer toggle, keyboard hints, hover tooltips, and the
      staging band (under the status bar here; the build's name says it). */
-  [data-native-app] :is(.native-hidden, .app-main__toggle, .kbd-hint, .environment-label) {
+  [data-native-app] :is(.native-hidden, .app-bar, .app-main__toggle, .kbd-hint, .environment-label) {
     display: none !important;
   }
 
@@ -42,14 +42,24 @@
      scrolls (never an inner pane), so the app's bars can collapse their
      large titles and tint as content passes under them. WebKit insets the
      page below the bars (no viewport-fit=cover), so no safe-area padding. */
+  /* The document scrolls here, so what reaches past the sides (the new chat's dot grid) is clipped, as the web's
+     .app-main clips it, or the page would scroll sideways */
   [data-native-app] .native-main {
     display: flex;
     flex-direction: column;
     padding-inline: 1rem;
+    overflow-x: clip;
   }
 
   [data-native-app] :is(.chat-history, .page, .settings) {
     padding-block: 0.5rem 2rem;
+  }
+
+  /* The apps draw Settings' navigation themselves, so its pages are one
+     column at every width, not the browser's nav and content columns. */
+  [data-native-app] .settings {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 48rem;
   }
 
   /* No highlight flash on tap, and no callout or selection on controls. */
@@ -108,5 +118,52 @@
   [data-push-status="denied"] [data-status="denied"],
   [data-push-status="not_determined"] [data-status="not_determined"] {
     display: revert !important;
+  }
+
+  /* The chat list in the apps is a plain list, as in Messages: no card
+     around the rows, hairlines between them reaching the edge, group labels
+     in the reading face rather than mono, and dates in plain words. */
+  [data-native-app] .chat-history .rows {
+    background-color: transparent;
+    border: 0;
+    border-radius: 0;
+    border-block-end: var(--hairline);
+  }
+
+  [data-native-app] .chat-history__group > h2 {
+    padding-inline: 0;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--ink-muted);
+  }
+
+  [data-native-app] .chat-history__row:hover {
+    background-color: transparent;
+  }
+
+  [data-native-app] .chat-history__link {
+    padding-inline: 0;
+  }
+
+  [data-native-app] .chat-history__link time {
+    font-family: var(--font-sans);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  /* Pages never pan sideways (the new chat page's backdrop is wider than
+     the screen on purpose); Android's web view would scroll them. */
+  [data-native-app] body {
+    overflow-x: clip;
+  }
+
+  /* On Android, a tab's first page (Chats, Bots, Settings) scrolls under
+     the floating toolbar and New chat beside it: leave room for them under
+     the last row (64px of toolbar, 16px above it and below). */
+  html[data-bridge-platform="android"] body[data-native-tab-root] .native-main {
+    padding-block-end: 6.5rem;
   }
 }

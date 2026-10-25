@@ -8,7 +8,7 @@ import UIKit
 final class AppNavigationController: HotwireNavigationController {
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Tab roots show large titles; every other screen opts out (WebScreen).
+        // Lists (Bots, Projects, Settings) show large titles; every other screen opts out (WebScreen).
         navigationBar.prefersLargeTitles = true
     }
 
@@ -27,8 +27,31 @@ final class AppNavigationController: HotwireNavigationController {
     }
 
     override func setViewControllers(_ viewControllers: [UIViewController], animated: Bool) {
-        super.setViewControllers(viewControllers, animated: animated)
+        // A chat replacing the root (the path configuration's replace_root)
+        // fades in, rather than sliding in as if pushed.
+        let replacesRoot = animated && viewControllers.count == 1 && !self.viewControllers.isEmpty && self.viewControllers.first !== viewControllers.first
+        if replacesRoot {
+            let fade = CATransition()
+            fade.duration = 0.2
+            fade.type = .fade
+            view.layer.add(fade, forKey: kCATransition)
+        }
+        super.setViewControllers(viewControllers, animated: animated && !replacesRoot)
         installCloseButtonWhenPresented()
+        decorate()
+    }
+
+    override func pushViewController(_ viewController: UIViewController, animated: Bool) {
+        super.pushViewController(viewController, animated: animated)
+        decorate()
+    }
+
+    /// The sidebar shell's buttons on the main stack's screens.
+    private func decorate() {
+        guard let shell = parent as? SidebarShell ?? parent?.parent as? SidebarShell else { return }
+        for (index, controller) in viewControllers.enumerated() {
+            shell.decorate(controller, isRoot: index == 0)
+        }
     }
 
     private func installCloseButtonWhenPresented() {

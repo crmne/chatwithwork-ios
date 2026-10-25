@@ -4,7 +4,8 @@ import UIKit
 /// `button`: a navigation bar button that clicks a web element.
 ///
 /// Web → native: `left` or `right` with `{title, iosImage?, androidImage?,
-/// color?}`, and `disconnect`. Native → web: a reply to the `left`/`right`
+/// color?, nativeAction?}`, and `disconnect`. A button whose `nativeAction`
+/// is `new-chat` is left out: the shell puts New chat in every bar itself. Native → web: a reply to the `left`/`right`
 /// message when the button is tapped. Same as Joe Masilotti's component; one
 /// button per page, which can sit beside a menu, a form button and a share
 /// button.
@@ -24,6 +25,8 @@ final class NavigationButtonComponent: BridgeComponent {
 
     private func show(_ message: Message, on side: NavigationBarItems.Side) {
         guard let data: ButtonData = message.data(), let viewController = destinationViewController else { return }
+        // The shell's own New chat is in every bar already.
+        guard data.nativeAction != ButtonData.newChat else { return hide() }
 
         if let previous = self.side, previous != side {
             NavigationBarItems.set(nil, slot: .button, side: previous, on: viewController)
@@ -55,7 +58,10 @@ final class NavigationButtonComponent: BridgeComponent {
 }
 
 nonisolated struct ButtonData: Decodable, Equatable {
+    static let newChat = "new-chat"
+
     let title: String
     let iosImage: String?
     let color: String?
+    let nativeAction: String?
 }

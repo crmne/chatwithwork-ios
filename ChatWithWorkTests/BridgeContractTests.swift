@@ -27,7 +27,7 @@ struct BridgeContractTests {
         #expect(names == [
             "alert", "review-prompt", "theme",
             "button", "menu", "search", "form", "share", "toast", "haptic",
-            "context-menu", "auth-session", "notification-token"
+            "context-menu", "auth-session", "notification-token", "sidebar"
         ])
         #expect(Set(names).count == names.count)
     }
@@ -35,7 +35,18 @@ struct BridgeContractTests {
     @Test("button reads Joe Masilotti's payload")
     func button() {
         let data: ButtonData? = message("button", "right", #"{"title":"New chat","iosImage":"square.and.pencil","androidImage":"edit_square","color":null,\#(metadata)}"#).data()
-        #expect(data == ButtonData(title: "New chat", iosImage: "square.and.pencil", color: nil))
+        #expect(data == ButtonData(title: "New chat", iosImage: "square.and.pencil", color: nil, nativeAction: nil))
+
+        let newChat: ButtonData? = message("button", "right", #"{"title":"New chat","iosImage":"square.and.pencil","nativeAction":"new-chat",\#(metadata)}"#).data()
+        #expect(newChat?.nativeAction == ButtonData.newChat, "The shell leaves out the page's New chat by its nativeAction")
+    }
+
+    @Test("notification-token's offer names its moment")
+    func notificationOffer() {
+        let approval: OfferData? = message("notification-token", "offer", #"{"reason":"approval",\#(metadata)}"#).data()
+        #expect(approval?.reason == .approval)
+        let answer: OfferData? = message("notification-token", "offer", #"{"reason":"answer",\#(metadata)}"#).data()
+        #expect(answer?.reason == .answer)
     }
 
     @Test("menu reads items, and the iOS extras when present")

@@ -2,7 +2,7 @@ import HotwireNative
 import UIKit
 
 /// Owns the window's root and decides what it shows: the signed-out welcome
-/// with its sign-in sheet, or the tab shell for one organization.
+/// with its sign-in sheet, or the sidebar shell for one organization.
 ///
 /// The server says when that changes, and the shell listens for it in the
 /// navigators' traffic (it is every navigator's delegate):
@@ -10,7 +10,7 @@ import UIKit
 /// - A 401, or any page landing on the sign-in form, means there is no
 ///   session: show the welcome screen.
 /// - `/recede_historical_location` while signed out means sign-in finished:
-///   build the tab shell from scratch, so no tab keeps a signed-out page.
+///   build the sidebar shell from scratch, so nothing keeps a signed-out page.
 /// - A link into another organization means the person switched: rebuild the
 ///   shell inside it, then open the link there.
 ///
@@ -18,7 +18,7 @@ import UIKit
 final class AppShell: NSObject {
     enum State {
         case launching
-        case signedIn(MainTabBarController)
+        case signedIn(SidebarShell)
         case signedOut(SignedOutFlow)
     }
 
@@ -39,7 +39,7 @@ final class AppShell: NSObject {
 
     func start() {
         if memory.hasSignedIn || LaunchOptions.assumesSignedIn {
-            showSignedIn(account: memory.lastAccount, selecting: LaunchOptions.startTab ?? .chats, animated: false)
+            showSignedIn(account: memory.lastAccount, animated: false)
             PushNotifications.shared.refreshRegistrationIfAuthorized()
         } else {
             showSignedOut(reason: .firstLaunch, animated: false)
@@ -77,12 +77,12 @@ final class AppShell: NSObject {
                 pendingURL = url
                 flow.presentSignIn()
             }
-        case .signedIn(let tabs):
-            route(url, in: tabs)
+        case .signedIn(let shell):
+            route(url, in: shell)
         }
     }
 
-    private func route(_ url: URL, in tabs: MainTabBarController) {
+    private func route(_ url: URL, in shell: SidebarShell) {
         let route = AppRoute(url: url)
 
         if let target = route.account, target != account {
@@ -90,48 +90,35 @@ final class AppShell: NSObject {
             return
         }
 
-        let tab = route.preferredTab ?? tabs.selectedAppTab
-        tabs.select(tab)
-
-        switch route.kind {
-        case .tabRoot:
-            tabs.select(tab, popToRoot: true)
-        case .newChat:
-            startNewChat(in: tabs)
-        default:
-            tabs.navigator(for: tab)?.route(url)
+        shell.setOpen(false, animated: false)
+        if route.kind == .newChat {
+            shell.startNewChat()
+        } else {
+            shell.navigator.route(url)
         }
     }
 
-    /// Whether the selected tab's top screen shows `url`'s page.
+    /// Whether the screen on top shows `url`'s page.
     private func isShowing(_ url: URL) -> Bool {
-        guard case .signedIn(let tabs) = state,
-              let current = tabs.navigator(for: tabs.selectedAppTab)?.activeWebView.url
-        else { return false }
+        guard case .signedIn(let shell) = state, let current = shell.navigator.activeWebView.url else { return false }
         return AppRoute(url: current).path == AppRoute(url: url).path
     }
 
     // MARK: Signed in
 
-    private func showSignedIn(account: AccountSlug?, selecting tab: AppTab = .chats, continuingTo url: URL? = nil, animated: Bool = true) {
-        let tabs = MainTabBarController(environment: environment, account: account, navigatorDelegate: self)
-        tabs.onNewChat = { [weak self, weak tabs] in
-            guard let self, let tabs else { return }
-            self.startNewChat(in: tabs)
-        }
+    private func showSignedIn(account: AccountSlug?, continuingTo url: URL? = nil, animated: Bool = true) {
+        let shell = SidebarShell(environment: environment, account: account, navigatorDelegate: self, memory: memory)
         self.account = account
-        state = .signedIn(tabs)
+        state = .signedIn(shell)
 
         // In the window before the first page loads, so the page starts under
         // the bars at their real height.
-        replaceRoot(with: tabs, animated: animated)
-        tabs.loadTabs()
-        if tab != .chats { tabs.select(tab) }
+        replaceRoot(with: shell, animated: animated)
+        shell.start()
 
         if let url {
-            route(url, in: tabs)
+            route(url, in: shell)
         }
-
     }
 
     private func didSignIn(continuingTo url: URL? = nil) {
@@ -141,38 +128,25 @@ final class AppShell: NSObject {
         memory.hasSignedIn = true
         let next = pendingURL ?? url
         pendingURL = nil
-        // Without a link into an organization, the tabs start unprefixed and
+        // Without a link into an organization, the shell starts unprefixed and
         // the server picks the organization this person used last.
         let target = next.map(AppRoute.init(url:))
         showSignedIn(account: target?.account, continuingTo: next.flatMap { opensOnTop(of: $0) ? $0 : nil })
         PushNotifications.shared.refreshRegistrationIfAuthorized()
     }
 
-    /// New chat opens as a sheet over the Chats tab, so the chat it starts
-    /// lands in Chats when the sheet goes away.
-    private func startNewChat(in tabs: MainTabBarController) {
-        tabs.select(.chats)
-        guard let navigator = tabs.navigator(for: .chats) else { return }
-        navigator.route(environment.url(path: AppTab.path(AppTab.newChat.path, in: account)))
-    }
-
     private func switchAccount(to target: AccountSlug, continuingTo url: URL) {
         guard target != account else { return }
         memory.lastAccount = target
-        let route = AppRoute(url: url)
-        showSignedIn(
-            account: target,
-            selecting: route.preferredTab ?? .chats,
-            continuingTo: opensOnTop(of: url) ? url : nil
-        )
+        showSignedIn(account: target, continuingTo: opensOnTop(of: url) ? url : nil)
     }
 
-    /// Tab roots and the new chat page aren't pushed after a rebuild: the tab
-    /// already shows the first, and the second is what an organization
-    /// switcher links to, where the list is the better landing.
+    /// The new chat page isn't opened again after a rebuild: the shell starts
+    /// on it (in the list last chosen there), and it's what an organization
+    /// switcher links to. Nor is the chat list, which the sidebar replaced.
     private func opensOnTop(of url: URL) -> Bool {
         switch AppRoute(url: url).kind {
-        case .tabRoot, .newChat, .authentication, .historicalLocation: false
+        case .newChat, .list(.chats), .authentication, .historicalLocation: false
         default: true
         }
     }
@@ -271,7 +245,7 @@ extension AppShell: NavigatorDelegate {
             }
             return .accept
 
-        case .signedIn(let tabs):
+        case .signedIn(let shell):
             if route.isSignIn {
                 // A redirect here follows a form, which is how logging out
                 // ends; anything else means the session ran out.
@@ -285,12 +259,7 @@ extension AppShell: NavigatorDelegate {
                 return .reject
             }
 
-            // Another tab's list is a tab switch, not a push.
-            if case .tabRoot(let tab) = route.kind, tab != tabs.selectedAppTab, proposal.context == .default {
-                later { _ in tabs.select(tab, popToRoot: true) }
-                return .reject
-            }
-
+            shell.noteVisit(proposal.url)
             return .accept
         }
     }
@@ -322,20 +291,23 @@ extension AppShell: NavigatorDelegate {
 
     func requestDidFinish(at url: URL) {
         switch state {
-        case .signedIn(let tabs):
+        case .signedIn(let shell):
             // Servers that redirect a signed-out request to the sign-in form
             // instead of answering 401 still land here.
-            let locations = tabs.navigators.flatMap { [$0.session.webView.url, $0.modalSession.webView.url] }.compactMap { $0 }
+            let locations = [shell.navigator.session.webView.url, shell.navigator.modalSession.webView.url].compactMap { $0 }
             if locations.contains(where: { AppRoute(url: $0).isSignIn }) {
                 later { $0.showSignedOut(reason: .sessionExpired) }
                 return
             }
 
-            if account == nil, let current = tabs.navigator(for: tabs.selectedAppTab)?.session.webView.url,
-               let slug = AppRoute(url: current).account {
+            if account == nil, let current = shell.navigator.session.webView.url, let slug = AppRoute(url: current).account {
+                // Started unprefixed: the server picked the organization.
                 account = slug
                 memory.lastAccount = slug
+                shell.store.account = slug
+                shell.sidebarChanged()
             }
+            if let current = shell.navigator.session.webView.url { shell.noteVisit(current) }
 
         case .signedOut(let flow):
             if let location = flow.navigator.modalSession.webView.url, signsIn(AppRoute(url: location)) {
@@ -351,7 +323,7 @@ extension AppShell: NavigatorDelegate {
     private func signsIn(_ route: AppRoute) -> Bool {
         if route.account != nil { return true }
         switch route.kind {
-        case .tabRoot, .newChat, .chat, .historicalLocation(.recede): return true
+        case .list, .newChat, .chat, .historicalLocation(.recede): return true
         default: return route.path == "/accounts"
         }
     }

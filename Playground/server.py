@@ -139,6 +139,8 @@ def layout(handler, page):
                          ' data-bridge--notification-token-url-value="/native/push_registrations"'
                          ' data-bridge--notification-token-offers-value="true"></div>\n'
                          if handler.signed_in and "bridge--notification-token" not in page.body else "")
+    # Tells builds that draw the sidebar when the chat list changes.
+    sidebar = '  <div hidden data-controller="bridge--sidebar"></div>\n' if handler.signed_in and native else ""
     return f"""<!DOCTYPE html>
 <html lang="en"{native_attr}>
 <head>
@@ -156,6 +158,7 @@ def layout(handler, page):
       "@hotwired/turbo": "https://cdn.jsdelivr.net/npm/@hotwired/turbo@8.0.23/+esm",
       "@hotwired/stimulus": "https://cdn.jsdelivr.net/npm/@hotwired/stimulus@3.2.2/+esm",
       "@hotwired/hotwire-native-bridge": "https://cdn.jsdelivr.net/npm/@hotwired/hotwire-native-bridge@1.2.2/+esm",
+      "@hotwired/turbo-rails": "/playground/turbo_rails.js",
       "helpers/clipboard_helpers": "/playground/clipboard_helpers.js"
     }}
   }}
@@ -167,7 +170,7 @@ def layout(handler, page):
   <main class="native-main">
 {page.body}
   </main>
-{push_registration}</body>
+{push_registration}{sidebar}</body>
 </html>"""
 
 
@@ -204,7 +207,7 @@ def chats_index(handler, account):
           <p class="micro">{len(CHATS)} chats</p>
         </div>
         <a class="btn btn-primary btn-sm" href="/{account}/chats/new" data-controller="bridge--button" data-bridge-title="New chat"
-           data-bridge-ios-image="square.and.pencil" data-bridge-android-image="edit_square">{icon("note-pencil", "size-4")} New chat</a>
+           data-bridge-ios-image="square.and.pencil" data-bridge-android-image="edit_square" data-bridge-native-action="new-chat">{icon("note-pencil", "size-4")} New chat</a>
       </header>
       <label class="input w-full native-search-field">
         {icon("magnifying-glass", "size-4 text-ink-faint")}
@@ -668,7 +671,7 @@ def conversation(handler, account, number):
 
     body = f"""
     <div class="native-actions" hidden>
-      <a href="{new_chat_path}" data-controller="bridge--button"
+      <a href="{new_chat_path}" data-controller="bridge--button" data-bridge-native-action="new-chat"
          data-bridge-ios-image="square.and.pencil" data-bridge-android-image="edit_square">New chat</a>
       <div data-controller="bridge--menu" data-bridge-label="Chat options">{menu_items}
       </div>
@@ -819,6 +822,74 @@ def new_chat(handler, account, project_number=None):
       <form method="dialog" class="modal-backdrop"><button>close</button></form>
     </dialog>"""
     return Page("New chat", body, account=account)
+
+
+def bots_index(handler, account):
+    """bots/index, as a person with one bot sees it."""
+    body = f"""
+    <div class="page">
+      <header class="page__header native-hidden"><div class="page__heading"><h1>Bots</h1></div></header>
+      <section class="page__section">
+        <header><h2>Yours</h2></header>
+        <ul class="rows">
+          <li class="rows__row"><div class="rows__body"><h3>Monday Drive digest</h3>
+            <p class="text-ink-muted">Every Monday at 8:30, tells you what changed in Drive.</p></div></li>
+        </ul>
+      </section>
+    </div>"""
+    return Page("Bots", body, account=account)
+
+
+def sidebar_json(handler, account, query):
+    """GET /:account/native/sidebar, as Native::SidebarsController answers it."""
+    key = (query.get("list") or ["recent"])[0]
+    project = PROJECTS.get(int(key)) if key.isdigit() else None
+    if key.isdigit() and project is None:
+        key = "recent"
+
+    def chat_json(number, chat, group=True):
+        data = {"number": number, "title": chat["title"], "url": f"/{account}/chats/{number}",
+                "state": "processing" if chat["processing"] else "idle", "waiting": number == 42 and handler.session.get("approval", "waiting") == "waiting",
+                "project": chat["project"], "asked_at": "2026-10-25T08:12:00Z"}
+        if group:
+            data["group"] = chat["when"]
+        return data
+
+    if project:
+        chats = [(n, c) for n, c in sorted(CHATS.items(), reverse=True) if c["project"] == project["name"]]
+        current = {"key": key, "name": project["name"], "kind": "project", "hq": project["hq"]}
+    elif key == "all":
+        chats = sorted(CHATS.items(), reverse=True)
+        current = {"key": "all", "name": "All chats", "kind": "all", "hq": False}
+    else:
+        chats = [(n, c) for n, c in sorted(CHATS.items(), reverse=True) if not c["project"]]
+        current = {"key": "recent", "name": "Private chats", "kind": "recent", "hq": False}
+
+    lists = [{"key": "recent", "name": "Private chats", "kind": "recent", "hq": False, "pinned": False},
+             {"key": "all", "name": "All chats", "kind": "all", "hq": False, "pinned": False}]
+    lists += [{"key": str(n), "name": p["name"], "kind": "project", "hq": p["hq"], "pinned": False} for n, p in PROJECTS.items()]
+    for item in lists:
+        item["current"] = item["key"] == current["key"]
+
+    waiting = [] if handler.session.get("approval", "waiting") != "waiting" else [
+        {"title": CHATS[42]["title"], "url": f"/{account}/chats/42", "kind": "approval", "project": CHATS[42]["project"]}] if 42 in CHATS else []
+    initials = lambda name: "".join(word[0] for word in name.split()[:2]).upper()
+    return {
+        "organization": {"id": account, "name": ACCOUNTS[account], "initials": initials(ACCOUNTS[account])},
+        "organizations": [{"id": a, "name": n, "initials": initials(n), "current": a == account, "role": "owner", "url": f"/{a}/chats/new"}
+                          for a, n in ACCOUNTS.items()],
+        "person": {"name": "Carmine Paolino", "email": "carmine@playground.example", "initials": "CP", "avatar_url": None},
+        "list": current,
+        "lists": lists,
+        "links": {"new_chat": f"/{account}/chats/new" + (f"?project_id={key}" if project else ""), "bots": f"/{account}/bots",
+                  "settings": f"/{account}/settings", "projects": f"/{account}/projects", "new_project": f"/{account}/projects/new",
+                  "organizations": "/accounts", "new_organization": "/accounts/new"},
+        "waiting": {"count": len(waiting), "items": waiting},
+        "bots": {"count": 0, "attention": False, "next_run": "08:30"},
+        "pins": [chat_json(n, CHATS[n], group=False) for n in sorted(handler.session["pinned"]) if n in CHATS],
+        "chats": [chat_json(n, c) for n, c in chats],
+        "next": None,
+    }
 
 
 def projects_index(handler, account):
@@ -1146,7 +1217,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.static(REPO / path.lstrip("/"))
         if path.startswith("/playground/"):
             return self.static(ROOT / path.removeprefix("/playground/"))
-        if path == "/configurations/ios_v1.json":
+        if path in ("/configurations/ios_v1.json", "/configurations/ios_v2.json"):
             return self.static(REPO / "ChatWithWork/Resources/path-configuration.json")
         if re.fullmatch(r"(/\d{7,})?/(recede|resume|refresh)_historical_location", path):
             return self.send(200, "Going back…")
@@ -1163,14 +1234,19 @@ class Handler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"(?:/(\d{7,}))?(/.*)", path)
         account, rest = match.group(1), match.group(2)
         if account is None:
-            if rest in ("/chats", "/projects", "/settings", "/chats/new"):
+            if rest in ("/chats", "/projects", "/bots", "/settings", "/chats/new"):
                 return self.redirect(f"/1000001{rest}" + (f"?{url.query}" if url.query else ""), 302)
             return self.send(404, "Not found", "text/plain")
         if account not in ACCOUNTS:
             return self.send(404, "Not found", "text/plain")
 
+        if rest == "/native/sidebar":
+            return self.send(200, json.dumps(sidebar_json(self, account, query)), "application/json")
+
         page = None
-        if rest == "/chats":
+        if rest == "/bots":
+            page = bots_index(self, account)
+        elif rest == "/chats":
             page = chats_index(self, account)
         elif rest == "/chats/new":
             page = new_chat(self, account, (query.get("project_id") or [None])[0])

@@ -13,6 +13,7 @@ import MenuController from "/web/controllers/bridge/menu_controller.js"
 import NotificationTokenController from "/web/controllers/bridge/notification_token_controller.js"
 import SearchController from "/web/controllers/bridge/search_controller.js"
 import ShareController from "/web/controllers/bridge/share_controller.js"
+import SidebarController from "/web/controllers/bridge/sidebar_controller.js"
 import ToastController from "/web/controllers/bridge/toast_controller.js"
 
 const application = Application.start()
@@ -27,6 +28,7 @@ application.register("bridge--menu", MenuController)
 application.register("bridge--notification-token", NotificationTokenController)
 application.register("bridge--search", SearchController)
 application.register("bridge--share", ShareController)
+application.register("bridge--sidebar", SidebarController)
 application.register("bridge--toast", ToastController)
 
 application.register("search", class extends Controller {

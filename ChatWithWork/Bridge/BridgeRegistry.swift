@@ -30,7 +30,8 @@ enum BridgeRegistry {
             // Chat with Work's own.
             ContextMenuComponent.self, // "context-menu"
             AuthSessionComponent.self, // "auth-session"
-            NotificationTokenComponent.self // "notification-token"
+            NotificationTokenComponent.self, // "notification-token"
+            SidebarComponent.self // "sidebar"
         ]
     }
 }

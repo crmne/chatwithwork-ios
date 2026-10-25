@@ -20,6 +20,9 @@ enum NavigationBarItems {
         case close
         /// A form's submit button, the outermost trailing item.
         case form
+        /// The shell's own: the sidebar button (leading) and New chat
+        /// (trailing), on the main stack's screens.
+        case shell
         case menu
         case button
         case share

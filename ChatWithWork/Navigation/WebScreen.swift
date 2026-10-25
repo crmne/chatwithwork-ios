@@ -18,7 +18,7 @@ enum WebScreen {
         controller.visitableView.activityIndicatorView.color = Palette.inkMuted
         controller.visitableView.refreshControl.tintColor = Palette.inkMuted
 
-        if case .tabRoot = AppRoute(url: url).kind {
+        if case .list = AppRoute(url: url).kind {
             controller.navigationItem.largeTitleDisplayMode = .always
         } else {
             controller.navigationItem.largeTitleDisplayMode = .never

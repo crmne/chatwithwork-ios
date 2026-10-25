@@ -21,8 +21,8 @@ nonisolated struct AccountSlug: Hashable, Sendable, CustomStringConvertible {
 /// another organization.
 nonisolated struct AppRoute: Equatable, Sendable {
     enum Kind: Equatable, Sendable {
-        /// A tab's root list: `/chats`, `/projects`, `/settings`.
-        case tabRoot(AppTab)
+        /// A list: `/chats`, `/projects`, `/bots`, `/settings`.
+        case list(AppList)
         case newChat
         case chat(number: Int)
         /// Sign in, sign up, password and confirmation pages.
@@ -66,17 +66,12 @@ nonisolated struct AppRoute: Equatable, Sendable {
 
     var isAuthentication: Bool { kind == .authentication }
 
-    /// The tab this location belongs to when the shell routes it from outside
-    /// a tab (a universal link or a notification).
-    var preferredTab: AppTab? {
+    /// Whether this is a conversation, new or not: the pages that become the
+    /// one screen at the root of the shell.
+    var isChat: Bool {
         switch kind {
-        case .tabRoot(let tab): tab
-        case .newChat, .chat: .chats
-        default:
-            if path.hasPrefix("/projects") { .projects }
-            else if path.hasPrefix("/settings") { .settings }
-            else if path.hasPrefix("/chats") { .chats }
-            else { nil }
+        case .newChat, .chat: true
+        default: false
         }
     }
 
@@ -85,10 +80,8 @@ nonisolated struct AppRoute: Equatable, Sendable {
         case 0:
             return .other
         case 1:
+            if let list = AppList(rawValue: segments[0]) { return .list(list) }
             switch segments[0] {
-            case "chats": return .tabRoot(.chats)
-            case "projects": return .tabRoot(.projects)
-            case "settings": return .tabRoot(.settings)
             case "users": return .authentication // a sign-up form re-rendered after a failed POST
             case "recede_historical_location": return .historicalLocation(.recede)
             case "resume_historical_location": return .historicalLocation(.resume)

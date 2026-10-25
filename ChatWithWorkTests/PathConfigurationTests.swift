@@ -4,7 +4,7 @@ import Testing
 @testable import ChatWithWork
 
 /// The bundled path configuration, which the server's
-/// /configurations/ios_v1.json replaces. Its rules are part of the server
+/// /configurations/ios_v2.json replaces (an exact copy of it). Its rules are part of the server
 /// contract, so both must keep these behaviors.
 @Suite("Path configuration")
 struct PathConfigurationTests {
@@ -23,7 +23,7 @@ struct PathConfigurationTests {
         #expect(configuration.rules.count > 3)
     }
 
-    @Test("pushes ordinary pages with pull to refresh", arguments: ["/1000001/projects/3", "/accounts", "/1000001/settings?tab=connectors"])
+    @Test("pushes ordinary pages with pull to refresh", arguments: ["/1000001/projects/3", "/accounts", "/1000001/bots/7"])
     func defaultPages(path: String) {
         #expect(properties(path).context == .default)
         #expect(properties(path).pullToRefreshEnabled)
@@ -47,22 +47,32 @@ struct PathConfigurationTests {
         #expect(!properties(path).pullToRefreshEnabled)
     }
 
-    @Test("opens new chat as a sheet, with or without a project", arguments: ["/1000001/chats/new", "/chats/new", "/1000001/chats/new?project_id=3"])
-    func newChat(path: String) {
+    @Test("makes every chat, new or not, the one screen at the root", arguments: [
+        "/1000001/chats/new", "/chats/new", "/1000001/chats/new?project_id=3", "/1000001/chats/42", "/1000001/chats/42?message=7"
+    ])
+    func chats(path: String) {
+        #expect(properties(path).context == .default)
+        #expect(properties(path).presentation == .replaceRoot)
+        #expect(!properties(path).pullToRefreshEnabled)
+    }
+
+    @Test("pushes shared chats without pull to refresh")
+    func sharedChat() {
+        #expect(properties("/shared/abc").context == .default)
+        #expect(properties("/shared/abc").presentation == .default)
+        #expect(!properties("/shared/abc").pullToRefreshEnabled)
+    }
+
+    @Test("shows Settings as a sheet, its sections pushed inside it", arguments: ["/1000001/settings", "/1000001/settings?tab=connectors"])
+    func settings(path: String) {
         #expect(properties(path).context == .modal)
         #expect(properties(path).modalDismissGestureEnabled)
-        #expect(!properties(path).pullToRefreshEnabled)
     }
 
-    @Test("keeps pull to refresh off on a conversation", arguments: ["/1000001/chats/42", "/1000001/chats/42?message=7", "/shared/abc"])
-    func conversation(path: String) {
+    @Test("pushes lists over the chat, with pull to refresh", arguments: ["/1000001/chats", "/1000001/projects", "/1000001/bots"])
+    func lists(path: String) {
         #expect(properties(path).context == .default)
-        #expect(!properties(path).pullToRefreshEnabled)
-    }
-
-    @Test("refreshes tab roots", arguments: ["/chats", "/1000001/chats", "/1000001/projects", "/1000001/settings"])
-    func tabRoots(path: String) {
-        #expect(properties(path).context == .default)
+        #expect(properties(path).presentation == .default)
         #expect(properties(path).pullToRefreshEnabled)
     }
 

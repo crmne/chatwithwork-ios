@@ -50,7 +50,7 @@ nonisolated struct AppEnvironment: Sendable, Equatable {
 
     /// The bundled path configuration, overridden by the server's copy.
     var remotePathConfigurationURL: URL {
-        url(path: "/configurations/ios_v1.json")
+        url(path: "/configurations/ios_v2.json")
     }
 
     /// An absolute URL on this server for `path`, which may carry a query.

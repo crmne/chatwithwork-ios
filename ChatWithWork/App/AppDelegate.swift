@@ -51,22 +51,13 @@ enum LaunchOptions {
     /// cookie, no remembered sign-in or organization.
     static var resetsState: Bool { UserDefaults.standard.bool(forKey: "CWWResetState") }
 
-    /// `-CWWAssumeSignedIn YES` starts in the tab shell, as after a sign-in.
+    /// `-CWWAssumeSignedIn YES` starts in the signed-in shell, as after a sign-in.
     static var assumesSignedIn: Bool { UserDefaults.standard.bool(forKey: "CWWAssumeSignedIn") }
 
-    /// `-CWWAskForNotifications NO` skips the offer to turn notifications on
-    /// after signing in, for UI tests that aren't about it.
+    /// `-CWWAskForNotifications NO` skips the offer to turn notifications on,
+    /// for UI tests that aren't about it.
     static var asksForNotifications: Bool {
         UserDefaults.standard.object(forKey: "CWWAskForNotifications") == nil || UserDefaults.standard.bool(forKey: "CWWAskForNotifications")
-    }
-
-    /// `-CWWStartTab projects` starts on another tab (development builds).
-    static var startTab: AppTab? {
-        #if DEBUG
-            UserDefaults.standard.string(forKey: "CWWStartTab").flatMap(AppTab.init(rawValue:))
-        #else
-            nil
-        #endif
     }
 
     /// `-CWWToastSeconds 10` keeps notices up that long (development builds).

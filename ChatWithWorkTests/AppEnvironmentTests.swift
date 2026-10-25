@@ -33,7 +33,7 @@ struct AppEnvironmentTests {
         let environment = AppEnvironment.load(info: info(environment: "staging", baseURL: "https://staging.chatwithwork.com"), arguments: defaults(), variables: [:])
         #expect(environment.name == .staging)
         #expect(environment.baseURL.absoluteString == "https://staging.chatwithwork.com")
-        #expect(environment.remotePathConfigurationURL.absoluteString == "https://staging.chatwithwork.com/configurations/ios_v1.json")
+        #expect(environment.remotePathConfigurationURL.absoluteString == "https://staging.chatwithwork.com/configurations/ios_v2.json")
     }
 
     @Test("lets development builds be pointed elsewhere at launch")

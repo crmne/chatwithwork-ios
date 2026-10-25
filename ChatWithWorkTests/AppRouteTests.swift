@@ -18,10 +18,11 @@ struct AppRouteTests {
     }
 
     @Test("classifies the pages the shell cares about", arguments: [
-        ("/chats", AppRoute.Kind.tabRoot(.chats)),
-        ("/1000001/chats", .tabRoot(.chats)),
-        ("/1000001/projects", .tabRoot(.projects)),
-        ("/1000001/settings", .tabRoot(.settings)),
+        ("/chats", AppRoute.Kind.list(.chats)),
+        ("/1000001/chats", .list(.chats)),
+        ("/1000001/projects", .list(.projects)),
+        ("/1000001/bots", .list(.bots)),
+        ("/1000001/settings", .list(.settings)),
         ("/1000001/chats/new", .newChat),
         ("/1000001/chats/7", .chat(number: 7)),
         ("/users/sign_in", .authentication),
@@ -42,12 +43,12 @@ struct AppRouteTests {
         #expect(AppRoute(path: path).kind == kind)
     }
 
-    @Test("knows which tab a link belongs in")
-    func preferredTab() {
-        #expect(AppRoute(path: "/1000001/chats/7").preferredTab == .chats)
-        #expect(AppRoute(path: "/1000001/projects/3").preferredTab == .projects)
-        #expect(AppRoute(path: "/1000001/settings").preferredTab == .settings)
-        #expect(AppRoute(path: "/1000001/join/abcd").preferredTab == nil)
+    @Test("knows the pages that become the shell's one chat screen")
+    func chats() {
+        #expect(AppRoute(path: "/1000001/chats/7").isChat)
+        #expect(AppRoute(path: "/1000001/chats/new").isChat)
+        #expect(!AppRoute(path: "/1000001/chats").isChat)
+        #expect(!AppRoute(path: "/1000001/bots").isChat)
     }
 
     @Test("tells sign-in apart from the other account pages")
@@ -57,12 +58,14 @@ struct AppRouteTests {
         #expect(AppRoute(path: "/users/sign_up").isAuthentication)
     }
 
-    @Test("starts tabs inside the organization when it's known")
-    func tabURLs() {
+    @Test("starts inside the organization when it's known, at the new chat last used there")
+    func startURLs() {
         let environment = AppEnvironment.load(info: ["CWWBaseURL": "https://chatwithwork.com"], arguments: UserDefaults(suiteName: UUID().uuidString)!, variables: [:])
-        #expect(AppTab.chats.url(in: environment, account: nil).absoluteString == "https://chatwithwork.com/chats")
-        #expect(AppTab.projects.url(in: environment, account: AccountSlug("482139075")).absoluteString == "https://chatwithwork.com/482139075/projects")
-        #expect(AppTab.newChat.isAction)
-        #expect(AppTab.destinations == [.chats, .projects, .settings])
+        let memory = SessionMemory(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let acme = AccountSlug("482139075")!
+        #expect(SidebarShell.startURL(environment: environment, account: nil, memory: memory).absoluteString == "https://chatwithwork.com/chats/new")
+        #expect(SidebarShell.startURL(environment: environment, account: acme, memory: memory).absoluteString == "https://chatwithwork.com/482139075/chats/new")
+        memory.setNewChatPath("/482139075/chats/new?project_id=3", in: acme)
+        #expect(SidebarShell.startURL(environment: environment, account: acme, memory: memory).absoluteString == "https://chatwithwork.com/482139075/chats/new?project_id=3")
     }
 }

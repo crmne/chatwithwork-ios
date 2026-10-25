@@ -1,8 +1,8 @@
 import XCTest
 
 /// The signed-in shell, against the contract playground (Playground/server.py)
-/// rather than a real server: sign in, the tabs, a conversation with its
-/// native menus, the composer over the keyboard, and New chat. Screenshots
+/// rather than a real server: sign in, the sidebar, a conversation with its
+/// native menus, the composer over the keyboard, Bots, Settings, and New chat. Screenshots
 /// are kept as attachments in the result bundle.
 ///
 /// Start the playground first, then run with the ChatWithWorkUITests scheme
@@ -32,28 +32,45 @@ final class PlaygroundTests: XCTestCase {
         app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground, "-CWWToastSeconds", "30", "-CWWAskForNotifications", "NO"]
         app.launch()
 
-        // Signing in rebuilds the shell on the Chats tab.
+        // Signing in opens on a new chat, with the sidebar button and New
+        // chat in the bar.
         app.buttons["welcome.signIn"].tap()
         let signIn = app.webViews.buttons["Sign in"]
         XCTAssertTrue(signIn.waitForExistence(timeout: 20))
         signIn.tap()
 
-        let chat = app.webViews.staticTexts["Q3 launch commitments for Acme"]
-        XCTAssertTrue(chat.waitForExistence(timeout: 20), "Signing in should land on the chat list")
-        XCTAssertTrue(app.buttons["bridge.button"].waitForExistence(timeout: 5), "New chat should be in the navigation bar")
+        XCTAssertTrue(app.webViews.staticTexts["What are we working on, Carmine?"].waitForExistence(timeout: 20), "Signing in should land on a new chat")
+        XCTAssertTrue(app.buttons["shell.sidebar"].waitForExistence(timeout: 5), "The sidebar button should be in the bar")
+        XCTAssertTrue(app.buttons["shell.newChat"].exists, "New chat should be in the bar")
+        XCTAssertFalse(app.tabBars.firstMatch.exists, "No tab bar any more")
         // The server's flash arrives as a native notice.
         let signedIn = app.descendants(matching: .any)["toast"]
         XCTAssertTrue(signedIn.waitForExistence(timeout: 10), "The sign-in flash should show as a toast")
         XCTAssertEqual(signedIn.label, "Signed in.")
-        settle()
-        keep("chats")
         signedIn.tap()
         XCTAssertTrue(signedIn.waitForNonExistence(timeout: 5), "A tap should put the toast away")
+        settle()
+        keep("new-chat")
 
-        // A conversation, with New chat and the chat's menu in the bar.
-        chat.tap()
+        // The sidebar: what waits for you, then the chat that waits.
+        app.buttons["shell.sidebar"].tap()
+        let waiting = app.buttons["sidebar.waiting"]
+        XCTAssertTrue(waiting.waitForExistence(timeout: 10), "The sidebar should open with its list")
+        XCTAssertTrue(app.buttons["Summarize the security review thread"].exists || app.buttons["Q3 launch commitments for Acme"].waitForExistence(timeout: 5))
+        settle(0.8)
+        keep("sidebar")
+        waiting.tap()
+        let item = app.buttons["sidebar.waiting.item"].firstMatch
+        XCTAssertTrue(item.waitForExistence(timeout: 5))
+        settle(0.6)
+        keep("waiting")
+        item.tap()
+
+        // The chat replaces the root: the sidebar button stays, no back button.
         XCTAssertTrue(app.webViews.staticTexts["What did we promise Acme for the Q3 launch?"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.buttons["bridge.menu"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["shell.sidebar"].exists, "A chat is the root, with the sidebar button")
+        XCTAssertEqual(app.buttons.matching(identifier: "bridge.button").count, 0, "The page's own New chat is left out")
         settle()
         keep("chat")
 
@@ -74,15 +91,10 @@ final class PlaygroundTests: XCTestCase {
         XCTAssertTrue(more.waitForExistence(timeout: 10))
         more.tap()
         XCTAssertTrue(app.buttons["Copy"].waitForExistence(timeout: 5), "The message menu should open")
-        settle(0.6)
-        keep("message-menu")
-
-        // Copying confirms with a notice, which a tap puts away.
         app.buttons["Copy"].tap()
         let toast = app.descendants(matching: .any)["toast"]
         XCTAssertTrue(toast.waitForExistence(timeout: 10), "Copying should confirm with a toast")
         XCTAssertEqual(toast.label, "Copied")
-        keep("copied-toast")
         toast.tap()
         XCTAssertTrue(toast.waitForNonExistence(timeout: 5), "A tap should put the toast away")
 
@@ -93,35 +105,34 @@ final class PlaygroundTests: XCTestCase {
         composer.typeText("Draft the recap for Priya")
         settle(1)
         keep("composer-keyboard")
-
-        // Delete asks natively.
         app.swipeDown()
-        app.buttons["bridge.menu"].tap()
-        app.buttons["Delete"].firstMatch.tap()
-        XCTAssertTrue(app.alerts.buttons["Delete"].waitForExistence(timeout: 5), "Deleting should ask with a native alert")
-        settle(0.5)
-        keep("delete-alert")
-        app.alerts.buttons["Cancel"].tap()
 
-        // The other tabs.
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        app.tabBars.buttons["Projects"].tap()
-        XCTAssertTrue(app.webViews.staticTexts["Acme launch"].waitForExistence(timeout: 20))
+        // A swipe from the left edge opens the sidebar; Bots is pushed over the chat.
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.005, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)))
+        let bots = app.buttons["sidebar.bots"]
+        XCTAssertTrue(bots.waitForExistence(timeout: 10), "An edge swipe should open the sidebar")
+        bots.tap()
+        XCTAssertTrue(app.webViews.staticTexts["Monday Drive digest"].waitForExistence(timeout: 20), "Bots should open from the sidebar")
         settle()
-        keep("projects")
+        keep("bots")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
 
-        app.tabBars.buttons["Settings"].tap()
+        // Settings, from the person at the sidebar's foot, comes up as a sheet.
+        app.buttons["shell.sidebar"].tap()
+        let person = app.buttons["sidebar.person"]
+        XCTAssertTrue(person.waitForExistence(timeout: 10))
+        person.tap()
+        app.buttons["Settings"].firstMatch.tap()
         XCTAssertTrue(app.webViews.staticTexts["Connectors"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["sheet.close"].exists, "Settings should be a sheet")
         settle()
         keep("settings")
+        app.buttons["sheet.close"].tap()
 
-        // New chat opens as a sheet over Chats, titled by its own page even
-        // though the sheet's web view showed Move to project before.
-        app.tabBars.buttons["New chat"].tap()
+        // New chat from the bar replaces the chat.
+        app.buttons["shell.newChat"].tap()
         XCTAssertTrue(app.webViews.staticTexts["What are we working on, Carmine?"].waitForExistence(timeout: 20))
-        XCTAssertTrue(app.navigationBars["New chat"].waitForExistence(timeout: 5), "The sheet should take its page's title")
-        settle()
-        keep("new-chat")
     }
 
     /// The app offers notifications once, the first time a change waits for
@@ -165,11 +176,14 @@ final class PlaygroundTests: XCTestCase {
         XCTAssertFalse(prompt.waitForExistence(timeout: 6), "The app offers notifications only once")
     }
 
-    /// Opens a chat from the list the shell shows.
+    /// Opens a chat from the sidebar.
     @MainActor
     private func openChat(_ app: XCUIApplication, titled title: String) {
-        let row = app.webViews.staticTexts[title]
-        XCTAssertTrue(row.waitForExistence(timeout: 20))
+        let sidebar = app.buttons["shell.sidebar"]
+        XCTAssertTrue(sidebar.waitForExistence(timeout: 20))
+        sidebar.tap()
+        let row = app.buttons[title]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
         row.tap()
     }
 

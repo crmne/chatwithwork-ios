@@ -38,18 +38,17 @@
     },
     {
       "patterns": [
-        "/chats/new(\\?|$)"
+        "/chats/new(\\?|$)",
+        "/chats/\\d+(\\?|#|$)"
       ],
       "properties": {
-        "context": "modal",
-        "modal_style": "large",
-        "modal_dismiss_gesture_enabled": true,
+        "context": "default",
+        "presentation": "replace_root",
         "pull_to_refresh_enabled": false
       }
     },
     {
       "patterns": [
-        "/chats/\\d+(\\?|#|$)",
         "^/shared/"
       ],
       "properties": {
@@ -59,9 +58,20 @@
     },
     {
       "patterns": [
+        "/settings(\\?|$)"
+      ],
+      "properties": {
+        "context": "modal",
+        "modal_style": "large",
+        "modal_dismiss_gesture_enabled": true,
+        "pull_to_refresh_enabled": true
+      }
+    },
+    {
+      "patterns": [
         "/chats(\\?|$)",
         "/projects(\\?|$)",
-        "/settings(\\?|$)"
+        "/bots(\\?|$)"
       ],
       "properties": {
         "context": "default",
