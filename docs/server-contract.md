@@ -908,6 +908,15 @@ file name. The organization's name and the service's name are fine.
 - `kind`: `approval_waiting` or `input_requested` (body: "A question is
   waiting for your answer in Notion.").
 
+**Decisions digest (server, 2026-10-26).** Once 3 or more decisions wait for
+someone, a new one's push becomes `decisions_waiting` instead of
+`approval_waiting` or `input_requested`, at most every 30 minutes: title the
+organization, body "4 decisions are waiting for you.", `path` the
+organization's `/decisions`, `thread` `decisions-<account>`. The server keeps
+sending Android each wait's own push until this app says it knows
+`decisions_waiting`; iOS gets the digest now, and opens its `path` like any
+other.
+
 ### When
 
 In `Chat::ToolApprovals`, where a reply parks at calls waiting for a person
@@ -1153,6 +1162,23 @@ where `CHAT` is `{"number": 42, "title": "…", "url": "/482139075/chats/42",
 apply are `null` (a guest's `new_chat`, `bots`, `projects` and
 `new_project`), and so is `bots` for a guest. Every URL is a path on this
 server.
+
+**Decisions (server, 2026-10-26).** `waiting` now lists decisions, not chats:
+everything waiting for the person across their chats, agents, bots' runs
+and the bots they handle (the server's `Decision`, `docs/decisions.md`).
+`waiting.count` is what waits now, `waiting.snoozed` how many they put off,
+and `waiting.url` the web Decisions page (`/:account/decisions`), also in
+`links.decisions`. Each of the first 50 `items` keeps `title` (its chat's),
+`kind` and `project` as before, and its `url` now opens the Decisions page
+on it (`/:account/decisions?decision=<key>`), one decision at a time with its
+card, "Why you" and the context below it; `chat_url` is its chat. New keys:
+`key`, `decision` (`approval`, `question` (a server's), `ask` (the
+assistant's own question with options, `ask_decision`), `draft`, `editor`,
+`handoff`), `summary` (one line saying what's to decide) and `since`.
+Opening `waiting.url` or an item's `url` in the web view is all a first
+version needs: the page decides through the chat's own cards, swiping left
+or right on it moves between decisions, and the sidebar's `changed` follows
+its count.
 
 ### Keeping it current
 
