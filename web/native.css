@@ -154,6 +154,21 @@
     text-transform: none;
   }
 
+  /* The apps that draw the composer themselves (bridge--composer) keep the web one in the page, out of sight, since
+     their composer drives it; the conversation then ends just above theirs. */
+  html[data-bridge-components~="composer"] #new_message {
+    position: absolute !important;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  html[data-bridge-components~="composer"] .chat-view .conversation__scroll {
+    padding-block-end: 1.5rem;
+  }
+
   /* Pages never pan sideways (the new chat page's backdrop is wider than
      the screen on purpose); Android's web view would scroll them. */
   [data-native-app] body {

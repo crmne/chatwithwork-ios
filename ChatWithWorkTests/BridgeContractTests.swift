@@ -27,7 +27,7 @@ struct BridgeContractTests {
         #expect(names == [
             "alert", "review-prompt", "theme",
             "button", "menu", "search", "form", "share", "toast", "haptic",
-            "context-menu", "auth-session", "notification-token", "sidebar"
+            "context-menu", "auth-session", "notification-token", "sidebar", "composer"
         ])
         #expect(Set(names).count == names.count)
     }

@@ -87,9 +87,13 @@ final class PlaygroundTests: XCTestCase {
         app.buttons["sheet.close"].tap()
 
         // A message's actions in one native menu.
-        let more = app.webViews.buttons["More actions"].firstMatch
-        XCTAssertTrue(more.waitForExistence(timeout: 10))
+        let actions = app.webViews.buttons.matching(identifier: "More actions")
+        XCTAssertTrue(actions.firstMatch.waitForExistence(timeout: 10))
+        // The latest answer's, on screen above the composer.
+        let more = actions.element(boundBy: actions.count - 1)
         more.tap()
+        // A tap while the page is still settling can land before the menu's script is ready.
+        if !app.buttons["Copy"].waitForExistence(timeout: 5) { more.tap() }
         XCTAssertTrue(app.buttons["Copy"].waitForExistence(timeout: 5), "The message menu should open")
         app.buttons["Copy"].tap()
         let toast = app.descendants(matching: .any)["toast"]
@@ -98,14 +102,34 @@ final class PlaygroundTests: XCTestCase {
         toast.tap()
         XCTAssertTrue(toast.waitForNonExistence(timeout: 5), "A tap should put the toast away")
 
-        // The composer rides on the keyboard.
-        let composer = app.webViews.textViews["Message"].firstMatch
-        XCTAssertTrue(composer.waitForExistence(timeout: 5))
+        // The native composer rides on the keyboard; the web one stays hidden.
+        let composer = app.textViews["composer.text"]
+        XCTAssertTrue(composer.waitForExistence(timeout: 10), "The app should draw the composer")
+        XCTAssertFalse(app.webViews.textViews["Message"].isHittable, "The web composer stays out of sight")
         composer.tap()
         composer.typeText("Draft the recap for Priya")
+        XCTAssertTrue(app.buttons["composer.send"].isEnabled)
         settle(1)
         keep("composer-keyboard")
-        app.swipeDown()
+
+        // Sending goes through the web composer, which posts the question.
+        app.buttons["composer.send"].tap()
+        XCTAssertTrue(app.webViews.staticTexts["Draft the recap for Priya"].waitForExistence(timeout: 20), "The question should be sent")
+        XCTAssertEqual(composer.value as? String ?? "", "", "The field empties once sent")
+
+        // "+" opens the attach sheet.
+        app.buttons["composer.plus"].tap()
+        // The first time, iOS asks about the photo library for the recent row.
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let dontAllow = springboard.alerts.buttons["Don’t Allow"]
+        if dontAllow.waitForExistence(timeout: 3) { dontAllow.tap() }
+        XCTAssertTrue(app.buttons["attach.files"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["attach.dictate"].exists)
+        settle(0.8)
+        keep("attach-sheet")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap()
+        XCTAssertTrue(app.buttons["attach.files"].waitForNonExistence(timeout: 5), "A tap above the sheet should put it away")
+        settle(0.5)
 
         // A swipe from the left edge opens the sidebar; Bots is pushed over the chat.
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.005, dy: 0.5))

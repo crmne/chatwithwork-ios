@@ -31,7 +31,8 @@ enum BridgeRegistry {
             ContextMenuComponent.self, // "context-menu"
             AuthSessionComponent.self, // "auth-session"
             NotificationTokenComponent.self, // "notification-token"
-            SidebarComponent.self // "sidebar"
+            SidebarComponent.self, // "sidebar"
+            ComposerComponent.self // "composer"
         ]
     }
 }

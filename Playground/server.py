@@ -507,7 +507,8 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
     project_field = f'\n      <input type="hidden" name="project_id" value="{project}">' if project else ""
     return f"""
     <div id="new_message" class="composer rainbow-glow{' composer--working' if working else ''}"
-         data-controller="composer bridge--haptic" data-bridge-feedback="light">
+         data-controller="composer chat bridge--haptic bridge--composer" data-bridge-feedback="light"
+         data-dictation-url-value="/{account}/dictations">
       <form class="print:hidden" action="{action}" method="post"
             data-action="submit->composer#submit turbo:submit-start->bridge--haptic#vibrate turbo:submit-end->composer#reset">
       <input type="hidden" name="message[content]" value="" data-composer-target="content">{project_field}
@@ -515,7 +516,7 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
       <div class="chat-prompt">
         <div class="chat-prompt__field">
           <textarea rows="1" placeholder="{esc(placeholder)}" aria-label="Message"
-                    class="block w-full chat-compose-editor playground-editor" data-composer-target="input"
+                    class="block w-full chat-compose-editor playground-editor" data-composer-target="input" data-chat-target="input"
                     data-action="input->composer#update keydown.meta+enter->composer#submit"></textarea>
 
           <span class="kbd-hint chat-prompt__hint max-sm:hidden" aria-hidden="true">
@@ -524,6 +525,9 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
         </div>
 
         <div class="chat-prompt__bar">
+          <button type="button" hidden data-dictation-target="button" aria-label="Dictate"></button>
+          <label class="chat-prompt__web-search" hidden><input type="checkbox" name="web_search"> Web search</label>
+          <span class="chat-prompt__menu-note" hidden>Searches leave the EU: Google or Bing see the query.</span>
           <button type="button" class="btn btn-ghost btn-sm btn-square tooltip chat-prompt__attach"
                   aria-label="Attach files" data-tip="Attach files">
             <span class="chat-prompt__spinner" aria-hidden="true"></span>
@@ -1298,6 +1302,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(404, "Not found", "text/plain")
         account, rest = match.groups()
 
+        if rest == "/dictations":
+            # Stands in for the EU transcription: whatever was said, these words.
+            return self.send(200, json.dumps({"text": "Draft the recap for Priya"}), "application/json")
         if rest == "/messages":
             number = max(CHATS) + 1
             project = PROJECTS.get(int(form.get("project_id") or 0))

@@ -14,6 +14,7 @@ import NotificationTokenController from "/web/controllers/bridge/notification_to
 import SearchController from "/web/controllers/bridge/search_controller.js"
 import ShareController from "/web/controllers/bridge/share_controller.js"
 import SidebarController from "/web/controllers/bridge/sidebar_controller.js"
+import BridgeComposerController from "/web/controllers/bridge/composer_controller.js"
 import ToastController from "/web/controllers/bridge/toast_controller.js"
 
 const application = Application.start()
@@ -29,6 +30,7 @@ application.register("bridge--notification-token", NotificationTokenController)
 application.register("bridge--search", SearchController)
 application.register("bridge--share", ShareController)
 application.register("bridge--sidebar", SidebarController)
+application.register("bridge--composer", BridgeComposerController)
 application.register("bridge--toast", ToastController)
 
 application.register("search", class extends Controller {
@@ -69,6 +71,28 @@ application.register("composer", class extends Controller {
     if (!event.detail.success) return
     this.inputTarget.value = ""
     this.update()
+  }
+})
+
+// Stands in for the parts of the web app's chat controller that the
+// composer bridge uses: the field, whether files are uploading, and sending.
+application.register("chat", class extends Controller {
+  static targets = ["input"]
+
+  get attachmentsUploading() { return false }
+
+  get promptText() { return this.inputTarget.value }
+
+  htmlFromPlainText(text) { return text }
+
+  updateButtonState() {
+    this.inputTarget.dispatchEvent(new Event("input", { bubbles: true }))
+  }
+
+  canSubmit() { return this.inputTarget.value.trim() !== "" }
+
+  submitFormActions() {
+    this.element.querySelector("form").requestSubmit()
   }
 })
 

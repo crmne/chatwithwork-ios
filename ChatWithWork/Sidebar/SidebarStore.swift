@@ -120,16 +120,9 @@ final class SidebarStore {
     // MARK: Fetching with the web views' session
 
     nonisolated static func fetch(_ url: URL, environment: AppEnvironment) async -> Result<SidebarData, Failure> {
-        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue(await userAgent(), forHTTPHeaderField: "User-Agent")
-        let relevant = cookies.filter { cookie in
-            guard let host = url.host() else { return false }
-            let domain = cookie.domain.hasPrefix(".") ? String(cookie.domain.dropFirst()) : cookie.domain
-            return host == domain || host.hasSuffix("." + domain)
-        }
-        HTTPCookie.requestHeaderFields(with: relevant).forEach { request.setValue($1, forHTTPHeaderField: $0) }
+        await WebSession.authorize(&request)
 
         let session = URLSession(configuration: .ephemeral)
         defer { session.finishTasksAndInvalidate() }
@@ -141,12 +134,6 @@ final class SidebarStore {
         if http.url.map({ AppRoute(url: $0).isSignIn }) == true { return .failure(.signedOut) }
         guard http.statusCode == 200, let data = try? SidebarData.decode(body) else { return .failure(.unavailable) }
         return .success(data)
-    }
-
-    /// What the web views send, so the server knows the app and its build.
-    @MainActor
-    static func userAgent() -> String {
-        "Mozilla/5.0 (iPhone; CPU iPhone OS like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) \(Hotwire.config.userAgent)"
     }
 }
 
