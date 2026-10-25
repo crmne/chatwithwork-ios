@@ -12,7 +12,9 @@ slides in from the left (your chats, projects, what waits for you, Bots, and
 Settings), large titles, sheets, a welcome screen, native menus, alerts,
 toasts, haptics, search, the share sheet, sign-in and connecting services
 through the system's secure browser sheet, push notifications and universal
-links.
+links, a native composer with a "+" sheet and dictation, Live Activities for
+answers that work on after you leave them, a home-screen widget, and a share
+extension.
 
 What the server has to do for all of that is written down in
 [docs/server-contract.md](docs/server-contract.md).
@@ -96,6 +98,11 @@ ChatWithWork/
   Bridge/         the bridge components (native halves)
   Interface/      Live Wire colors, appearance, toasts, the error screen
   Notifications/  push notifications
+  Composer/       the native composer, its + sheet and dictation
+  LiveActivities/ starting Live Activities and telling the server their tokens
+Shared/           what the app and its extensions share: Live Activity attributes, app links, the share inbox
+Widgets/          the widget extension: Ask on the home screen, and the Live Activity
+ShareExtension/   the share extension
   Resources/      Info.plist, entitlements, assets, the bundled path configuration
 ChatWithWorkTests/    unit tests (Swift Testing)
 ChatWithWorkUITests/  UI tests (signed out against staging, signed in against the playground)

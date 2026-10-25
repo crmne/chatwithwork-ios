@@ -33,6 +33,7 @@ The iOS repository carries working references for the web half:
 | 7 | [Sign-in with a provider and connecting services](#10-sign-in-with-a-provider-and-connecting-services) | Google sign-in and connector OAuth from the app |
 | 8 | [The sidebar](#11-the-sidebar) | builds that list `sidebar`: no tabs, one chat screen, the native sidebar |
 | 9 | [The composer](#12-the-composer) | builds that list `composer`: the app draws the composer and drives the web one |
+| 10 | [Live Activities, widgets and sharing](#13-live-activities-widgets-and-sharing) | an answer followed on the Lock Screen, "Ask anything" on the home screen, and the share sheet |
 
 Steps 1 to 4 are enough for a first TestFlight build. Until step 7 ships,
 hide the "Sign in with …" buttons and the connectors' Connect buttons in the
@@ -1261,6 +1262,61 @@ csrfToken` and `Accept: application/json`. `200 {text}` puts the words in
 the field and sends `text`; `{error}` (403 without credits, 413, 415, 429,
 502) shows the server's words above the composer. Never the system's speech
 recognizers.
+
+## 13. Live Activities, widgets and sharing
+
+### Live Activities
+
+While a chat's composer says `working`, the app keeps a Live Activity for
+it (ActivityKit, push type `token`), which iOS shows once the person leaves
+the app: "Chat with Work · <organization>", "Answering" and a timer since it
+started. (ActivityKit starts activities only while the app is in front, so
+the app starts it as the answer starts, not as the person leaves.) Never the chat's title or anything from it. It registers the
+activity's push token with the server:
+
+```
+POST /:account/chats/:number/live_activity
+Content-Type: application/json, X-CSRF-Token: <the composer's csrfToken>, the web view's cookies
+{ "live_activity": { "token": "<hex>", "app_id": "com.chatwithwork.app", "environment": "sandbox" | "production" } }
+```
+
+The server ends it when the answer ends, with an APNs `liveactivity` push,
+event `end`, content state `{phase, message}`: `phase` is `answered`,
+`approval_waiting`, `input_requested` or `failed`, `message` generic words
+for it. The app shows the message, or its own words for the phase. A tap
+opens the chat (`chatwithwork://open?path=/482139075/chats/42`). The app
+also ends it itself whenever that chat's composer says it's done. The activity's attributes are `ChatActivityAttributes` in
+`Shared/`, which the widget extension draws.
+
+### Widgets and the app's links
+
+The widget extension (`Widgets/`, `ChatWithWorkWidgets`) adds "Ask Chat
+with Work" in small, medium and the Lock Screen's circle: static, with
+nothing from the person's chats. It opens the app's own links, which the
+app registers as its URL scheme (`CWW_CALLBACK_SCHEME`, `chatwithwork`):
+
+| Link | Opens |
+|---|---|
+| `chatwithwork://new-chat` | a new chat in the last list chosen |
+| `chatwithwork://new-chat?dictate=1` | a new chat that starts listening as its composer connects |
+| `chatwithwork://new-chat?title=&text=&url=` | a new chat with those words in its composer, never sent: `/chats/new?title=&text=&url=` (the server fills its composer), and the native field too |
+| `chatwithwork://new-chat?shared=<uuid>` | a new chat that attaches the files the share extension left under that name |
+| `chatwithwork://open?path=/482139075/chats/42` | that page of this server, a chat as the root |
+
+A new chat already on screen takes the words, files and dictation as it
+is, without loading again. `sign-in` and `handoff` are the browser sheet's
+callbacks (section 10) and open nothing.
+
+### The share extension
+
+"Chat with Work" in the share sheet (`ShareExtension/`,
+`ChatWithWorkShare`) takes text, a web link, and up to ten images or
+files. Text and links go into the `new-chat` link as `text`, `url` and
+`title`; files (at most 25 MB each) go into the app group's container
+(`CWW_APP_GROUP`, `group.com.chatwithwork.app` and the staging and debug
+builds' own), one folder per share, whose name the link carries as
+`shared`. The app reads and deletes it, and hands the files to the
+composer with `attach` once it connects.
 
 ## Testing the contract
 
