@@ -32,6 +32,7 @@ The iOS repository carries working references for the web half:
 | 6 | [Push notifications](#9-push-notifications) | "A change is waiting for your approval" |
 | 7 | [Sign-in with a provider and connecting services](#10-sign-in-with-a-provider-and-connecting-services) | Google sign-in and connector OAuth from the app |
 | 8 | [The sidebar](#11-the-sidebar) | builds that list `sidebar`: no tabs, one chat screen, the native sidebar |
+| 9 | [The composer](#12-the-composer) | builds that list `composer`: the app draws the composer and drives the web one |
 
 Steps 1 to 4 are enough for a first TestFlight build. Until step 7 ships,
 hide the "Sign in with …" buttons and the connectors' Connect buttons in the
@@ -447,6 +448,7 @@ Android ignores, are marked "iOS". Every message the bridge sends also carries
 | `auth-session` | `start` `{url, ephemeral?}`; `cancel` | reply to `start` `{url}` (the callback URL) or `{error}`: `canceled` \| `invalid_url` \| `unavailable` \| `failed` | `bridge--auth-session` |
 | `notification-token` | `connect`; `get`; `offer` `{reason}` (`approval` or `answer`); `openSettings` | reply to `connect`, `get` and `offer`: `{status, token?, platform, environment, appId}` | `bridge--notification-token` |
 | `sidebar` | `connect` `{}`; `changed` `{}` | none | `bridge--sidebar` (section 11) |
+| `composer` | `connect` and `state` with the composer's state | reply to the latest `connect` `{action, ...}` | `bridge--composer` (section 12) |
 
 Rules for every component:
 
@@ -1162,6 +1164,77 @@ signed-in page in these builds carries one hidden
 sidebar streams, which sends `changed` (debounced) when a stream message for
 the web's sidebar arrives. The app marks the list stale and refetches if the
 sidebar is open.
+
+## 12. The composer
+
+Builds that register `composer` draw the chat's composer themselves. The web
+composer (`#new_message`) carries `bridge--composer`
+(`web/controllers/bridge/composer_controller.js`) and stays in the page,
+hidden by native.css, so every rule it carries still holds: locks, who may
+steer, the queue, files waiting for their scan, the model and web search.
+The conversation then ends just above the page's bottom, and the app lays
+its web view out above its own composer, which rides on the keyboard.
+
+### Messages
+
+Web to app: `connect`, then `state` whenever something changes (an
+upload's progress, a lock, an answer starting or ending), both with:
+
+```json
+{ "placeholder": "Reply to Chat with Work", "text": "", "locked": false, "lockReason": null,
+  "working": false, "stopping": false,
+  "models": [{"name": "Gemini 3.8 Flash", "rate": "About 2 credits per answer", "selected": true, "searchesWeb": true}],
+  "webSearch": {"on": false, "disabled": false, "note": "..."},
+  "dictation": {"url": "/482139075/dictations"}, "csrfToken": "...",
+  "attachments": [{"id": "7", "name": "plan.pdf", "size": "1.2 MB", "contentType": "application/pdf", "uploading": true, "progress": 40}],
+  "acceptsFiles": true }
+```
+
+`webSearch` and `dictation` are `null` where the composer doesn't offer
+them. `text` is what the web composer already holds (a shared link, a
+restored draft), files left out: the app starts an empty field with it.
+Each new web composer (a chat draws it again as an answer starts and ends)
+connects again, and the app always answers the latest `connect`.
+
+App to web, as replies to `connect`, `{action, ...}`:
+
+| Action | Data | Does |
+|---|---|---|
+| `send` | `{text}` | puts the words (and the files already attached) in the web composer and sends; while `working` that steers the answer, or waits where the person may not steer it. The app doesn't send while a file uploads. |
+| `stop` | | the running answer's Stop |
+| `model` | `{index}` | picks `models[index]` |
+| `webSearch` | `{on}` | switches web search |
+| `attach` | `{files: [{name, type, data}]}` | uploads files the app picked, photographed or scanned (`data` base64) like any file the composer takes |
+| `remove` | `{id}` | takes a file out |
+| `text` | `{text}` | dictated words, for the web composer too |
+
+### What the app draws
+
+- The field, with `placeholder`, growing to about five lines. Locked: the
+  field disabled and `lockReason` above it.
+- The files on their way as chips with their progress and a remove button.
+- Three controls, as on the web: "+", the model (a menu of `models`, hidden
+  while locked or working), and Send. While `working` and the field is
+  empty, Send is Stop (disabled while `stopping`); with words, Send steers.
+  A light haptic on Send.
+- "+" opens a sheet: the latest photos in a row (the app asks for the photo
+  library the first time the sheet opens; Photos and the camera work
+  without it), Camera, Photos (`PHPickerViewController`), Files, Scan
+  (VisionKit's document camera, the pages sent as one PDF), Dictate, and Web
+  search as a switch when `webSearch` isn't `null`. Photos go as JPEGs at
+  most 2560 pixels on their longest side; files over 25 MB are refused with
+  a note to attach them from a computer.
+
+### Dictation
+
+The app records itself, AAC in an `.m4a` (`audio/mp4`), at most five
+minutes, with a level meter, a stop button (Send's place) and a cancel
+button, then posts it as the multipart field `audio` to
+`{base}{dictation.url}` with the web view's cookies, `X-CSRF-Token:
+csrfToken` and `Accept: application/json`. `200 {text}` puts the words in
+the field and sends `text`; `{error}` (403 without credits, 413, 415, 429,
+502) shows the server's words above the composer. Never the system's speech
+recognizers.
 
 ## Testing the contract
 
