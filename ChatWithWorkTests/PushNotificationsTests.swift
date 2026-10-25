@@ -119,7 +119,15 @@ struct PushNotificationsTests {
         #expect(!push.hasAsked)
         push.hasAsked = true
         var presented = false
-        await push.askOnceIfNeeded { presented = true; return nil }
+        let state = await push.offer(.approval) { presented = true; return nil }
         #expect(!presented, "Once asked, the app never asks again")
+        #expect(state.platform == "ios", "An offer it doesn't make still answers with the state")
+    }
+
+    @Test("words the offer for the moment that brought it up")
+    func offerWording() {
+        #expect(NotificationPrompt.title == "Want a nudge when it's ready?")
+        #expect(NotificationPrompt.message(for: .approval).contains("waits for your approval"))
+        #expect(NotificationPrompt.message(for: .answer).contains("an answer is ready"))
     }
 }

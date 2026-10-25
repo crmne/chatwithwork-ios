@@ -9,17 +9,21 @@ import UIKit
 /// - `connect`: replies with the current state, never asking the person.
 /// - `get`: asks for permission if iOS hasn't asked yet, registers with
 ///   APNs, and replies with the token.
+/// - `offer` `{reason}`: the moment notifications would help (`approval`: a
+///   change or question waits; `answer`: an answer is taking a while). Once
+///   per install, while iOS hasn't asked yet, the app explains and then asks;
+///   otherwise it replies at once.
 /// - `openSettings`: opens this app's page in iOS Settings, for someone who
 ///   turned notifications off there.
 ///
-/// Native → web, for `connect` and `get`: `{status, token?, platform,
+/// Native → web, for `connect`, `get` and `offer`: `{status, token?, platform,
 /// environment, appId}`. `status` is `authorized`, `provisional`,
 /// `ephemeral`, `denied` or `not_determined`; `environment` is the APNs
 /// gateway (`sandbox` or `production`); `appId` the bundle identifier the
 /// server sends to (the APNs topic).
 ///
-/// When the person allows notifications anywhere else (the prompt after
-/// sign-in, another page's Turn on), the component answers its latest
+/// When the person allows notifications anywhere else (an offer, another
+/// page's Turn on), the component answers its latest
 /// `connect` again with the new state, so the page registers the token.
 final class NotificationTokenComponent: BridgeComponent, PushStateListener {
     override nonisolated class var name: String { "notification-token" }
@@ -37,6 +41,16 @@ final class NotificationTokenComponent: BridgeComponent, PushStateListener {
                 let state = await PushNotifications.shared.requestToken()
                 _ = try? await self?.reply(to: "get", with: state)
             }
+        case "offer":
+            let reason = (message.data() as OfferData?)?.reason ?? .answer
+            Task { [weak self] in
+                let state = await PushNotifications.shared.offer(reason) { [weak self] in
+                    var top = self?.destinationViewController?.view.window?.rootViewController
+                    while let presented = top?.presentedViewController, !presented.isBeingDismissed { top = presented }
+                    return top
+                }
+                _ = try? await self?.reply(to: "offer", with: state)
+            }
         case "openSettings":
             if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
                 UIApplication.shared.open(url)
@@ -51,4 +65,8 @@ final class NotificationTokenComponent: BridgeComponent, PushStateListener {
             _ = try? await self?.reply(to: "connect", with: state)
         }
     }
+}
+
+nonisolated struct OfferData: Decodable, Equatable {
+    let reason: NotificationPrompt.Reason?
 }

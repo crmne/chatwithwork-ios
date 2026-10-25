@@ -136,7 +136,8 @@ def layout(handler, page):
     # Keeps the server's copy of the push token current, as the app layout does
     # on every signed-in page but Settings > Notifications, which has its own.
     push_registration = ('  <div hidden data-controller="bridge--notification-token"'
-                         ' data-bridge--notification-token-url-value="/native/push_registrations"></div>\n'
+                         ' data-bridge--notification-token-url-value="/native/push_registrations"'
+                         ' data-bridge--notification-token-offers-value="true"></div>\n'
                          if handler.signed_in and "bridge--notification-token" not in page.body else "")
     return f"""<!DOCTYPE html>
 <html lang="en"{native_attr}>

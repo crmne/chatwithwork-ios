@@ -8,10 +8,11 @@ import UserNotifications
 /// the `notification-token` bridge component and posts it to the server with
 /// the person's session (docs/server-contract.md, "Push notifications").
 ///
-/// The app asks once, after the first sign-in, with a short explanation
-/// before iOS's own prompt. When the person allows notifications, every
-/// `notification-token` on screen hears the new state, so the page registers
-/// the token without waiting for another page.
+/// The app offers once, when a page says the moment has come (a change
+/// waiting for approval, an answer that takes a while), with a short
+/// explanation before iOS's own prompt. When the person allows
+/// notifications, every `notification-token` on screen hears the new state,
+/// so the page registers the token without waiting for another page.
 final class PushNotifications: NSObject {
     static let shared = PushNotifications()
 
@@ -70,7 +71,7 @@ final class PushNotifications: NSObject {
         return state
     }
 
-    // MARK: Asking once
+    // MARK: Offering once
 
     private static let askedKey = "CWWAskedForNotifications"
 
@@ -81,25 +82,27 @@ final class PushNotifications: NSObject {
         set { defaults.set(newValue, forKey: Self.askedKey) }
     }
 
-    /// Offers to turn notifications on, the first time someone is signed in:
-    /// a short explanation, then iOS's prompt if they continue. Does nothing
-    /// once asked, or when iOS has its answer already.
-    func askOnceIfNeeded(over presenter: @escaping () -> UIViewController?) async {
-        guard LaunchOptions.asksForNotifications, !hasAsked, !isAsking else { return }
+    /// Offers to turn notifications on at the moment a page says they'd help
+    /// (`notification-token`'s `offer`): the first time a change waits for the
+    /// person, or an answer takes a while. A short explanation, then iOS's
+    /// prompt if they continue. Offers once per install, and never once iOS
+    /// has an answer; either way it returns the state as `get` would.
+    func offer(_ reason: NotificationPrompt.Reason, over presenter: @escaping () -> UIViewController?) async -> PushState {
+        let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+        guard LaunchOptions.asksForNotifications, !hasAsked, !isAsking, status == .notDetermined,
+              let viewController = presenter(), viewController.viewIfLoaded?.window != nil
+        else {
+            if status != .notDetermined { hasAsked = true }
+            return await currentState()
+        }
+
         isAsking = true
         defer { isAsking = false }
-
-        let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
-        guard status == .notDetermined else {
-            hasAsked = true
-            return
-        }
-        guard let viewController = presenter(), viewController.viewIfLoaded?.window != nil else { return }
-
         hasAsked = true
-        if await NotificationPrompt.confirm(over: viewController) {
-            _ = await requestToken()
+        if await NotificationPrompt.confirm(reason, over: viewController) {
+            return await requestToken()
         }
+        return await currentState()
     }
 
     // MARK: Listeners
@@ -230,15 +233,31 @@ protocol PushStateListener: AnyObject {
     func pushStateDidChange(_ state: PushState)
 }
 
-/// The explanation before iOS's own permission prompt.
+/// The explanation before iOS's own permission prompt, worded for the
+/// moment that brought it up.
 enum NotificationPrompt {
-    static let title = String(localized: "Turn on notifications?")
-    static let message = String(localized: "Chat with Work lets you know when an answer is ready or a change waits for your approval. Notifications never show what you asked or what was answered.")
+    nonisolated enum Reason: String, Decodable, Sendable {
+        /// A change or a question waits for the person.
+        case approval
+        /// An answer is still working after a while.
+        case answer
+    }
+
+    static let title = String(localized: "Want a nudge when it's ready?")
+
+    static func message(for reason: Reason) -> String {
+        switch reason {
+        case .approval:
+            String(localized: "Chat with Work can tell you when a change waits for your approval, so you can leave the app while it works.")
+        case .answer:
+            String(localized: "Chat with Work can tell you when an answer is ready, so you can leave the app while it works.")
+        }
+    }
 
     /// Whether the person chose to continue to iOS's prompt.
-    static func confirm(over viewController: UIViewController) async -> Bool {
+    static func confirm(_ reason: Reason, over viewController: UIViewController) async -> Bool {
         await withCheckedContinuation { continuation in
-            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            let alert = UIAlertController(title: title, message: message(for: reason), preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: String(localized: "Not now"), style: .cancel) { _ in
                 continuation.resume(returning: false)
             })

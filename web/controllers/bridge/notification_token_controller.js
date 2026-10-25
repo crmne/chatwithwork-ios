@@ -14,13 +14,29 @@ import { BridgeComponent } from "@hotwired/hotwire-native-bridge"
 // denied or not_determined) so CSS can show the right button. A token is
 // posted when the person turns notifications on, and on any page at most
 // once a day while they're on.
+//
+// The layout's hidden element also offers notifications at the moment they
+// make sense (data-bridge--notification-token-offers-value="true"): the
+// first time a chat waits for the person (.thinking--approval), or an answer
+// is still working after OFFER_AFTER. The app shows its own explanation
+// once per install, only while the person hasn't decided, and answers like
+// "get" (docs/server-contract.md in the apps' repositories).
+const OFFER_AFTER = 15000
+const OFFER_CHECK_EVERY = 2000
+
 export default class extends BridgeComponent {
   static component = "notification-token"
-  static values = { url: String }
+  static values = { url: String, offers: Boolean }
 
   connect() {
     super.connect()
     this.send("connect", {}, message => this.#update(message.data, false))
+    if (this.offersValue) this.#watchForOffer()
+  }
+
+  disconnect() {
+    clearInterval(this.offerTimer)
+    super.disconnect()
   }
 
   enable(event) {
@@ -31,6 +47,29 @@ export default class extends BridgeComponent {
   openSettings(event) {
     event?.preventDefault()
     this.send("openSettings")
+  }
+
+  // Offers once per page: the app keeps its own once-per-install memory.
+  #watchForOffer() {
+    let workingSince = null
+    this.offerTimer = setInterval(() => {
+      if (this.element.dataset.pushStatus && this.element.dataset.pushStatus !== "not_determined") return this.#stopWatching()
+
+      if (document.querySelector(".thinking--approval")) return this.#offer("approval")
+
+      const working = document.querySelector("#typing_indicator .thinking:not(.thinking--approval)")
+      workingSince = working ? (workingSince || Date.now()) : null
+      if (workingSince && Date.now() - workingSince >= OFFER_AFTER) this.#offer("answer")
+    }, OFFER_CHECK_EVERY)
+  }
+
+  #offer(reason) {
+    this.#stopWatching()
+    this.send("offer", { reason }, message => this.#update(message.data, true))
+  }
+
+  #stopWatching() {
+    clearInterval(this.offerTimer)
   }
 
   #update(state, force) {

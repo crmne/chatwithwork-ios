@@ -124,12 +124,13 @@ final class PlaygroundTests: XCTestCase {
         keep("new-chat")
     }
 
-    /// After the first sign-in the app offers notifications once: its own
-    /// explanation, then iOS's prompt. Launching again doesn't offer them again.
-    /// iOS remembers its answer across reinstalls, so this needs a simulator
-    /// that was never asked (`xcrun simctl erase <udid>` first).
+    /// The app offers notifications once, the first time a change waits for
+    /// the person (or an answer takes a while), never right after signing
+    /// in: its own explanation, then iOS's prompt. Launching again doesn't
+    /// offer them again. iOS remembers its answer across reinstalls, so this
+    /// needs a simulator that was never asked (`xcrun simctl erase <udid>` first).
     @MainActor
-    func testOffersNotificationsOnceAfterSignIn() throws {
+    func testOffersNotificationsWhenAChangeWaits() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground]
         app.launch()
@@ -139,10 +140,14 @@ final class PlaygroundTests: XCTestCase {
         XCTAssertTrue(signIn.waitForExistence(timeout: 20))
         signIn.tap()
 
+        let prompt = app.alerts["Want a nudge when it's ready?"]
+        XCTAssertFalse(prompt.waitForExistence(timeout: 6), "Signing in alone shouldn't offer notifications")
+
+        // Chat 42 waits for an approval.
+        openChat(app, titled: "Q3 launch commitments for Acme")
         // A freshly erased simulator takes a while to answer its first
         // question about notification settings.
-        let prompt = app.alerts["Turn on notifications?"]
-        XCTAssertTrue(prompt.waitForExistence(timeout: 60), "Signing in should offer notifications")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 60), "A change waiting should offer notifications")
         keep("notifications-prompt")
         prompt.buttons["Continue"].tap()
 
@@ -151,14 +156,21 @@ final class PlaygroundTests: XCTestCase {
         let allow = springboard.alerts.buttons["Allow"]
         XCTAssertTrue(allow.waitForExistence(timeout: 10), "Continue should lead to iOS's prompt")
         allow.tap()
-        XCTAssertTrue(app.webViews.staticTexts["Q3 launch commitments for Acme"].waitForExistence(timeout: 20))
 
         // Launched again, signed in: no second offer.
         app.terminate()
         app.launchArguments = ["-CWWBaseURL", playground]
         app.launch()
-        XCTAssertTrue(app.webViews.staticTexts["Q3 launch commitments for Acme"].waitForExistence(timeout: 20))
-        XCTAssertFalse(app.alerts["Turn on notifications?"].waitForExistence(timeout: 4), "The app offers notifications only once")
+        openChat(app, titled: "Q3 launch commitments for Acme")
+        XCTAssertFalse(prompt.waitForExistence(timeout: 6), "The app offers notifications only once")
+    }
+
+    /// Opens a chat from the list the shell shows.
+    @MainActor
+    private func openChat(_ app: XCUIApplication, titled title: String) {
+        let row = app.webViews.staticTexts[title]
+        XCTAssertTrue(row.waitForExistence(timeout: 20))
+        row.tap()
     }
 
     private func settle(_ seconds: TimeInterval = 1.5) {
