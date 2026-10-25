@@ -172,10 +172,15 @@ struct SidebarView: View {
                 ForEach(data.waiting.items) { item in
                     Button { actions.open(item.url) } label: {
                         HStack(spacing: 8) {
-                            Image(systemName: waitingSymbol(item.kind))
-                                .font(.footnote)
-                                .foregroundStyle(Color(Palette.attentionInk))
-                                .frame(width: 18)
+                            Group {
+                                if item.kind == "bot" {
+                                    BotMark(size: 15)
+                                } else {
+                                    Image(systemName: waitingSymbol(item.kind)).font(.footnote)
+                                }
+                            }
+                            .foregroundStyle(Color(Palette.attentionInk))
+                            .frame(width: 18)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(item.title).lineLimit(1).foregroundStyle(Color(Palette.ink))
                                 Text(waitingLabel(item)).font(.caption).foregroundStyle(Color(Palette.inkMuted)).lineLimit(1)
@@ -195,7 +200,7 @@ struct SidebarView: View {
         }
 
         if let bots = data.links.bots {
-            placeRow("Bots", systemImage: "cpu", identifier: "sidebar.bots", trailing: {
+            placeRow("Bots", icon: BotMark(), identifier: "sidebar.bots", trailing: {
                 if let meta = data.bots {
                     if meta.count > 0 || meta.attention {
                         HStack(spacing: 5) {
@@ -215,10 +220,13 @@ struct SidebarView: View {
     }
 
     private func placeRow(_ title: LocalizedStringKey, systemImage: String, identifier: String, @ViewBuilder trailing: () -> some View = { EmptyView() }, action: @escaping () -> Void) -> some View {
+        placeRow(title, icon: Image(systemName: systemImage).font(.body), identifier: identifier, trailing: trailing, action: action)
+    }
+
+    private func placeRow(_ title: LocalizedStringKey, icon: some View, identifier: String, @ViewBuilder trailing: () -> some View = { EmptyView() }, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: systemImage)
-                    .font(.body)
+                icon
                     .frame(width: 22)
                 Text(title).font(.body.weight(.medium))
                 Spacer(minLength: 0)
@@ -407,7 +415,6 @@ struct SidebarView: View {
     private func waitingSymbol(_ kind: String) -> String {
         switch kind {
         case "question": "questionmark.bubble"
-        case "bot": "cpu"
         default: "hand.raised"
         }
     }
