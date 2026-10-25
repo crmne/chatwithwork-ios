@@ -24,13 +24,17 @@ Live Wire design system and the chat UI. Read the README here first, then
 - Screens are plain `HotwireWebViewController`s configured by `WebScreen`.
   Don't subclass `HotwireWebViewController`: Cluster Headache Tracker's app
   crashed when a subclass recreated the bridge delegate. Subclassing
-  `HotwireTabBarController` and `HotwireNavigationController` is fine (both
-  are meant for it).
+  `HotwireNavigationController` is fine (it's meant for it).
 - `AppShell` owns the window's root. Changes of session or organization
-  rebuild the shell rather than patching tabs.
+  rebuild the `SidebarShell` rather than patching it.
+- There are no tabs. One navigator's root is always a chat (`replace_root`
+  in the path configuration), the native sidebar beside it is drawn from the
+  server's `/native/sidebar` JSON, and its data comes with the web views' own
+  cookies, never a token of the app's.
 - Navigation bar buttons go through `NavigationBarItems`, one slot per
-  source, never `navigationItem.rightBarButtonItem` directly, so components
-  don't replace each other.
+  source (the shell's sidebar and New chat buttons have their own), never
+  `navigationItem.rightBarButtonItem` directly, so components don't replace
+  each other.
 - A bridge component's name, events and payload keys are a contract with the
   Rails app and the Android app. Change one only together with
   `docs/server-contract.md`, the reference controller in
@@ -38,10 +42,11 @@ Live Wire design system and the chat UI. Read the README here first, then
   the playground if it uses it, and a note for the Android app
   (`crmne/chatwithwork-android`). Where Joe Masilotti's bridge-components has
   the component, keep his messages and only add optional keys.
-- Path configuration rules live in `ChatWithWork/Resources/path-configuration.json`;
-  the server serves a copy as `/configurations/ios_v1.json`, which replaces
-  the bundled one at launch. Change both, and keep `PathConfigurationTests`
-  passing.
+- Path configuration rules live in `ChatWithWork/Resources/path-configuration.json`,
+  an exact copy of the server's `/configurations/ios_v2.json`, which replaces
+  the bundled one at launch (a server test compares them). Change both, and
+  keep `PathConfigurationTests` passing. `ios_v1.json` stays on the server
+  for the tab builds.
 - Colors come from `Palette` (Live Wire's tokens); native text uses the
   system font. Check UI changes in light and dark mode.
 - Declare every language the web app serves in `CFBundleLocalizations` and

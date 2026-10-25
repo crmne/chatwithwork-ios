@@ -1,16 +1,18 @@
 # Chat with Work for iOS
 
-The iPhone and iPad app for [Chat with Work](https://chatwithwork.com), the
-private AI assistant for your work: one place to ask about your documents,
-mail and chats wherever they live, hosted in the EU or on your own servers.
+The iPhone and iPad app for [Chat with Work](https://chatwithwork.com), your
+work agent: it searches, reads and, with your approval of each change, works
+in the tools you already use, hosted in the EU or on your own servers.
 
 The app is built with [Hotwire Native](https://native.hotwired.dev). Its
 screens are the web app's own pages, so every feature the web app gains
 reaches the app without a release, and it goes native wherever that makes it
-feel like an iOS app: a tab bar with a navigator per tab, large titles, sheets,
-a welcome screen, native menus, alerts, toasts, haptics, search, the share
-sheet, sign-in through the system's secure browser sheet, push notifications
-and universal links.
+feel like an iOS app: it opens on a new chat, with a native sidebar that
+slides in from the left (your chats, projects, what waits for you, Bots, and
+Settings), large titles, sheets, a welcome screen, native menus, alerts,
+toasts, haptics, search, the share sheet, sign-in and connecting services
+through the system's secure browser sheet, push notifications and universal
+links.
 
 What the server has to do for all of that is written down in
 [docs/server-contract.md](docs/server-contract.md).
@@ -76,10 +78,9 @@ builds ignore the first:
 |---|---|
 | `-CWWBaseURL <url>` | use another server (or set `CWW_BASE_URL` in the scheme's environment) |
 | `-CWWResetState YES` | start as a fresh install: no cookies, no remembered sign-in or organization |
-| `-CWWAssumeSignedIn YES` | start in the tab shell, as after signing in |
-| `-CWWStartTab projects` | start on another tab (`chats`, `projects`, `settings`; Debug only) |
+| `-CWWAssumeSignedIn YES` | start in the signed-in shell, as after signing in |
 | `-CWWToastSeconds 30` | keep notices up that long (Debug only; the UI tests tap them away) |
-| `-CWWAskForNotifications NO` | don't offer notifications after signing in (UI tests that aren't about it) |
+| `-CWWAskForNotifications NO` | never offer notifications (UI tests that aren't about it) |
 
 Push notifications and universal links need the Push Notifications and
 Associated Domains capabilities on the App ID, which automatic signing adds
@@ -90,7 +91,8 @@ from `ChatWithWork/Resources/ChatWithWork.entitlements`.
 ```
 ChatWithWork/
   App/            launch, the scene, the environment, AppShell (what the window shows)
-  Navigation/     tabs, the signed-out flow, web screens, routes
+  Navigation/     the signed-out flow, web screens, routes
+  Sidebar/        the signed-in shell: one chat screen and the native sidebar
   Bridge/         the bridge components (native halves)
   Interface/      Live Wire colors, appearance, toasts, the error screen
   Notifications/  push notifications
@@ -103,14 +105,17 @@ docs/             the server contract and design notes
 ```
 
 - **AppShell** owns the window and switches between the signed-out welcome
-  screen (with the server's sign-in pages as sheets) and the tab shell. It is
+  screen (with the server's sign-in pages as sheets) and the sidebar shell. It is
   every navigator's delegate and watches their traffic for what the server
   says: a 401 or the sign-in page means no session, a recede while signed out
   means signed in, a link into another organization means switching. Each
   change rebuilds the shell rather than patching it.
-- **Tabs**: Chats, Projects and Settings each own a navigator and load
-  lazily. New chat is an action that opens the new chat page as a sheet over
-  Chats.
+- **SidebarShell**: one navigator whose root is always a chat (the path
+  configuration replaces the root for every chat page), with the sidebar
+  beside it, which slides in from the left and pushes the chat aside. The
+  sidebar is SwiftUI, drawn from the server's `/native/sidebar` JSON, fetched
+  with the web views' own cookies (`SidebarStore`). Bots, projects and other
+  pages are pushed over the chat; Settings and forms are sheets.
 - **Web screens** are plain `HotwireWebViewController`s configured from
   outside (`WebScreen`), never subclassed: a subclass recreating the bridge
   delegate is what crashed Cluster Headache Tracker's app. The web view
@@ -120,11 +125,13 @@ docs/             the server contract and design notes
 - **Bridge components**: Joe Masilotti's `alert`, `review-prompt` and `theme`
   as they are; iOS versions of `button`, `menu`, `search`, `form`, `share`,
   `toast` and `haptic` with his messages, which share the navigation bar
-  instead of replacing each other; and three of Chat with Work's own:
+  instead of replacing each other; and four of Chat with Work's own:
   `context-menu` (a message's actions), `auth-session` (sign-ins in the
-  system browser sheet) and `notification-token` (push).
+  system browser sheet), `notification-token` (push) and `sidebar` (the
+  page saying the chat list changed).
 - **Path configuration**: bundled in `Resources/path-configuration.json`,
-  replaced at launch by the server's `/configurations/ios_v1.json`.
+  replaced at launch by the server's `/configurations/ios_v2.json`, of which
+  it is an exact copy.
 
 ## The playground
 
@@ -140,8 +147,8 @@ python3 Playground/server.py --open     # every request signed in
 ```
 
 then run the app with `-CWWBaseURL http://localhost:8765`, or run the UI
-tests, whose `PlaygroundTests` sign in, open a chat, use its menus and the
-composer, and visit every tab.
+tests, whose `PlaygroundTests` sign in, use the sidebar, open a chat, use its
+menus and the composer, and visit Bots and Settings.
 
 ## Releasing
 

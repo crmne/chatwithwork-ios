@@ -31,6 +31,7 @@ The iOS repository carries working references for the web half:
 | 5 | [Universal links](#8-universal-links) | Links in emails opening the app |
 | 6 | [Push notifications](#9-push-notifications) | "A change is waiting for your approval" |
 | 7 | [Sign-in with a provider and connecting services](#10-sign-in-with-a-provider-and-connecting-services) | Google sign-in and connector OAuth from the app |
+| 8 | [The sidebar](#11-the-sidebar) | builds that list `sidebar`: no tabs, one chat screen, the native sidebar |
 
 Steps 1 to 4 are enough for a first TestFlight build. Until step 7 ships,
 hide the "Sign in with …" buttons and the connectors' Connect buttons in the
@@ -270,7 +271,7 @@ sit in the later utilities layer.
 ## 4. Authentication
 
 The app shows a native welcome screen when there's no session, the server's
-sign-in and sign-up pages as sheets over it, and rebuilds every tab after a
+sign-in and sign-up pages as sheets over it, and rebuilds its shell after a
 sign-in. The server's part:
 
 ### 401 instead of a redirect
@@ -309,7 +310,7 @@ end
 Every way of signing in (password, Google, Slack or Dropbox sign-in, a
 password reset, accepting an invitation, confirming an email that signs in)
 ends in `after_sign_in_path_for`. In the apps it answers with Turbo's recede
-location, which the app takes as "signed in, rebuild the tabs":
+location, which the app takes as "signed in, rebuild the shell":
 
 ```ruby
 # app/controllers/concerns/authentication.rb
@@ -326,7 +327,7 @@ end
 (`Turbo::Native::NavigationController#recede`); nothing else to add. If a
 stored location exists (an invitation link opened before signing in), the app
 opens that page in its sign-in sheet; once it leads into an organization, the
-app rebuilds the tabs there.
+app rebuilds the shell there.
 
 The app recognizes a successful sign-in in three ways, so any of them works:
 a visit to `/recede_historical_location`, a page inside an organization
@@ -371,26 +372,35 @@ or without pull to refresh), and load the server's copy on every launch, which
 **replaces** the bundled one entirely once it loads. Serve them as static
 files:
 
-- `public/configurations/ios_v1.json`: a copy of
-  `ChatWithWork/Resources/path-configuration.json` from the iOS repo.
-- `public/configurations/android_v1.json`: the Android repo's equivalent.
+- `public/configurations/ios_v2.json`: the rules of the sidebar builds
+  (section 11). `ChatWithWork/Resources/path-configuration.json` in the iOS
+  repo is an exact copy of it (a server test compares them).
+- `public/configurations/ios_v1.json`: the tab builds' rules, kept for builds
+  from before the sidebar, unchanged.
+- `public/configurations/android_v2.json` and `android_v1.json`: the Android
+  repo's equivalents.
 
 Change a file to change navigation without an app release. Bump the name
-(`ios_v2.json`) only when old app builds must not read the new rules; keep
-serving the old name for them.
+only when old app builds must not read the new rules (as v2 did: a tab build
+reading "replace the root" for every chat would lose its list); keep serving
+the old name for them.
 
-The iOS rules, in order (later matches override earlier ones; patterns are
-regular expressions matched against the path and query, without anchoring
-unless written):
+The iOS rules (v2), in order (later matches override earlier ones; patterns
+are regular expressions matched against the path and query, without
+anchoring unless written):
 
-| Pattern | Context | Pull to refresh | Notes |
-|---|---|---|---|
-| `.*` | default (push) | on | |
-| `/new(\?\|$)`, `/edit(\?\|$)` | modal (`large` sheet) | off | every new and edit form |
-| `^/users/sign_in`, `^/users/sign_up`, `^/users(\?\|$)`, `^/users/password…`, `^/users/confirmation…`, `^/users/unlock…` | modal | off | the sign-in pages |
-| `/chats/new(\?\|$)` | modal | off | swipe down dismisses |
-| `/chats/\d+(\?\|#\|$)`, `^/shared/` | default | off | a conversation scrolls to load history, not to refresh |
-| `/chats(\?\|$)`, `/projects(\?\|$)`, `/settings(\?\|$)` | default | on | tab roots |
+| Pattern | Context | Presentation | Pull to refresh | Notes |
+|---|---|---|---|---|
+| `.*` | default (push) | | on | |
+| `/new(\?\|$)`, `/edit(\?\|$)` | modal (`large` sheet) | | off | every new and edit form |
+| `^/users/sign_in`, `^/users/sign_up`, `^/users(\?\|$)`, `^/users/password…`, `^/users/confirmation…`, `^/users/unlock…` | modal | | off | the sign-in pages |
+| `/chats/new(\?\|$)`, `/chats/\d+(\?\|#\|$)` | default | `replace_root` | off | a chat is always the one screen; nothing stacks under it |
+| `^/shared/` | default | | off | |
+| `/settings(\?\|$)` | modal (`large` sheet) | | on | swipe down dismisses; its sections push inside the sheet |
+| `/chats(\?\|$)`, `/projects(\?\|$)`, `/bots(\?\|$)` | default | | on | pushed over the chat |
+
+v1, for the tab builds, opened `/chats/new` as a sheet, pushed chats, and
+treated `/chats`, `/projects` and `/settings` as tab roots.
 
 Hotwire Native adds its own rules for `/recede_historical_location`,
 `/resume_historical_location` and `/refresh_historical_location` after these.
@@ -423,7 +433,7 @@ Android ignores, are marked "iOS". Every message the bridge sends also carries
 
 | Component | Web → app | App → web | Stimulus controller |
 |---|---|---|---|
-| `button` | `left` or `right` `{title, iosImage?, androidImage?, color?, nativeAction?}`; `disconnect` | reply to `left`/`right` when tapped: click the element | `bridge--button` |
+| `button` | `left` or `right` `{title, iosImage?, androidImage?, color?, nativeAction?}`; `disconnect` | reply to `left`/`right` when tapped: click the element. Sidebar builds leave out a button whose `nativeAction` is `new-chat`: their bar has its own | `bridge--button` |
 | `menu` | `connect` `{items: [{title, iosImage?, androidImage?, destructive?, checked?, nativeAction?}], color?, side?, label?, iosImage?, header?}`; `disconnect` | reply to `connect` `{index}`: click that item | `bridge--menu` |
 | `search` | `connect` `{placeholder?}` | reply to `connect` `{query}` on every change | `bridge--search` |
 | `form` | `connect` `{title, color?}`; `disableSubmit`; `enableSubmit`; `disconnect` | reply to `connect` when tapped: click the submit button | `bridge--form` |
@@ -435,7 +445,8 @@ Android ignores, are marked "iOS". Every message the bridge sends also carries
 | `review-prompt` | `prompt` | none | not used yet |
 | `context-menu` | `show` `{items: [{title, iosImage?, androidImage?, destructive?, copy?, copyHtml?, nativeAction?}], rect: {x, y, width, height}, scroll: {x, y}, title?}` | reply to `show` `{index}`: click that item (not for `copy` items) | `bridge--context-menu` |
 | `auth-session` | `start` `{url, ephemeral?}`; `cancel` | reply to `start` `{url}` (the callback URL) or `{error}`: `canceled` \| `invalid_url` \| `unavailable` \| `failed` | `bridge--auth-session` |
-| `notification-token` | `connect`; `get`; `openSettings` | reply to `connect` and `get`: `{status, token?, platform, environment, appId}` | `bridge--notification-token` |
+| `notification-token` | `connect`; `get`; `offer` `{reason}` (`approval` or `answer`); `openSettings` | reply to `connect`, `get` and `offer`: `{status, token?, platform, environment, appId}` | `bridge--notification-token` |
+| `sidebar` | `connect` `{}`; `changed` `{}` | none | `bridge--sidebar` (section 11) |
 
 Rules for every component:
 
@@ -592,8 +603,10 @@ click.
 
 ### New chat (`chats/new`)
 
-It opens as a sheet. After the first message the server redirects to the new
-chat (as now); the app closes the sheet and pushes the chat. Nothing else to
+In sidebar builds it's the shell's root, where the app opens; in tab builds
+it opens as a sheet. After the first message the server redirects to the new
+chat (as now); the chat replaces it as the root (a tab build closes the
+sheet and pushes the chat). Nothing else to
 change, except that `MessagesController#create`'s HTML fallback
 (`redirect_to @chat`) must stay a 303 for Turbo.
 
@@ -635,8 +648,10 @@ The web's settings is a side navigation beside the open tab. In the apps:
   </div>
   ```
 
-  Link to `chats_path` rather than `new_chat_path`: the app rebuilds its tabs
-  inside the organization a link leads into, and lands on the chat list.
+  Link to `chats_path` rather than `new_chat_path`: the app rebuilds its shell
+  inside the organization a link leads into. A tab build lands on the chat
+  list; a sidebar build on that organization's new chat (the sidebar's own
+  switcher links to `new_chat_path` directly).
 - Forms that save (Account, notification preferences, MCP servers) keep their
   web buttons; the ones in sheets (new and edit pages) use `bridge--form`.
 
@@ -698,9 +713,10 @@ Nothing to do, but worth knowing:
   (`/rails/active_storage/...`) are downloaded with the person's session and
   open in Quick Look, which shows PDFs, images and Office documents with
   Share, Save to Files and Print.
-- A link to another tab's list (`/482139075/projects` from a chat) switches
-  tabs instead of pushing a copy of the list.
-- A link into another organization rebuilds the tabs there.
+- In tab builds, a link to another tab's list (`/482139075/projects` from a
+  chat) switches tabs instead of pushing a copy of the list. Sidebar builds
+  push it over the chat.
+- A link into another organization rebuilds the shell there.
 - `recede_or_redirect_to(url, notice:)`, `refresh_…` and `resume_…` show the
   notice (or `alert`) as a toast.
 
@@ -773,21 +789,34 @@ waiting for your answer" for MCP elicitation.
 
 ### Asking
 
-The app offers notifications once per install, after the first sign-in (or
-at the first launch of a build that has this, for someone already signed
-in): a short native explanation ("Turn on notifications?", with Not now and
-Continue), then iOS's own prompt if the person continues. iOS asks only once
-anyway; afterwards Settings › Notifications is the way to turn them on.
-Android does the same on Android 13 and later, where `POST_NOTIFICATIONS`
-is a runtime permission; earlier versions have nothing to ask.
+The app offers notifications once per install, at the moment they help, never
+right after signing in. The layout's hidden `notification-token` element
+(with `data-bridge--notification-token-offers-value="true"`) sends `offer`
+the first time a chat page shows a change or question waiting for the person
+(`.thinking--approval`, reason `approval`), or an answer still working after
+15 seconds (reason `answer`). The app then shows a short native explanation,
+"Want a nudge when it's ready?", worded for the reason:
+
+- `approval`: "Chat with Work can tell you when a change waits for your
+  approval, so you can leave the app while it works."
+- `answer`: "Chat with Work can tell you when an answer is ready, so you can
+  leave the app while it works."
+
+with Not now and Continue, then iOS's own prompt if the person continues. It
+replies to `offer` as to `get`. An offer the app doesn't make (it offered
+before, or iOS has its answer) replies at once with the current state. iOS
+asks only once anyway; afterwards Settings › Notifications is the way to turn
+them on. Android does the same on Android 13 and later, where
+`POST_NOTIFICATIONS` is a runtime permission; earlier versions have nothing
+to ask. (Builds before `offer` asked once after the first sign-in.)
 
 ### Registering a device
 
 The app never talks to the server on its own. A page asks it for a token
 through `notification-token` and posts it with the person's session and CSRF
 token (`web/controllers/bridge/notification_token_controller.js`). When the
-person allows notifications anywhere but the page itself (the offer after
-sign-in, or another page's Turn on), the app answers the latest `connect` of
+person allows notifications anywhere but the page itself (an offer, or
+another page's Turn on), the app answers the latest `connect` of
 every `notification-token` on screen again with the new state, so the page
 registers the token without waiting for the next page (the bridge keeps a
 message's callback, so a second reply reaches it):
@@ -871,7 +900,8 @@ file name. The organization's name and the service's name are fine.
 ```
 
 - `path` (required): the page to open, on this server, starting with `/`.
-  The app opens it in the right tab, and inside the right organization.
+  The app opens it inside the right organization (a chat as the root of the
+  sidebar shell, other pages over it).
 - `thread-id` groups a chat's notifications.
 - `kind`: `approval_waiting` or `input_requested` (body: "A question is
   waiting for your answer in Notion.").
@@ -895,7 +925,19 @@ cookies are Safari's, not the app's. The server hands the flow over to that
 sheet with a one-time URL, and the sheet hands the result back by redirecting
 to the app's callback scheme, `chatwithwork://`.
 
-**Until this ships**, hide in the apps the "Sign in with Google / Slack /
+**Sidebar builds** (section 11) get these flows from the ones Chat with
+Work Desktop uses (`Native::SignInsController`, `Native::HandoffsController`,
+`DesktopHandBack`), which also accept the apps' callbacks
+`chatwithwork://sign-in` and `chatwithwork://handoff`. The page hands any form
+that leaves for a vendor's sign-in to `auth-session` `start` with a
+`/native/handoffs/<token>` URL, and provider sign-in forms with a
+`/native/sign_ins/new?...&callback=chatwithwork://sign-in` URL, both
+**non-ephemeral**, so the sheet uses Safari's own chatwithwork.com session:
+the person signs in there once, and each later connection is one tap. The
+callback URLs below are unchanged. The rest of this section is the original
+design, kept for the record.
+
+**In tab builds**, hide in the apps the "Sign in with Google / Slack /
 Dropbox" buttons (`devise/sessions/new`, `devise/registrations/new`) and each
 connector's Connect and Reconnect buttons (`shared/_connector`,
 `shared/_connect_choice`, the connect dialog), replacing them with "Connect
@@ -1039,6 +1081,87 @@ changing access work in the app as they are.
 
 The scheme is `CWW_CALLBACK_SCHEME` in the iOS build settings; the same on
 Android.
+
+## 11. The sidebar
+
+Builds that register the `sidebar` bridge component (so the user agent's
+`bridge-components` lists it) drop the tab bar. `native_app.supports?(:sidebar)`
+is the server's switch for anything that differs.
+
+### The shape
+
+- **One chat screen.** One navigator whose root is always a chat: the app
+  opens on the organization's new chat (`links.new_chat` from the JSON below,
+  remembered per organization, so it starts in the last list's project), or,
+  launched again within ten minutes of leaving a chat that is still answering
+  or waiting, on that chat. `/chats/new` and `/chats/<number>` replace the root
+  (path configuration v2), so switching chats never stacks screens and the
+  web view, shared by every screen, never reloads the app. Bots, projects and
+  other pages are pushed over the chat; Settings and every form are sheets.
+- **The bar.** The sidebar button on the leading side of the root
+  (`sidebar.left`), New chat on the trailing side of every main screen
+  (`square.and.pencil`), and the page's own `button`, `menu`, `form` and
+  `share` beside them. A page's `button` with `nativeAction: "new-chat"` is
+  left out.
+- **The sidebar** slides in from the left and pushes the chat aside, opened by
+  the bar's button or a swipe from the screen's left edge (on a root screen
+  with nothing over it), closed by a tap or a swipe on the chat, or by picking
+  something. Top to bottom: the list switcher (`list`, "Project" or
+  "Showing"; its menu lists `lists`, then All projects… and New project), a
+  search field (titles, natively; the first search loads `all=1`), New chat,
+  Waiting for you (`waiting`, with an attention dot and count; it opens the
+  list of `waiting.items`), Bots (`links.bots`, with `bots`' count, dot, or
+  next run), Pinned (`pins`), then the chats under their `group` headings
+  with a live dot while `state` is `processing` and an attention dot while
+  `waiting`, the next page loading from `next` near the end. At the foot,
+  the person and the organization; its menu lists `organizations` (each
+  opening its `url`), All organizations, New organization, and Settings.
+
+### The JSON
+
+`GET /:account/native/sidebar` (`Native::SidebarsController`), with
+`Accept: application/json`, the web view's cookies and the app's user agent:
+no token of its own. `list=<key>` picks the list (the app remembers the
+choice per organization), `all=1` returns every chat in it, and `next` is the
+path of the following page. A signed-out request gets `401`.
+
+```json
+{
+  "organization": {"id": "482139075", "name": "Northwind Studio", "initials": "NS"},
+  "organizations": [{"id": "482139075", "name": "Northwind Studio", "initials": "NS", "current": true, "role": "admin", "url": "/482139075/chats/new"}],
+  "person": {"name": "Maya Hart", "email": "maya@northwind.example", "initials": "MH", "avatar_url": null},
+  "list": {"key": "recent", "name": "Private chats", "kind": "recent", "hq": false},
+  "lists": [{"key": "recent", "name": "Private chats", "kind": "recent", "hq": false, "pinned": false, "current": true}],
+  "links": {"new_chat": "/482139075/chats/new", "bots": "/482139075/bots", "settings": "/482139075/settings",
+            "projects": "/482139075/projects", "new_project": "/482139075/projects/new",
+            "organizations": "/accounts", "new_organization": "/accounts/new"},
+  "waiting": {"count": 1, "items": [{"title": "Launch date in #launch", "url": "/482139075/chats/42", "kind": "approval", "project": "Website relaunch"}]},
+  "bots": {"count": 0, "attention": false, "next_run": "08:30"},
+  "pins": [CHAT],
+  "chats": [CHAT],
+  "next": "/482139075/native/sidebar?list=recent&before=41&asked=2026-10-24T09:00:00.000000Z"
+}
+```
+
+where `CHAT` is `{"number": 42, "title": "…", "url": "/482139075/chats/42",
+"state": "idle", "waiting": false, "project": "Website relaunch" or null,
+"asked_at": "2026-10-25T08:12:00Z", "group": "Today"}`. A list's `kind` is
+`recent`, `all` or `project`; a waiting item's `approval`, `question` or
+`bot`; a chat's `state` `idle`, `processing` or `error`. Links that don't
+apply are `null` (a guest's `new_chat`, `bots`, `projects` and
+`new_project`), and so is `bots` for a guest. Every URL is a path on this
+server.
+
+### Keeping it current
+
+The app fetches the JSON when the sidebar opens (if anything changed since),
+when the app returns to the foreground, every five seconds while the sidebar
+is open and one of its chats is working, and when a page says so: every
+signed-in page in these builds carries one hidden
+`<div data-controller="bridge--sidebar">`, subscribed to the person's own
+sidebar streams, which sends `changed` (debounced) when a stream message for
+the web's sidebar arrives. The app marks the list stale and refetches if the
+sidebar is open.
 
 ## Testing the contract
 
