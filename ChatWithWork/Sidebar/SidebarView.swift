@@ -174,7 +174,7 @@ struct SidebarView: View {
                         HStack(spacing: 8) {
                             Group {
                                 if item.kind == "bot" {
-                                    BotMark(size: 15)
+                                    BotMark(size: 16)
                                 } else {
                                     Image(systemName: waitingSymbol(item.kind)).font(.footnote)
                                 }
