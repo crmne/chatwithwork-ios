@@ -153,10 +153,16 @@ menus and the composer, and visit Bots and Settings.
 ## Releasing
 
 Every push to main reaches TestFlight: Xcode Cloud's "TestFlight" workflow
-archives the ChatWithWork scheme (Release, production) and uploads it to
-App Store Connect for the Internal Testing group. `ci_scripts/ci_post_clone.sh`
-gives the build Xcode Cloud's team and build number (`CI_TEAM_ID`,
-`CI_BUILD_NUMBER`), since `Config/Signing.xcconfig` isn't in the repository.
+(product ChatWithWork, started by changes to `main`) archives the
+ChatWithWork scheme (Release, production) and uploads it to App Store
+Connect, where the Internal group, which has every build, gets it after
+processing. `ci_scripts/ci_post_clone.sh` gives the build Xcode Cloud's team
+and build number (`CI_TEAM_ID`, `CI_BUILD_NUMBER`), since
+`Config/Signing.xcconfig` isn't in the repository. The version is
+`MARKETING_VERSION` in `Config/Base.xcconfig`, the version main is working
+towards: bump it once a version goes to App Review. Xcode Cloud numbers
+builds itself, from 10002 up (App Store Connect, Xcode Cloud > ChatWithWork >
+Settings > Build Number), so they stay above the builds uploaded by hand.
 Xcode Cloud signs automatically but can't change App IDs: a new capability
 in the entitlements means enabling it on `com.chatwithwork.app` in the
 developer portal first.
@@ -167,7 +173,9 @@ Connect for TestFlight; `script/upload <path>.xcarchive` uploads an archive
 you already have. It signs in with an App Store Connect API key, never
 Xcode's Accounts, so it works over SSH without signing in again
 ([docs/app-store.md](docs/app-store.md), "Uploading with an API key").
-`script/archive v1.2.3` only archives.
+`script/archive v1.2.3` only archives. App Store Connect wants each build
+number of a version once, growing: for a version Xcode Cloud has already
+built, give a number above its latest (`script/upload v1.2.3 <build>`).
 [docs/app-store.md](docs/app-store.md) has the rest of a submission: the
 listing and screenshots in `fastlane/`, App Privacy answers, the age
 rating, and the demo login for App Review.
