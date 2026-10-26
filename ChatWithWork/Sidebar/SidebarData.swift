@@ -80,8 +80,37 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
         var id: Int { number }
         /// Its row's id among the pins, apart from its row in the list.
         var pinID: String { "pin-\(number)" }
+        /// Its row's id in a section (a chat sits in at most one of them).
+        var sectionRowID: String { "section-chat-\(number)" }
         var isWorking: Bool { state == "processing" }
         var isWaiting: Bool { waiting == true }
+    }
+
+    /// One of the person's own sidebar sections (the server's `ChatSection`):
+    /// a heading of theirs holding this list's chats they put in it, newest
+    /// question first, opened or closed as they left it on any device.
+    struct Section: Decodable, Equatable, Sendable, Identifiable {
+        let id: Int
+        let name: String
+        var collapsed: Bool
+        let chats: [Chat]
+        /// Its Rename page.
+        let editUrl: String?
+        /// POST closes it, DELETE opens it.
+        let collapseUrl: String?
+        /// PATCH with `position` moves it.
+        let positionUrl: String?
+
+        /// Its header's id in the list, apart from any chat's.
+        var rowID: String { "section-\(id)" }
+
+        /// Opening or closing it on the server, sent like a chat's action
+        /// by the page on screen, or nil from a server without the URL.
+        var toggleAction: Action? {
+            collapseUrl.map { url in
+                Action(key: "collapse", title: name, method: collapsed ? "delete" : "post", url: url, iosImage: nil, confirm: nil, destructive: nil)
+            }
+        }
     }
 
     /// One of a chat's actions: `get` opens `url`, any other method goes to
@@ -108,8 +137,14 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
     let waiting: Waiting
     let bots: Bots?
     let pins: [Chat]
+    /// The person's sections, in their order (servers from 2026-10-26);
+    /// `chats` are then the list's chats in none of them.
+    var sections: [Section]?
     let chats: [Chat]
     let next: String?
+
+    /// Every chat it names: pins, the sections' chats and the list's.
+    var everyChatShown: [Chat] { pins + (sections ?? []).flatMap(\.chats) + chats }
 
     static func decode(_ data: Data) throws -> SidebarData {
         let decoder = JSONDecoder()

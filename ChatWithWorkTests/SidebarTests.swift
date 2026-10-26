@@ -66,6 +66,32 @@ struct SidebarTests {
         #expect(old.waiting.url == nil && old.chats[0].actions == nil)
     }
 
+    @Test("reads the person's sections, which older servers leave out")
+    func sections() throws {
+        let sectionsJSON = #""sections": [{"id": 7, "name": "Customers", "collapsed": false, "edit_url": "/482139075/sidebar/sections/7/edit", "collapse_url": "/482139075/sidebar/sections/7/collapse", "position_url": "/482139075/sidebar/sections/7/position", "chats": [{"number": 37, "title": "Initech renewal", "url": "/482139075/chats/37", "state": "processing", "waiting": false, "project": null, "asked_at": "2026-10-25T09:00:00Z", "group": "Today"}]}, {"id": 9, "name": "Hiring", "collapsed": true, "edit_url": "/482139075/sidebar/sections/9/edit", "collapse_url": "/482139075/sidebar/sections/9/collapse", "position_url": "/482139075/sidebar/sections/9/position", "chats": []}], "next": "#
+        let json = Self.json.replacingOccurrences(of: #""next": "#, with: sectionsJSON)
+        let data = try SidebarData.decode(Data(json.utf8))
+        let sections = try #require(data.sections)
+        #expect(sections.map(\.name) == ["Customers", "Hiring"])
+        #expect(!sections[0].collapsed && sections[1].collapsed)
+        #expect(sections[0].chats.map(\.number) == [37])
+        #expect(sections[0].editUrl == "/482139075/sidebar/sections/7/edit")
+        #expect(sections[0].rowID != sections[0].chats[0].sectionRowID)
+
+        // An open section closes with a POST, a closed one opens with a DELETE.
+        #expect(sections[0].toggleAction?.method == "post")
+        #expect(sections[1].toggleAction?.method == "delete")
+        #expect(sections[1].toggleAction?.url == "/482139075/sidebar/sections/9/collapse")
+        #expect(sections[1].toggleAction?.opensPage == false)
+
+        // A chat answering in a section counts as one the sidebar shows.
+        #expect(data.everyChatShown.map(\.number) == [40, 37, 42, 41, 39])
+        #expect(data.appending(data).sections == data.sections)
+
+        let old = try SidebarData.decode(Data(Self.json.utf8))
+        #expect(old.sections == nil)
+    }
+
     @Test("reads a guest's, with what they can't reach left out")
     func guest() throws {
         let json = Self.json

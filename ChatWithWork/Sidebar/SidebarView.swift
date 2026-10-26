@@ -9,14 +9,16 @@ struct SidebarActions {
     var chooseList: (String) -> Void
     /// A chat's action from its long-press menu.
     var perform: (SidebarData.Action) -> Void
+    /// Opens or closes one of the person's sections.
+    var toggleSection: (SidebarData.Section) -> Void
 }
 
 /// The sidebar: the same things in the same order as the web's
 /// (chats/_sidebar_chats, application/_me_menu), drawn natively from
 /// `/native/sidebar`. Which list it's about at the top, search, New chat,
-/// Decisions (what waits for the person), Bots, pins, the chats by latest
-/// question, and the person at the foot. A long press on a chat opens its
-/// menu, as the web row's does.
+/// Decisions (what waits for the person), Bots, pins, the person's own
+/// sections, the chats in none of them by latest question, and the person at
+/// the foot. A long press on a chat opens its menu, as the web row's does.
 struct SidebarView: View {
     @Bindable var store: SidebarStore
     let actions: SidebarActions
@@ -262,16 +264,32 @@ struct SidebarView: View {
             ForEach(data.pins, id: \.pinID) { chat in chatRow(chat, pinned: true) }
         }
 
+        let sections = data.sections ?? []
+        ForEach(sections, id: \.rowID) { section in
+            sectionHeader(section)
+            if !section.collapsed {
+                ForEach(section.chats, id: \.sectionRowID) { chat in chatRow(chat, pinned: false) }
+            }
+        }
+
         if data.chats.isEmpty {
-            Text(data.list.isProject ? "No chats in this project yet." : "No chats yet.")
-                .font(.footnote)
-                .foregroundStyle(Color(Palette.inkMuted))
-                .padding(.horizontal, 8)
-                .padding(.top, 14)
+            if sections.allSatisfy(\.chats.isEmpty) {
+                Text(data.list.isProject ? "No chats in this project yet." : "No chats yet.")
+                    .font(.footnote)
+                    .foregroundStyle(Color(Palette.inkMuted))
+                    .padding(.horizontal, 8)
+                    .padding(.top, 14)
+            }
         } else {
-            ForEach(SidebarData.grouped(data.chats), id: \.label) { group in
-                sectionLabel(group.label)
-                ForEach(group.chats) { chat in chatRow(chat, pinned: false) }
+            if sections.isEmpty {
+                ForEach(SidebarData.grouped(data.chats), id: \.label) { group in
+                    sectionLabel(group.label)
+                    ForEach(group.chats) { chat in chatRow(chat, pinned: false) }
+                }
+            } else {
+                // As the web's sidebar: below the sections, the rest under one heading.
+                sectionLabel("Other chats")
+                ForEach(data.chats) { chat in chatRow(chat, pinned: false) }
             }
             if data.next != nil {
                 ProgressView()
@@ -282,10 +300,47 @@ struct SidebarView: View {
         }
     }
 
+    /// A section's heading, as the web's: a caret, its name and how many
+    /// chats it holds. A tap opens or closes it; a long press offers Rename.
+    private func sectionHeader(_ section: SidebarData.Section) -> some View {
+        Button { withAnimation(.snappy) { actions.toggleSection(section) } } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.bold))
+                    .rotationEffect(.degrees(section.collapsed ? 0 : 90))
+                    .frame(width: 12)
+                Text(section.name)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                Text("\(section.chats.count)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(Color(Palette.inkFaint))
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(Color(Palette.inkMuted))
+            .padding(.horizontal, 8)
+            .padding(.top, 12)
+            .frame(minHeight: 36, alignment: .bottom)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            if let edit = section.editUrl {
+                Button { actions.open(edit) } label: { Label("Rename", systemImage: "pencil") }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(section.name)
+        .accessibilityValue(section.collapsed ? String(localized: "Closed, \(section.chats.count) chats") : String(localized: "Open, \(section.chats.count) chats"))
+        .accessibilityIdentifier("sidebar.section")
+        .accessibilityAddTraits([.isHeader, .isButton])
+    }
+
     @ViewBuilder
     private func searchResults(_ data: SidebarData) -> some View {
         let words = query.lowercased().split(separator: " ")
-        let pool = store.everyChat ?? data.chats
+        // The sections' chats come whole with every page; `all=1` adds the rest.
+        let pool = (data.sections ?? []).flatMap(\.chats) + (store.everyChat ?? data.chats)
         let found = pool.filter { chat in words.allSatisfy { chat.title.lowercased().contains($0) } }
         if found.isEmpty {
             Text(store.everyChat == nil ? "Searching…" : "No chats match.")

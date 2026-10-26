@@ -208,8 +208,17 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
                     }
                 }
             },
-            perform: { [weak self] action in self?.perform(action) }
+            perform: { [weak self] action in self?.perform(action) },
+            toggleSection: { [weak self] section in self?.toggle(section) }
         )
+    }
+
+    /// Opens or closes one of the person's sections: at once here, and on
+    /// the server through the page on screen, so every device shows it so.
+    private func toggle(_ section: SidebarData.Section) {
+        guard let action = section.toggleAction else { return }
+        store.setCollapsed(!section.collapsed, section: section.id)
+        perform(action)
     }
 
     /// A chat's action from the sidebar: a page opens as any link would;
@@ -273,7 +282,7 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(5))
                 guard let self, self.isOpen, !Task.isCancelled else { return }
-                let working = (self.store.data?.chats ?? []).contains { $0.isWorking }
+                let working = (self.store.data?.everyChatShown ?? []).contains { $0.isWorking }
                 if working { await self.store.refresh() }
             }
         }

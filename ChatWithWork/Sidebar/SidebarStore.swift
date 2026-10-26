@@ -100,6 +100,13 @@ final class SidebarStore {
         }
     }
 
+    /// Shows a section opened or closed at once, before the server hears of
+    /// it; the refetch its change causes keeps it so.
+    func setCollapsed(_ collapsed: Bool, section id: Int) {
+        guard let index = data?.sections?.firstIndex(where: { $0.id == id }) else { return }
+        data?.sections?[index].collapsed = collapsed
+    }
+
     func choose(list key: String) async {
         listKey = key
         everyChat = nil
@@ -142,7 +149,7 @@ nonisolated extension SidebarData {
     func appending(_ page: SidebarData) -> SidebarData {
         SidebarData(
             organization: organization, organizations: organizations, person: person, list: list, lists: lists,
-            links: links, waiting: waiting, bots: bots, pins: pins, chats: chats + page.chats.filter { new in !chats.contains { $0.number == new.number } },
+            links: links, waiting: waiting, bots: bots, pins: pins, sections: sections, chats: chats + page.chats.filter { new in !chats.contains { $0.number == new.number } },
             next: page.next
         )
     }

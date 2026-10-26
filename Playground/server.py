@@ -76,6 +76,11 @@ CHATS = {
     35: {"title": "Draft the onboarding checklist", "project": "Onboarding", "when": "Previous 7 days", "processing": False},
     31: {"title": "Find the signed order form from Initech", "project": None, "when": "Previous 7 days", "processing": False},
 }
+# The person's sidebar sections (ChatSection): a heading of theirs and the
+# chats they put in it. Whether one is closed is per session ("collapsed").
+SECTIONS = {
+    7: {"name": "Customers", "chats": [38, 31]},
+}
 PROJECTS = {
     1: {"name": "Acme", "hq": True, "all_access": False, "summary": "Everyone in Acme", "audience": "everyone in Acme", "chats": 12},
     2: {"name": "Acme launch", "hq": False, "all_access": False, "summary": "Invite-only · 4 people", "audience": "4 people", "chats": 7},
@@ -886,6 +891,18 @@ def sidebar_json(handler, account, query):
     for item in lists:
         item["current"] = item["key"] == current["key"]
 
+    # The person's sections, each with this list's chats in it; the list's
+    # chats are then those in none (ChatList#sections, #unsectioned_chats).
+    collapsed = handler.session.setdefault("collapsed", set())
+    listed = dict(chats)
+    sections = [{"id": number, "name": section["name"], "collapsed": number in collapsed,
+                 "chats": [chat_json(n, listed[n]) for n in section["chats"] if n in listed],
+                 "edit_url": f"/{account}/sidebar/sections/{number}/edit",
+                 "collapse_url": f"/{account}/sidebar/sections/{number}/collapse",
+                 "position_url": f"/{account}/sidebar/sections/{number}/position"}
+                for number, section in SECTIONS.items()]
+    sectioned = {n for section in SECTIONS.values() for n in section["chats"]}
+
     waiting = [] if handler.session.get("approval", "waiting") != "waiting" else [
         {"title": CHATS[42]["title"], "url": f"/{account}/chats/42", "kind": "approval", "project": CHATS[42]["project"]}] if 42 in CHATS else []
     initials = lambda name: "".join(word[0] for word in name.split()[:2]).upper()
@@ -902,7 +919,8 @@ def sidebar_json(handler, account, query):
         "waiting": {"count": len(waiting), "items": waiting},
         "bots": {"count": 0, "attention": False, "next_run": "08:30"},
         "pins": [chat_json(n, CHATS[n], group=False) for n in sorted(handler.session["pinned"]) if n in CHATS],
-        "chats": [chat_json(n, c) for n, c in chats],
+        "sections": sections,
+        "chats": [chat_json(n, c) for n, c in chats if n not in sectioned],
         "next": None,
     }
 
@@ -1345,6 +1363,11 @@ class Handler(BaseHTTPRequestHandler):
                 streams.append(turbo_stream("replace", "activity_14", recap_activity(account, number, "passed")))
                 streams.append(turbo_stream("update", "typing_indicator", '<div class="hidden"></div>'))
             return self.send(200, "".join(streams), "text/vnd.turbo-stream.html; charset=utf-8")
+        if m := re.fullmatch(r"/sidebar/sections/(\d+)/collapse", rest):
+            # Sidebar::Sections::CollapsesController: POST closes, DELETE opens.
+            collapsed = self.session.setdefault("collapsed", set())
+            (collapsed.discard if method == "delete" else collapsed.add)(int(m.group(1)))
+            return self.send(204, "", "text/plain")
         if m := re.fullmatch(r"/chats/(\d+)/pin", rest):
             number = int(m.group(1))
             pinned = self.session["pinned"]

@@ -1139,7 +1139,9 @@ is the server's switch for anything that differs.
   web; it opens the Decisions page, `waiting.url`, or, from a server without
   one, the list of `waiting.items`; earlier builds called it "Waiting for
   you"), Bots (`links.bots`, with `bots`' count, dot, or
-  next run), Pinned (`pins`), then the chats under their `group` headings
+  next run), Pinned (`pins`), the person's own sections (`sections`, below),
+  then the chats under their `group` headings (under one "Other chats"
+  heading instead when there are sections, as on the web)
   with a live dot while `state` is `processing` and an attention dot while
   `waiting`, the next page loading from `next` near the end. At the foot,
   the person and the organization; its menu lists `organizations` (each
@@ -1166,6 +1168,7 @@ path of the following page. A signed-out request gets `401`.
   "waiting": {"count": 1, "items": [{"title": "Launch date in #launch", "url": "/482139075/chats/42", "kind": "approval", "project": "Website relaunch"}]},
   "bots": {"count": 0, "attention": false, "next_run": "08:30"},
   "pins": [CHAT],
+  "sections": [SECTION],
   "chats": [CHAT],
   "next": "/482139075/native/sidebar?list=recent&before=41&asked=2026-10-24T09:00:00.000000Z"
 }
@@ -1215,6 +1218,23 @@ there's a `confirm`. Its answer lands on that page: deleting the chat on
 screen replaces it with a new chat (section 7, "Deleting"), anything else
 leaves the screen as it is, and the sidebar follows through `changed`.
 Without `actions` (an older server) a long press does nothing.
+
+**Sections (2026-10-26).** `sections` are the person's own sidebar
+sections (the server's `ChatSection`, its `docs/ui/chat.md`, "Sections"),
+in their order, the same in every list: `SECTION` is `{"id": 7, "name":
+"Customers", "collapsed": false, "chats": [CHAT], "edit_url":
+"/482139075/sidebar/sections/7/edit", "collapse_url":
+"/482139075/sidebar/sections/7/collapse", "position_url":
+"/482139075/sidebar/sections/7/position"}`, its `chats` this list's chats
+in it, newest question first, all of them (not paged). The list's `chats`
+(and `all=1`'s) are then only those in no section. The app draws each
+section after Pinned as a heading (a caret, its name and how many chats it
+holds) with its chats below it unless `collapsed`, then the list's chats
+under "Other chats". A tap on a heading opens or closes it at once and
+sends `collapse_url` to the page on screen like a chat's action (`post`
+closes it, `delete` opens it), so every device shows it the same; a long
+press offers Rename (`edit_url`, a sheet). The search covers the sections'
+chats too. Without `sections` (an older server) the list is as before.
 
 ### Keeping it current
 
