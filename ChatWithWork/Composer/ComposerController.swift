@@ -17,6 +17,8 @@ final class ComposerController: NSObject {
     /// A widget's or a shortcut's "Dictate": the next composer that connects
     /// starts listening.
     static var dictatesOnConnect = false
+    /// Words shared into the app, for the next composer that connects.
+    static var pendingText: String?
     /// Files shared into the app, handed to the next composer that connects.
     static var pendingFiles: [ComposerFile] = []
 
@@ -59,10 +61,23 @@ final class ComposerController: NSObject {
         view.update(state)
         onState?(state)
         guard connected else { return }
+        takePending()
+    }
 
+    /// What a share, a widget or a Live Activity left for the next composer:
+    /// shared words and files, and dictation to start.
+    func takePending() {
+        guard let state = view.state else { return }
         // What the web composer holds already (a shared link, a draft) starts the native field,
         // or sending would replace it.
         if view.textView.text.isEmpty, !state.text.isEmpty { view.append(state.text) }
+        // Shared words join whatever draft is there, unless the server already put them in it.
+        if let shared = Self.pendingText {
+            Self.pendingText = nil
+            if !view.textView.text.contains(shared) {
+                view.append(view.textView.text.isEmpty ? shared : "\n\n" + shared)
+            }
+        }
 
         if !Self.pendingFiles.isEmpty, state.acceptsFiles {
             let files = Self.pendingFiles
@@ -73,6 +88,16 @@ final class ComposerController: NSObject {
             Self.dictatesOnConnect = false
             startDictating()
         }
+    }
+
+    /// The composer of the new chat on screen, if that's what the shell shows.
+    static func onNewChat(_ navigator: UINavigationController) -> ComposerController? {
+        guard navigator.presentedViewController == nil, navigator.viewControllers.count == 1,
+              let screen = navigator.viewControllers.first as? VisitableViewController,
+              AppRoute(url: screen.currentVisitableURL).kind == .newChat,
+              let composer = existing(on: screen), composer.view.state != nil
+        else { return nil }
+        return composer
     }
 
     // MARK: The "+" sheet

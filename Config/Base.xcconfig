@@ -31,6 +31,10 @@ SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor
 // hands a sign-in or a connector back to the app.
 CWW_CALLBACK_SCHEME = chatwithwork
 
+// The app group the share extension hands shared files through. Each
+// build's own: group.com.chatwithwork.app, .staging and .debug.
+CWW_APP_GROUP = group.$(CWW_BUNDLE_IDENTIFIER_BASE)$(CWW_BUNDLE_IDENTIFIER_SUFFIX)
+
 CODE_SIGN_STYLE = Automatic
 
 // Signing.xcconfig is git-ignored: it holds DEVELOPMENT_TEAM and anything

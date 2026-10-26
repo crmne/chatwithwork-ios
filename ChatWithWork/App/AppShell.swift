@@ -82,6 +82,66 @@ final class AppShell: NSObject {
         }
     }
 
+    /// The app's own links (`AppLink`): `chatwithwork://open?path=...` opens a
+    /// page of this server, and `chatwithwork://new-chat` a new chat, which
+    /// starts listening (`dictate=1`), gets what was shared into its
+    /// composer (`title`, `text`, `url`), and takes the shared files the
+    /// share extension left in the app group (`shared`). Sign-in and
+    /// hand-off callbacks belong to the browser sheet and are ignored here.
+    func openAppLink(_ url: URL, attempt: Int = 0) {
+        guard url.scheme == AppLink.scheme else { return }
+        // Launched by the link: let the shell put up its first screen first.
+        if case .signedIn(let shell) = state, shell.navigator.rootViewController.viewControllers.isEmpty, attempt < 20 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in self?.openAppLink(url, attempt: attempt + 1) }
+            return
+        }
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let value = { (name: String) in items.first(where: { $0.name == name })?.value }
+
+        switch url.host() {
+        case "open":
+            guard let path = value("path"), path.hasPrefix("/"), !path.hasPrefix("//") else { return }
+            open(environment.url(path: path))
+        case "new-chat":
+            if value("dictate") == "1" { ComposerController.dictatesOnConnect = true }
+            if let shared = value("shared") {
+                ComposerController.pendingFiles = SharedInbox.take(shared).map { ComposerFile(name: $0.name, type: $0.type, bytes: $0.data) }
+            }
+            // The words wait in the native composer too, whatever the page does with them.
+            // Joined as the server joins them for `/chats/new`, so a composer it filled is recognized.
+            var shared: [String] = []
+            for word in ["title", "text", "url"].compactMap(value).map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) }) where !word.isEmpty && !shared.contains(word) {
+                shared.append(word)
+            }
+            let sharedText = shared.joined(separator: "\n\n")
+            if !sharedText.isEmpty { ComposerController.pendingText = sharedText }
+            // A new chat already on screen takes them as they are.
+            if case .signedIn(let shell) = state, let composer = ComposerController.onNewChat(shell.navigator.rootViewController) {
+                shell.setOpen(false, animated: false)
+                composer.takePending()
+                return
+            }
+            var components = URLComponents()
+            components.path = AppPath.path(AppPath.newChat, in: account ?? currentAccount)
+            // Percent-encoded by hand: URLComponents leaves "+" alone, which the server reads as a space.
+            var allowed = CharacterSet.urlQueryAllowed
+            allowed.remove(charactersIn: "+&=")
+            let prefill = ["title", "text", "url"].compactMap { name in
+                value(name).flatMap { $0.addingPercentEncoding(withAllowedCharacters: allowed) }.map { URLQueryItem(name: name, value: $0) }
+            }
+            components.percentEncodedQueryItems = prefill.isEmpty ? nil : prefill
+            open(environment.url(path: components.string ?? AppPath.newChat))
+        default:
+            break
+        }
+    }
+
+    /// The organization the shell shows, read from its page when it started unprefixed.
+    private var currentAccount: AccountSlug? {
+        guard case .signedIn(let shell) = state, let url = shell.navigator.session.webView.url else { return nil }
+        return AppRoute(url: url).account
+    }
+
     private func route(_ url: URL, in shell: SidebarShell) {
         let route = AppRoute(url: url)
 
@@ -91,7 +151,7 @@ final class AppShell: NSObject {
         }
 
         shell.setOpen(false, animated: false)
-        if route.kind == .newChat {
+        if route.kind == .newChat, url.query() == nil {
             shell.startNewChat()
         } else {
             shell.navigator.route(url)

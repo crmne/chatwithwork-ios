@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		0A0000000000000000000060 /* HotwireNative in Frameworks */ = {isa = PBXBuildFile; productRef = 0A0000000000000000000072 /* HotwireNative */; };
 		0A0000000000000000000061 /* BridgeComponents in Frameworks */ = {isa = PBXBuildFile; productRef = 0A0000000000000000000073 /* BridgeComponents */; };
+		0A0000000000000000000160 /* ChatWithWorkWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0A0000000000000000000130 /* ChatWithWorkWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		0A0000000000000000000161 /* ChatWithWorkShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0A0000000000000000000131 /* ChatWithWorkShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,7 +28,36 @@
 			remoteGlobalIDString = 0A0000000000000000000040;
 			remoteInfo = ChatWithWork;
 		};
+		0A0000000000000000000180 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0A0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0A0000000000000000000140;
+			remoteInfo = ChatWithWorkWidgets;
+		};
+		0A0000000000000000000181 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0A0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0A0000000000000000000141;
+			remoteInfo = ChatWithWorkShare;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0A0000000000000000000156 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				0A0000000000000000000160 /* ChatWithWorkWidgets.appex in Embed Foundation Extensions */,
+				0A0000000000000000000161 /* ChatWithWorkShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		0A0000000000000000000020 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
@@ -36,6 +67,8 @@
 		0A0000000000000000000030 /* ChatWithWork.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ChatWithWork.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0A0000000000000000000031 /* ChatWithWorkTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChatWithWorkTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0A0000000000000000000032 /* ChatWithWorkUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChatWithWorkUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		0A0000000000000000000130 /* ChatWithWorkWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ChatWithWorkWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		0A0000000000000000000131 /* ChatWithWorkShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ChatWithWorkShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -46,6 +79,21 @@
 				Resources/Info.plist,
 			);
 			target = 0A0000000000000000000040 /* ChatWithWork */;
+		};
+		0A0000000000000000000113 /* Exceptions for "Widgets" folder in "ChatWithWorkWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 0A0000000000000000000140 /* ChatWithWorkWidgets */;
+		};
+		0A0000000000000000000114 /* Exceptions for "ShareExtension" folder in "ChatWithWorkShare" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				ShareExtension.entitlements,
+			);
+			target = 0A0000000000000000000141 /* ChatWithWorkShare */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -66,6 +114,27 @@
 		0A0000000000000000000012 /* ChatWithWorkUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ChatWithWorkUITests;
+			sourceTree = "<group>";
+		};
+		0A0000000000000000000110 /* Widgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0A0000000000000000000113 /* Exceptions for "Widgets" folder in "ChatWithWorkWidgets" target */,
+			);
+			path = Widgets;
+			sourceTree = "<group>";
+		};
+		0A0000000000000000000111 /* ShareExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0A0000000000000000000114 /* Exceptions for "ShareExtension" folder in "ChatWithWorkShare" target */,
+			);
+			path = ShareExtension;
+			sourceTree = "<group>";
+		};
+		0A0000000000000000000112 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -94,6 +163,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0A0000000000000000000151 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0A0000000000000000000154 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -104,6 +187,9 @@
 				0A0000000000000000000010 /* ChatWithWork */,
 				0A0000000000000000000011 /* ChatWithWorkTests */,
 				0A0000000000000000000012 /* ChatWithWorkUITests */,
+				0A0000000000000000000112 /* Shared */,
+				0A0000000000000000000110 /* Widgets */,
+				0A0000000000000000000111 /* ShareExtension */,
 				0A0000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -114,6 +200,8 @@
 				0A0000000000000000000030 /* ChatWithWork.app */,
 				0A0000000000000000000031 /* ChatWithWorkTests.xctest */,
 				0A0000000000000000000032 /* ChatWithWorkUITests.xctest */,
+				0A0000000000000000000130 /* ChatWithWorkWidgets.appex */,
+				0A0000000000000000000131 /* ChatWithWorkShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -139,13 +227,17 @@
 				0A0000000000000000000050 /* Sources */,
 				0A0000000000000000000051 /* Frameworks */,
 				0A0000000000000000000052 /* Resources */,
+				0A0000000000000000000156 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				0A0000000000000000000182 /* PBXTargetDependency */,
+				0A0000000000000000000183 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				0A0000000000000000000010 /* ChatWithWork */,
+				0A0000000000000000000112 /* Shared */,
 			);
 			name = ChatWithWork;
 			packageProductDependencies = (
@@ -198,6 +290,48 @@
 			productReference = 0A0000000000000000000032 /* ChatWithWorkUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		0A0000000000000000000140 /* ChatWithWorkWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0A0000000000000000000190 /* Build configuration list for PBXNativeTarget "ChatWithWorkWidgets" */;
+			buildPhases = (
+				0A0000000000000000000150 /* Sources */,
+				0A0000000000000000000151 /* Frameworks */,
+				0A0000000000000000000152 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				0A0000000000000000000110 /* folder */,
+				0A0000000000000000000112 /* Shared */,
+			);
+			name = ChatWithWorkWidgets;
+			productName = ChatWithWorkWidgets;
+			productReference = 0A0000000000000000000130 /* ChatWithWorkWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		0A0000000000000000000141 /* ChatWithWorkShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0A0000000000000000000191 /* Build configuration list for PBXNativeTarget "ChatWithWorkShare" */;
+			buildPhases = (
+				0A0000000000000000000153 /* Sources */,
+				0A0000000000000000000154 /* Frameworks */,
+				0A0000000000000000000155 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				0A0000000000000000000111 /* folder */,
+				0A0000000000000000000112 /* Shared */,
+			);
+			name = ChatWithWorkShare;
+			productName = ChatWithWorkShare;
+			productReference = 0A0000000000000000000131 /* ChatWithWorkShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -218,6 +352,12 @@
 					0A0000000000000000000042 = {
 						CreatedOnToolsVersion = 27.0;
 						TestTargetID = 0A0000000000000000000040;
+					};
+					0A0000000000000000000140 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					0A0000000000000000000141 = {
+						CreatedOnToolsVersion = 27.0;
 					};
 				};
 			};
@@ -242,6 +382,8 @@
 				0A0000000000000000000040 /* ChatWithWork */,
 				0A0000000000000000000041 /* ChatWithWorkTests */,
 				0A0000000000000000000042 /* ChatWithWorkUITests */,
+				0A0000000000000000000140 /* ChatWithWorkWidgets */,
+				0A0000000000000000000141 /* ChatWithWorkShare */,
 			);
 		};
 /* End PBXProject section */
@@ -262,6 +404,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0A0000000000000000000058 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0A0000000000000000000152 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0A0000000000000000000155 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -292,6 +448,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0A0000000000000000000150 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0A0000000000000000000153 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -304,6 +474,16 @@
 			isa = PBXTargetDependency;
 			target = 0A0000000000000000000040 /* ChatWithWork */;
 			targetProxy = 0A0000000000000000000081 /* PBXContainerItemProxy */;
+		};
+		0A0000000000000000000182 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0A0000000000000000000140 /* ChatWithWorkWidgets */;
+			targetProxy = 0A0000000000000000000180 /* PBXContainerItemProxy */;
+		};
+		0A0000000000000000000183 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0A0000000000000000000141 /* ChatWithWorkShare */;
+			targetProxy = 0A0000000000000000000181 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -604,6 +784,120 @@
 			};
 			name = Release;
 		};
+		0A00000000000000000001A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = Ink;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Widgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(CWW_BUNDLE_IDENTIFIER_BASE)$(CWW_BUNDLE_IDENTIFIER_SUFFIX).widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Debug;
+		};
+		0A00000000000000000001A1 /* Staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = Ink;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Widgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(CWW_BUNDLE_IDENTIFIER_BASE)$(CWW_BUNDLE_IDENTIFIER_SUFFIX).widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Staging;
+		};
+		0A00000000000000000001A2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = Ink;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Widgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(CWW_BUNDLE_IDENTIFIER_BASE)$(CWW_BUNDLE_IDENTIFIER_SUFFIX).widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
+		0A00000000000000000001A3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(CWW_BUNDLE_IDENTIFIER_BASE)$(CWW_BUNDLE_IDENTIFIER_SUFFIX).share";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Debug;
+		};
+		0A00000000000000000001A4 /* Staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(CWW_BUNDLE_IDENTIFIER_BASE)$(CWW_BUNDLE_IDENTIFIER_SUFFIX).share";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Staging;
+		};
+		0A00000000000000000001A5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(CWW_BUNDLE_IDENTIFIER_BASE)$(CWW_BUNDLE_IDENTIFIER_SUFFIX).share";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -643,6 +937,26 @@
 				0A00000000000000000000A9 /* Debug */,
 				0A00000000000000000000AA /* Staging */,
 				0A00000000000000000000AB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0A0000000000000000000190 /* Build configuration list for PBXNativeTarget "ChatWithWorkWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0A00000000000000000001A0 /* Debug */,
+				0A00000000000000000001A1 /* Staging */,
+				0A00000000000000000001A2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0A0000000000000000000191 /* Build configuration list for PBXNativeTarget "ChatWithWorkShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0A00000000000000000001A3 /* Debug */,
+				0A00000000000000000001A4 /* Staging */,
+				0A00000000000000000001A5 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

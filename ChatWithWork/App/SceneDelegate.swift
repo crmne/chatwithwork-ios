@@ -27,9 +27,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         ToastCenter.shared.attach(to: windowScene)
 
         let link = connectionOptions.userActivities.first(where: { $0.activityType == NSUserActivityTypeBrowsingWeb })?.webpageURL
+        let appLink = connectionOptions.urlContexts.first?.url
         let start = {
             shell.start()
             if let link { shell.open(link) }
+            if let appLink { shell.openAppLink(appLink) }
         }
 
         if LaunchOptions.resetsState {
@@ -42,6 +44,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         } else {
             start()
         }
+    }
+
+    /// The app's own links: a widget, a Live Activity, the share extension.
+    func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
+        guard let url = contexts.first?.url else { return }
+        shell?.openAppLink(url)
     }
 
     /// Universal links while the app is running.

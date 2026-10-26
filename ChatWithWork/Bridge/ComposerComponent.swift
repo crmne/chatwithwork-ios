@@ -24,6 +24,9 @@ final class ComposerComponent: BridgeComponent {
             guard let self else { return }
             Task { _ = try? await self.reply(to: "connect", with: action) }
         }
+        composer.onState = { state in
+            LiveActivities.shared.noteState(state, chatURL: message.metadata.flatMap { URL(string: $0.url) })
+        }
         composer.update(state, connected: message.event == "connect")
     }
 }
