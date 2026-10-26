@@ -2,13 +2,16 @@ import ActivityKit
 import UIKit
 
 /// Live Activities for answers that keep working while the person is
-/// elsewhere: the organization, "Answering" and how long, never the chat's
-/// title or anything from it. ActivityKit starts activities only while the
-/// app is in front, and iOS shows them only once the person leaves it, so
-/// the app starts one as soon as a chat's composer says its answer works,
-/// registers the activity's push token with the server, which ends it when
-/// the answer ends (`POST /:account/chats/:number/live_activity`), and ends
-/// it itself whenever the composer says the answer is done.
+/// elsewhere: the organization, the step the answer is on ("Searching
+/// Todoist") and how long, never the chat's title or anything from it.
+/// ActivityKit starts activities only while the app is in front, and iOS
+/// shows them only once the person leaves it, so the app starts one as soon
+/// as a chat's composer says its answer works and registers the activity's
+/// push token with the server (`POST /:account/chats/:number/live_activity`),
+/// which pushes each step and ends it when the answer ends, saying how. The
+/// app ends it itself when the composer says the answer is done while the
+/// person is in the app; in the background it leaves the end to the
+/// server's push, which keeps it on the Lock Screen saying how it ended.
 @MainActor
 final class LiveActivities {
     static let shared = LiveActivities()
@@ -18,13 +21,16 @@ final class LiveActivities {
     /// The organization's name, for the activity (the sidebar knows it).
     var organizationName: () -> String? = { SidebarShell.current?.store.data?.organization.name }
 
+    /// Whether the person is in the app, where a finished answer shows itself.
+    var isInFront: () -> Bool = { UIApplication.shared.applicationState == .active }
+
     /// The composer on `chatURL` changed.
     func noteState(_ state: ComposerState, chatURL: URL?) {
         guard let chatURL, case .chat = AppRoute(url: chatURL).kind else { return }
         let path = chatURL.path(percentEncoded: false)
         if state.working {
             start(for: path, csrfToken: state.csrfToken)
-        } else {
+        } else if isInFront() {
             end(for: path)
         }
     }

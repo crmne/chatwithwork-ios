@@ -18,6 +18,25 @@ struct LiveActivityTests {
         #expect(bare.message == nil)
         #expect(bare.line == "The answer couldn't finish.")
         #expect(ChatActivityAttributes.ContentState.answering.isWorking)
+
+        let stopped = try JSONDecoder().decode(ChatActivityAttributes.ContentState.self, from: Data(#"{"phase":"stopped","message":"The answer stopped."}"#.utf8))
+        #expect(!stopped.isWorking)
+        #expect(stopped.symbol == "stop.circle.fill")
+    }
+
+    @Test("decodes the server's step updates, which name the step and count them")
+    func stepUpdates() throws {
+        let state = try JSONDecoder().decode(ChatActivityAttributes.ContentState.self, from: Data(#"{"phase":"answering","message":"Searching Todoist","step":"search","steps":3}"#.utf8))
+        #expect(state.isWorking)
+        #expect(state.line == "Searching Todoist")
+        #expect(state.symbol == "magnifyingglass")
+        #expect(state.stepsLine == "3 steps")
+
+        let first = ChatActivityAttributes.ContentState(phase: "answering", message: "Writing the answer", step: "write", steps: 1)
+        #expect(first.stepsLine == "1 step")
+        #expect(ChatActivityAttributes.ContentState.answering.stepsLine == nil)
+        #expect(ChatActivityAttributes.ContentState.answering.line == "Answering")
+        #expect(ChatActivityAttributes.ContentState(phase: "answering", step: "something new").symbol == "ellipsis")
     }
 
     @Test("builds the app's own links")

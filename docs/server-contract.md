@@ -1387,13 +1387,30 @@ Content-Type: application/json, X-CSRF-Token: <the composer's csrfToken>, the we
 { "live_activity": { "token": "<hex>", "app_id": "com.chatwithwork.app", "environment": "sandbox" | "production" } }
 ```
 
+While the answer runs, the server pushes what it's doing (2026-10-26): event
+`update` at `apns-priority` 5 (which Apple doesn't count against the app's
+budget), at most every 3 seconds, with a `stale-date` an hour ahead, and the
+content state `{phase: "answering", message, step, steps}`: `message` the
+step it's on in the words of the chat's activity line ("Searching Todoist",
+"Reading 3 files in Drive", "Running code", "Writing the answer", or
+"Answering" between steps), `step` its kind for the app's symbol (`search`,
+`list`, `read`, `use`, `plan`, `run`, `ask`, `write`, `answer`), and `steps`
+how many it took so far. Never a query, file name, title or text, and an MCP
+server or computer only as "an MCP server" or "a computer". Builds that read
+only `phase` and `message` show the step's words too.
+
 The server ends it when the answer ends, with an APNs `liveactivity` push,
 event `end`, content state `{phase, message}`: `phase` is `answered`,
-`approval_waiting`, `input_requested` or `failed`, `message` generic words
-for it. The app shows the message, or its own words for the phase. A tap
-opens the chat (`chatwithwork://open?path=/482139075/chats/42`). The app
-also ends it itself whenever that chat's composer says it's done. The activity's attributes are `ChatActivityAttributes` in
-`Shared/`, which the widget extension draws.
+`approval_waiting`, `input_requested`, `failed` or `stopped` (the person's
+Stop, or out of credits), `message` generic words for it, shown on the Lock
+Screen for 15 minutes. The app shows the message, or its own words for the
+phase. A tap opens the chat (`chatwithwork://open?path=/482139075/chats/42`).
+The app also ends it itself when that chat's composer says it's done while
+the person is in the app; in the background it leaves the end to the
+server's push. The activity's attributes are `ChatActivityAttributes` in
+`Shared/`, which the widget extension draws: the mark, "Chat with Work ·
+<organization>", the step's symbol and words, and the timer with how many
+steps.
 
 ### Widgets and the app's links
 

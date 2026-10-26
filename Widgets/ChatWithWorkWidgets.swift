@@ -99,8 +99,10 @@ struct AskView: View {
 
 // MARK: - Live Activity
 
-/// An answer that works on after the person left it: the organization,
-/// "Answering" and a timer, then how it ended. Nothing from the chat.
+/// An answer that works on after the person left it: the organization, the
+/// step it's on ("Searching Todoist") with a timer and how many steps it
+/// took, then how it ended. Nothing from the chat: the server sends steps
+/// in words that name only the kind of step and a built-in service.
 struct ChatLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ChatActivityAttributes.self) { context in
@@ -116,27 +118,70 @@ struct ChatLiveActivity: Widget {
                     if context.state.isWorking {
                         Text(context.attributes.startedAt, style: .timer)
                             .font(.callout.monospacedDigit())
-                            .frame(width: 56)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 56, alignment: .trailing)
                     }
                 }
                 DynamicIslandExpandedRegion(.center) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Chat with Work · \(context.attributes.organization)").font(.caption).foregroundStyle(.secondary)
-                        Text(context.state.line).font(.subheadline.weight(.semibold))
+                        Text("Chat with Work · \(context.attributes.organization)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        StepLine(state: context.state, font: .subheadline.weight(.semibold))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    if context.state.isWorking, let steps = context.state.stepsLine {
+                        Text(steps)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.leading, 36)
                     }
                 }
             } compactLeading: {
                 Image("Mark").resizable().scaledToFit().frame(width: 18, height: 18)
             } compactTrailing: {
                 if context.state.isWorking {
-                    Text(context.attributes.startedAt, style: .timer).monospacedDigit().frame(width: 40)
+                    Text(context.attributes.startedAt, style: .timer)
+                        .monospacedDigit()
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 40)
                 } else {
-                    Image(systemName: context.state.phase == "failed" ? "exclamationmark.circle" : "checkmark.circle")
+                    Image(systemName: context.state.symbol)
                 }
             } minimal: {
-                Image("Mark").resizable().scaledToFit().frame(width: 16, height: 16)
+                if context.state.isWorking {
+                    Image("Mark").resizable().scaledToFit().frame(width: 16, height: 16)
+                } else {
+                    Image(systemName: context.state.symbol)
+                }
             }
             .widgetURL(AppLink.open(path: context.attributes.path))
+        }
+    }
+}
+
+/// The step it's on, or how it ended, after its symbol, which changes in
+/// place as the steps do.
+private struct StepLine: View {
+    let state: ChatActivityAttributes.ContentState
+    let font: Font
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: state.symbol)
+                .font(font)
+                .foregroundStyle(state.phase == "failed" ? Color("NegativeInk") : Color("Ink"))
+                .contentTransition(.symbolEffect(.replace))
+            Text(state.line)
+                .font(font)
+                .foregroundStyle(Color("Ink"))
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .contentTransition(.opacity)
         }
     }
 }
@@ -145,22 +190,31 @@ private struct LockScreenActivity: View {
     let context: ActivityViewContext<ChatActivityAttributes>
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             Image("Mark").resizable().scaledToFit().frame(width: 34, height: 34)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text("Chat with Work · \(context.attributes.organization)")
                     .font(.caption)
                     .foregroundStyle(Color("InkMuted"))
-                Text(context.state.line)
-                    .font(.headline)
-                    .foregroundStyle(Color("Ink"))
+                    .lineLimit(1)
+                StepLine(state: context.state, font: .headline)
+                    .opacity(context.isStale ? 0.6 : 1)
             }
-            Spacer()
+            Spacer(minLength: 8)
             if context.state.isWorking {
-                Text(context.attributes.startedAt, style: .timer)
-                    .font(.callout.monospacedDigit())
-                    .foregroundStyle(Color("InkMuted"))
-                    .frame(width: 60, alignment: .trailing)
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(context.attributes.startedAt, style: .timer)
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(Color("InkMuted"))
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 64, alignment: .trailing)
+                    if let steps = context.state.stepsLine {
+                        Text(steps)
+                            .font(.caption)
+                            .foregroundStyle(Color("InkMuted"))
+                            .lineLimit(1)
+                    }
+                }
             }
         }
         .padding(16)

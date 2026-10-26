@@ -14,8 +14,8 @@ toasts, haptics, search, the share sheet, sign-in and connecting services
 through the system's secure browser sheet, push notifications that show the
 answer's start or what waits for you (fetched from the server as they arrive,
 never through Apple) and universal links, a native composer with a "+" sheet
-and dictation, Live Activities for answers that work on after you leave them,
-a home-screen widget, and a share extension.
+and dictation, Live Activities that follow an answer's steps after you leave
+it, a home-screen widget, and a share extension.
 
 What the server has to do for all of that is written down in
 [docs/server-contract.md](docs/server-contract.md).
@@ -165,6 +165,16 @@ python3 Playground/server.py --open     # every request signed in
 then run the app with `-CWWBaseURL http://localhost:8765`, or run the UI
 tests, whose `PlaygroundTests` sign in, use the sidebar, open a chat, use its
 menus and the composer, and visit Bots and Settings.
+
+`LocalServerTests` needs the real thing instead: a Chat with Work
+development server the simulator reaches, which answers and sends pushes
+(APNs credentials and a running job worker), and a login on it, given as
+`TEST_RUNNER_CWW_UI_TEST_BASE_URL`, `TEST_RUNNER_CWW_UI_TEST_EMAIL` and
+`TEST_RUNNER_CWW_UI_TEST_PASSWORD`. It turns notifications on, asks a
+question, follows its Live Activity's steps on the Lock Screen, checks the
+answer's notification shows the words the extension fetched, and, with
+previews set to Never in iOS's settings, only what happened. Without them
+it's skipped.
 
 ## Releasing
 

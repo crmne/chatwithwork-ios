@@ -2,17 +2,22 @@ import ActivityKit
 import Foundation
 
 /// A Live Activity for an answer still working after the person left the
-/// chat: the organization, how long it has been answering, and how it ended.
-/// Never the chat's title or anything from it (docs/server-contract.md,
-/// "Live Activities"). Shared by the app, which starts it, and the widget
-/// extension, which draws it.
+/// chat: the organization, what the answer is doing and how long it has
+/// been at it, and how it ended. Never the chat's title or anything from it
+/// (docs/server-contract.md, "Live Activities"). Shared by the app, which
+/// starts it, and the widget extension, which draws it.
 nonisolated struct ChatActivityAttributes: ActivityAttributes {
-    /// What the server's end push says: `phase` is `answered`,
-    /// `approval_waiting`, `input_requested` or `failed`, and `message`
-    /// generic words for it. While it works, `phase` is `answering`.
+    /// What the server's pushes say. While the answer works, `phase` is
+    /// `answering`, `message` the step it's on in words that carry nothing
+    /// from the chat ("Searching Todoist", "Writing the answer"), `step` its
+    /// kind and `steps` how many it took so far. At the end, `phase` is
+    /// `answered`, `approval_waiting`, `input_requested`, `failed` or
+    /// `stopped`, and `message` generic words for it.
     struct ContentState: Codable, Hashable, Sendable {
         var phase: String
         var message: String?
+        var step: String?
+        var steps: Int?
 
         static let answering = ContentState(phase: "answering", message: nil)
 
@@ -26,8 +31,39 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
             case "approval_waiting": return String(localized: "A change is waiting for your approval.")
             case "input_requested": return String(localized: "A question is waiting for your answer.")
             case "failed": return String(localized: "The answer couldn't finish.")
+            case "stopped": return String(localized: "The answer stopped.")
             default: return String(localized: "Answering")
             }
+        }
+
+        /// The SF Symbol for the step it's on, or for how it ended.
+        var symbol: String {
+            switch phase {
+            case "answering":
+                switch step {
+                case "search": "magnifyingglass"
+                case "list": "folder"
+                case "read": "doc.text"
+                case "plan": "checklist"
+                case "run": "terminal"
+                case "ask": "questionmark.bubble"
+                case "write": "text.alignleft"
+                case "use": "wrench.and.screwdriver"
+                default: "ellipsis"
+                }
+            case "answered": "checkmark.circle.fill"
+            case "approval_waiting", "input_requested": "hand.raised.fill"
+            case "failed": "exclamationmark.triangle.fill"
+            default: "stop.circle.fill"
+            }
+        }
+
+        /// "3 steps" once the answer took any.
+        var stepsLine: String? {
+            guard let steps, steps > 0 else { return nil }
+            return steps == 1
+                ? String(localized: "1 step", comment: "An answer took one step so far, under its timer")
+                : String(localized: "\(steps) steps", comment: "How many steps an answer took so far, under its timer")
         }
     }
 
