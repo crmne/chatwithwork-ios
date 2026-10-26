@@ -1,0 +1,73 @@
+#!/bin/bash
+# Signs an archive for the App Store and uploads it to App Store Connect,
+# where it goes to TestFlight after processing. Signs in with an App Store
+# Connect API key, never Xcode's Accounts, so it works over SSH and never
+# asks anyone to sign in again.
+#
+#   script/upload                          # archive HEAD's vX.Y.Z tag, then upload
+#   script/upload v1.2.3 [build]           # archive that version, then upload
+#   script/upload path/to/App.xcarchive    # upload an existing archive
+#
+# The key (see docs/app-store.md, "Uploading with an API key"):
+#   ASC_KEY_ID, ASC_ISSUER_ID   from the environment, or from
+#   ASC_CONFIG                  a file setting both (~/.appstoreconnect/chatwithwork.env)
+#   ASC_KEY_PATH                the .p8 (~/.appstoreconnect/private_keys/AuthKey_<ASC_KEY_ID>.p8)
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+config="${ASC_CONFIG:-$HOME/.appstoreconnect/chatwithwork.env}"
+if [ -z "${ASC_KEY_ID:-}" ] || [ -z "${ASC_ISSUER_ID:-}" ]; then
+  if [ -f "$config" ]; then
+    # shellcheck source=/dev/null
+    . "$config"
+  fi
+fi
+: "${ASC_KEY_ID:?Set ASC_KEY_ID and ASC_ISSUER_ID, or write them to $config}"
+: "${ASC_ISSUER_ID:?Set ASC_KEY_ID and ASC_ISSUER_ID, or write them to $config}"
+key="${ASC_KEY_PATH:-$HOME/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8}"
+if [ ! -f "$key" ]; then
+  echo "No API key at $key (ASC_KEY_PATH)." >&2
+  exit 1
+fi
+export ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_PATH="$key"
+
+if [[ "${1:-}" == *.xcarchive ]]; then
+  archive="${1%/}"
+  [ -d "$archive" ] || { echo "No archive at $archive" >&2; exit 1; }
+else
+  tag="${1:-$(git describe --tags --exact-match 2>/dev/null || true)}"
+  archive="build/ChatWithWork-${tag#v}.xcarchive"
+  script/archive "$tag" "${2:-}" "$archive"
+fi
+
+info="$archive/Info.plist"
+version=$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleShortVersionString" "$info")
+build=$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleVersion" "$info")
+team=$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:Team" "$info")
+
+work=$(mktemp -d "${TMPDIR:-/tmp}/chatwithwork-upload.XXXXXX")
+trap 'rm -rf "$work"' EXIT
+cat > "$work/ExportOptions.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>method</key><string>app-store-connect</string>
+  <key>destination</key><string>upload</string>
+  <key>teamID</key><string>$team</string>
+  <key>signingStyle</key><string>automatic</string>
+  <key>manageAppVersionAndBuildNumber</key><false/>
+  <key>uploadSymbols</key><true/>
+</dict></plist>
+PLIST
+
+echo "Uploading $version ($build) from $archive"
+xcodebuild -exportArchive \
+  -archivePath "$archive" \
+  -exportOptionsPlist "$work/ExportOptions.plist" \
+  -exportPath "$work/export" \
+  -allowProvisioningUpdates \
+  -authenticationKeyPath "$key" \
+  -authenticationKeyID "$ASC_KEY_ID" \
+  -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+echo "Uploaded $version ($build). It reaches TestFlight after processing, about 15 minutes."

@@ -5,7 +5,15 @@
 #   script/archive                  # HEAD must be at a vX.Y.Z tag
 #   script/archive v1.2.3 [build] [archive-path] [configuration]
 #
-# Needs Config/Signing.xcconfig with your DEVELOPMENT_TEAM.
+# Needs Config/Signing.xcconfig with your DEVELOPMENT_TEAM. With ASC_KEY_ID,
+# ASC_ISSUER_ID and ASC_KEY_PATH set (script/upload sets them), Xcode fetches
+# profiles with that App Store Connect API key instead of its Accounts.
+#
+# Over SSH the login keychain is locked, so codesign can't use the signing
+# identity in it. When BUILD_KEYCHAIN (~/Library/Keychains/chatwithwork-build.keychain-db)
+# and its password file BUILD_KEYCHAIN_PASSWORD_FILE
+# (~/.appstoreconnect/build-signing/keychain-password) exist, the archive is
+# signed from that keychain instead (docs/app-store.md, "Signing without Xcode's Accounts").
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -20,6 +28,21 @@ build="${2:-$((BASH_REMATCH[1] * 10000 + BASH_REMATCH[2] * 100 + BASH_REMATCH[3]
 archive="${3:-build/ChatWithWork-$version.xcarchive}"
 configuration="${4:-Release}"
 
+auth=()
+if [ -n "${ASC_KEY_ID:-}" ] && [ -n "${ASC_ISSUER_ID:-}" ] && [ -n "${ASC_KEY_PATH:-}" ]; then
+  auth=(-allowProvisioningUpdates
+    -authenticationKeyPath "$ASC_KEY_PATH"
+    -authenticationKeyID "$ASC_KEY_ID"
+    -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+fi
+
+keychain="${BUILD_KEYCHAIN:-$HOME/Library/Keychains/chatwithwork-build.keychain-db}"
+password_file="${BUILD_KEYCHAIN_PASSWORD_FILE:-$HOME/.appstoreconnect/build-signing/keychain-password}"
+if [ -f "$keychain" ] && [ -f "$password_file" ]; then
+  security unlock-keychain -p "$(cat "$password_file")" "$keychain"
+  auth+=(OTHER_CODE_SIGN_FLAGS="--keychain $keychain")
+fi
+
 xcodebuild archive \
   -project ChatWithWork.xcodeproj \
   -scheme ChatWithWork \
@@ -27,6 +50,7 @@ xcodebuild archive \
   -destination "generic/platform=iOS" \
   -archivePath "$archive" \
   MARKETING_VERSION="$version" \
-  CURRENT_PROJECT_VERSION="$build"
+  CURRENT_PROJECT_VERSION="$build" \
+  ${auth[@]+"${auth[@]}"}
 
 echo "Archived $version ($build) to $archive"

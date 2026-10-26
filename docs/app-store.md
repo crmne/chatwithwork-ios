@@ -33,20 +33,71 @@ repository).
 
 Pushing to main is enough: Xcode Cloud's "TestFlight" workflow archives
 Release and uploads it to App Store Connect, where it goes to the Internal
-Testing group (see the README's Releasing). To archive by hand instead:
+Testing group (see the README's Releasing). To archive and upload by hand,
+on the Mac mini or any Mac set up as below:
 
 ```sh
 cp Config/Signing.xcconfig.example Config/Signing.xcconfig   # put the team ID in it
 git tag v1.0.0
-script/archive v1.0.0          # Release, version 1.0.0, build 10000
+script/upload v1.0.0           # archive Release 1.0.0 (build 10000), sign, upload
+script/upload build/ChatWithWork-1.0.0.xcarchive   # or upload an archive you have
 ```
 
-Then Xcode > Window > Organizer > the archive > Distribute App > App Store
-Connect > Upload. From the command line, `xcodebuild -exportArchive` with
-an `ExportOptions.plist` whose `method` is `app-store-connect` and
-`destination` is `upload` does the same once Xcode is signed in to the team.
-The build shows up in TestFlight after processing, about 15 minutes: add
-yourself under Internal Testing to install it with the TestFlight app.
+`script/upload` exports with `xcodebuild -exportArchive` (`method`
+`app-store-connect`, `destination` `upload`) and signs in with an App Store
+Connect API key, so it works over SSH and never needs Xcode's Accounts. The
+Internal group has access to every build, so the build reaches TestFlight
+on its own after processing, about 15 minutes.
+
+### Uploading with an API key
+
+Xcode's Accounts don't work for this: over SSH the login keychain is
+locked, so `xcodebuild` finds no account ("No Accounts"), and in the
+desktop session Xcode's Apple Account sign-in keeps expiring ("App Store
+Connect access ... is required"). The API key never expires.
+
+- **The key.** A Team key from App Store Connect > Users and Access >
+  Integrations > App Store Connect API, with the **Admin** role: exporting
+  with `-allowProvisioningUpdates` uses Apple's cloud-managed distribution
+  certificate, which API keys can use only as Admin. It lives in 1Password
+  (vault chatwithwork, "App Store Connect API key (Mac mini uploads)"), with
+  its key ID, issuer ID and the `.p8`. Never commit any of it: the
+  repository is public.
+- **On the Mac.** The `.p8` goes in
+  `~/.appstoreconnect/private_keys/AuthKey_<key ID>.p8` (mode 600), and
+  `~/.appstoreconnect/chatwithwork.env` sets `ASC_KEY_ID` and
+  `ASC_ISSUER_ID`. The environment variables `ASC_KEY_ID`, `ASC_ISSUER_ID`
+  and `ASC_KEY_PATH` override both.
+
+### Signing without Xcode's Accounts
+
+The archive is signed with an Apple Development identity before the
+export re-signs it for distribution, and it has to be: an unsigned archive
+loses its entitlements (push, associated domains) on export. Over SSH
+codesign can't reach the identity in the locked login keychain
+(`errSecInternalComponent`), so the Mac keeps one of its own in a keychain
+just for building, `~/Library/Keychains/chatwithwork-build.keychain-db`,
+whose password is in `~/.appstoreconnect/build-signing/keychain-password`
+(mode 600). `script/archive` unlocks it and signs from it when both exist.
+To set it up on another Mac:
+
+1. Make a key and certificate request:
+   `openssl genrsa -out dev.key 2048` and
+   `openssl req -new -key dev.key -out dev.csr -subj "/CN=Chat with Work builds"`.
+2. Create an Apple Development certificate from it, in Certificates,
+   Identifiers & Profiles or with the API key (`POST /v1/certificates`,
+   `certificateType` `DEVELOPMENT`).
+3. Create the keychain with a random password, import both, and let
+   codesign use the key without asking:
+   ```sh
+   security create-keychain -p "$pw" ~/Library/Keychains/chatwithwork-build.keychain-db
+   security set-keychain-settings ~/Library/Keychains/chatwithwork-build.keychain-db
+   security import dev.key -k <keychain> -t priv -f openssl -T /usr/bin/codesign
+   security import dev.cer -k <keychain> -t cert -f x509
+   security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pw" <keychain>
+   security list-keychains -d user -s ~/Library/Keychains/login.keychain-db <keychain>
+   ```
+   Then delete `dev.key`.
 
 `ITSAppUsesNonExemptEncryption` is `false` in `Info.plist`: the app uses
 only the system's HTTPS, so no export compliance documents are needed.

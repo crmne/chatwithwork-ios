@@ -161,9 +161,13 @@ Xcode Cloud signs automatically but can't change App IDs: a new capability
 in the entitlements means enabling it on `com.chatwithwork.app` in the
 developer portal first.
 
-By hand instead: `script/archive v1.2.3` archives Release as version 1.2.3,
-build 10203 (MAJOR·10000 + MINOR·100 + PATCH). Upload the archive to App
-Store Connect from Xcode's Organizer.
+By hand instead: `script/upload v1.2.3` archives Release as version 1.2.3,
+build 10203 (MAJOR·10000 + MINOR·100 + PATCH), and uploads it to App Store
+Connect for TestFlight; `script/upload <path>.xcarchive` uploads an archive
+you already have. It signs in with an App Store Connect API key, never
+Xcode's Accounts, so it works over SSH without signing in again
+([docs/app-store.md](docs/app-store.md), "Uploading with an API key").
+`script/archive v1.2.3` only archives.
 [docs/app-store.md](docs/app-store.md) has the rest of a submission: the
 listing and screenshots in `fastlane/`, App Privacy answers, the age
 rating, and the demo login for App Review.
