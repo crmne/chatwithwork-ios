@@ -50,10 +50,20 @@ nonisolated enum SharedInbox {
     /// A new, empty folder for one share.
     static func begin(in root: URL? = nil) -> Share? {
         guard let inbox = inbox(root) else { return nil }
+        prune(inbox)
         let name = UUID().uuidString
         let folder = inbox.appendingPathComponent(name, isDirectory: true)
         guard (try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)) != nil else { return nil }
         return Share(name: name, folder: folder)
+    }
+
+    /// Removes shares the app never took (the link didn't open it), a day on.
+    private static func prune(_ inbox: URL, olderThan age: TimeInterval = 24 * 60 * 60) {
+        let folders = (try? FileManager.default.contentsOfDirectory(at: inbox, includingPropertiesForKeys: [.creationDateKey])) ?? []
+        let cutoff = Date().addingTimeInterval(-age)
+        for folder in folders where ((try? folder.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast) < cutoff {
+            try? FileManager.default.removeItem(at: folder)
+        }
     }
 
     /// Copies the file at `url` into the share as its `index`th file, unless

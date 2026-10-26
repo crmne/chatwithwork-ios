@@ -108,8 +108,13 @@ final class AppShell: NSObject {
                 ComposerController.pendingFiles = SharedInbox.take(shared).map { ComposerFile(name: $0.name, type: $0.type, bytes: $0.data) }
             }
             // The words wait in the native composer too, whatever the page does with them.
-            let shared = ["title", "text", "url"].compactMap(value).joined(separator: "\n")
-            if !shared.isEmpty { ComposerController.pendingText = shared }
+            // Joined as the server joins them for `/chats/new`, so a composer it filled is recognized.
+            var shared: [String] = []
+            for word in ["title", "text", "url"].compactMap(value).map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) }) where !word.isEmpty && !shared.contains(word) {
+                shared.append(word)
+            }
+            let sharedText = shared.joined(separator: "\n\n")
+            if !sharedText.isEmpty { ComposerController.pendingText = sharedText }
             // A new chat already on screen takes them as they are.
             if case .signedIn(let shell) = state, let composer = ComposerController.onNewChat(shell.navigator.rootViewController) {
                 shell.setOpen(false, animated: false)
@@ -118,8 +123,13 @@ final class AppShell: NSObject {
             }
             var components = URLComponents()
             components.path = AppPath.path(AppPath.newChat, in: account ?? currentAccount)
-            let prefill = ["title", "text", "url"].compactMap { name in value(name).map { URLQueryItem(name: name, value: $0) } }
-            components.queryItems = prefill.isEmpty ? nil : prefill
+            // Percent-encoded by hand: URLComponents leaves "+" alone, which the server reads as a space.
+            var allowed = CharacterSet.urlQueryAllowed
+            allowed.remove(charactersIn: "+&=")
+            let prefill = ["title", "text", "url"].compactMap { name in
+                value(name).flatMap { $0.addingPercentEncoding(withAllowedCharacters: allowed) }.map { URLQueryItem(name: name, value: $0) }
+            }
+            components.percentEncodedQueryItems = prefill.isEmpty ? nil : prefill
             open(environment.url(path: components.string ?? AppPath.newChat))
         default:
             break

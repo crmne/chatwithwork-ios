@@ -70,11 +70,14 @@ final class ComposerController: NSObject {
         guard let state = view.state else { return }
         // What the web composer holds already (a shared link, a draft) starts the native field,
         // or sending would replace it.
+        if view.textView.text.isEmpty, !state.text.isEmpty { view.append(state.text) }
+        // Shared words join whatever draft is there, unless the server already put them in it.
         if let shared = Self.pendingText {
             Self.pendingText = nil
-            if view.textView.text.isEmpty, state.text.isEmpty { view.append(shared) }
+            if !view.textView.text.contains(shared) {
+                view.append(view.textView.text.isEmpty ? shared : "\n\n" + shared)
+            }
         }
-        if view.textView.text.isEmpty, !state.text.isEmpty { view.append(state.text) }
 
         if !Self.pendingFiles.isEmpty, state.acceptsFiles {
             let files = Self.pendingFiles

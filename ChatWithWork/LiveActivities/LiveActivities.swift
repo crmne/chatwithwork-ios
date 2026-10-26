@@ -79,6 +79,13 @@ final class LiveActivities {
 
         let session = URLSession(configuration: .ephemeral)
         defer { session.finishTasksAndInvalidate() }
-        _ = try? await session.data(for: request)
+        // Without the token the server can't end the activity once the app is in the
+        // background, so a failed request (offline, a server error) is tried again, waiting
+        // longer each time. The server refusing it (4xx) won't change by trying again.
+        for attempt in 0..<6 {
+            if attempt > 0 { try? await Task.sleep(for: .seconds(2 << attempt)) }
+            guard let (_, response) = try? await session.data(for: request), let status = (response as? HTTPURLResponse)?.statusCode else { continue }
+            if status < 500 { return }
+        }
     }
 }
