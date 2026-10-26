@@ -49,6 +49,31 @@ Connect API key, so it works over SSH and never needs Xcode's Accounts. The
 Internal group has access to every build, so the build reaches TestFlight
 on its own after processing, about 15 minutes.
 
+### Public TestFlight beta
+
+Anybody can join the beta at https://testflight.apple.com/join/JYpuPjVn,
+which chatwithwork.com links as "iPhone and iPad beta". It is the external
+group "Public beta" (public link on, at most 1,000 testers, feedback on).
+
+- **Beta information** (TestFlight > Test Information): the beta
+  description, feedback email support@chatwithwork.com, the marketing and
+  privacy policy URLs, and the Beta App Review contact and demo login (the
+  same as App Review's, below; the password from 1Password).
+- **New builds.** The Xcode Cloud workflow's "TestFlight External Testing"
+  post-action adds every build to the group and submits it for Beta App
+  Review. Apple reviews the first build of each version in about a day;
+  later builds of the same version usually pass at once. Only one build of
+  a version can wait for review at a time, so a build that finished while
+  another waited needs submitting by hand once the first is through
+  (TestFlight > the build > Submit for Review, or
+  `POST /v1/betaAppReviewSubmissions` with the API key). Adding an external
+  post-action makes Apple restrict editing the workflow to Admins and App
+  Managers.
+- **What to Test** for a build is its `betaBuildLocalizations` (en-US).
+- The first submission, build 10004 (1.0.1), went to Beta App Review on
+  2026-10-26; until it is approved, the link says the beta isn't accepting
+  testers.
+
 ### Uploading with an API key
 
 Xcode's Accounts don't work for this: over SSH the login keychain is

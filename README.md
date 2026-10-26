@@ -163,7 +163,9 @@ Every push to main reaches TestFlight: Xcode Cloud's "TestFlight" workflow
 (product ChatWithWork, started by changes to `main`) archives the
 ChatWithWork scheme (Release, production) and uploads it to App Store
 Connect, where the Internal group, which has every build, gets it after
-processing. `ci_scripts/ci_post_clone.sh` gives the build Xcode Cloud's team
+processing. The workflow's "TestFlight External Testing" post-action also
+gives each build to the "Public beta" group, the public TestFlight link
+(see [docs/app-store.md](docs/app-store.md), "Public TestFlight beta"). `ci_scripts/ci_post_clone.sh` gives the build Xcode Cloud's team
 and build number (`CI_TEAM_ID`, `CI_BUILD_NUMBER`), since
 `Config/Signing.xcconfig` isn't in the repository. The version is
 `MARKETING_VERSION` in `Config/Base.xcconfig`, the version main is working
