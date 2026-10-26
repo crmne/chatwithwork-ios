@@ -135,24 +135,20 @@ only the system's HTTPS, so no export compliance documents are needed.
 | Support URL, marketing URL, privacy policy URL | `fastlane/metadata/en-US/*_url.txt` |
 | Category | Business, then Productivity (`fastlane/metadata/*_category.txt`) |
 | Copyright | `fastlane/metadata/copyright.txt` |
-| Screenshots | `fastlane/screenshots/en-US/`: 6.9" (1320 x 2868), 6.5" (1284 x 2778), iPad 13" (2064 x 2752) |
+| Screenshots | `fastlane/screenshots/en-US/`: 6.9" (1320 x 2868), 6.5" (1284 x 2778), 6.3" (1206 x 2622), iPad 13" (2064 x 2752) |
 | App Review contact, demo login, notes | `fastlane/metadata/review_information/` (the password is in 1Password, never here) |
 
 Screenshots come from the app itself: `ChatWithWorkUITests/StoreScreenshotTests`
-signs in to staging as the synthetic screenshot account, ana@northwind.example
-(`script/store/seed staging screenshots` in the Rails app), visits six
-screens in dark mode with the status bar at 9:41, and keeps each as a test
-attachment. `script/screenshots` runs it on the three simulators and frames
-the results with their captions (`fastlane/screenshots/captions.json`):
-
-```sh
-node script/frame-screenshots.mjs build/screenshots/iphone-69 out/iphone-69 1320x2868 \
-  --fonts ../chatwithwork/app/assets/fonts
-```
-
-The iPad set leaves out Schedules until the Rails app's one-column Settings
-for the apps (`native.css`) is deployed: before it, the page squeezes into
-a narrow column on wide screens.
+signs in to a server holding a synthetic organization (Northwind Studio,
+which crmne/films' `chatwithwork/store-screenshots/capture/seed` makes in a
+checkout of the Rails app, its clock set to a Monday at 9:41), walks the
+sidebar shell in dark mode with the status bar at 9:41, and keeps each
+screen as a test attachment. `script/screenshots` runs it on the
+three simulators and exports the raw screens. They're framed, one headline
+each, in crmne/films (`chatwithwork/store-screenshots`, which also makes
+every other store's images), and the framed images land here. The headlines,
+the words of the listing, and what backs each claim are in the Rails app's
+`docs/marketing/marketplaces.md`.
 
 ## App Privacy
 

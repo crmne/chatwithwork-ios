@@ -1,29 +1,42 @@
 #!/bin/bash
 # Takes the App Store screenshots from the app (StoreScreenshotTests) on a
 # 6.9" iPhone, a 6.5" iPhone, and a 13" iPad, in dark mode with the status
-# bar at 9:41, named as the App Store build is (iPadOS shows the name in its
-# status bar), and writes them to build/screenshots/<device>/<n>-<screen>.png.
+# bar at 9:41, and writes them to build/screenshots/<device>/<n>-<screen>.png.
+# The app is built as the App Store build behaves (its name, which iPadOS
+# shows in the status bar, and no server line on the welcome screen), but
+# talking to the screenshot server.
 #
 #   CWW_SCREENSHOT_EMAIL=ana@northwind.example \
-#   CWW_SCREENSHOT_PASSWORD_FILE=path/to/password script/screenshots
+#   CWW_SCREENSHOT_PASSWORD_FILE=path/to/password script/screenshots [device...]
 #
-# The account is the synthetic one the Rails app's `script/store/seed
-# staging screenshots` makes. Frame the results with
-# script/frame-screenshots.mjs into fastlane/screenshots/en-US/.
+# Devices are iphone-69, iphone-65 and ipad-13, all three by default.
+# CWW_SCREENSHOT_BASE_URL picks the server, staging by default, and
+# DERIVED_DATA moves Xcode's build products elsewhere. The screens are the
+# listings' synthetic demo, Northwind Studio, which crmne/films'
+# chatwithwork/store-screenshots seeds on a server of its own (staging's
+# screenshot account, from the Rails app's `script/store/seed staging
+# screenshots`, has no bots yet). That project frames them, and the framed
+# images go in fastlane/screenshots/en-US/.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 : "${CWW_SCREENSHOT_EMAIL:?the demo login email}"
 : "${CWW_SCREENSHOT_PASSWORD_FILE:?a file holding its password}"
+base_url="${CWW_SCREENSHOT_BASE_URL:-https://staging.chatwithwork.com}"
 export TEST_RUNNER_CWW_SCREENSHOT_EMAIL="$CWW_SCREENSHOT_EMAIL"
 TEST_RUNNER_CWW_SCREENSHOT_PASSWORD="$(cat "$CWW_SCREENSHOT_PASSWORD_FILE")"
 export TEST_RUNNER_CWW_SCREENSHOT_PASSWORD
-[ -n "${CWW_SCREENSHOT_BASE_URL:-}" ] && export TEST_RUNNER_CWW_SCREENSHOT_BASE_URL="$CWW_SCREENSHOT_BASE_URL"
+export TEST_RUNNER_CWW_SCREENSHOT_BASE_URL="$base_url"
 
 runtime=$(xcrun simctl list runtimes -j | /usr/bin/python3 -c '
 import json, sys
 ios = [r for r in json.load(sys.stdin)["runtimes"] if r["platform"] == "iOS" and r["isAvailable"]]
 print(sorted(ios, key=lambda r: [int(x) for x in r["version"].split(".")])[-1]["identifier"])')
+
+boot() {
+  xcrun simctl boot "$1"
+  xcrun simctl bootstatus "$1" >/dev/null
+}
 
 shoot() {
   local device="$1" type="$2"
@@ -36,8 +49,20 @@ for devices in json.load(sys.stdin)['devices'].values():
         if d['name'] == '$name' and d['isAvailable']: print(d['udid']); sys.exit()")
   [ -z "$udid" ] && udid=$(xcrun simctl create "$name" "$type" "$runtime")
 
-  xcrun simctl boot "$udid" 2>/dev/null || true
-  xcrun simctl bootstatus "$udid" >/dev/null
+  # A fresh boot every time: a test session can leave the home indicator
+  # showing in the next one's screenshots.
+  xcrun simctl shutdown "$udid" 2>/dev/null || true
+  boot "$udid"
+  # A US region's 12-hour clock, so the status bar reads 9:41 rather than
+  # 09:41, and on iPad full-screen apps, without windowed apps' resize handle
+  # in the corner.
+  if [ "$(xcrun simctl spawn "$udid" defaults read -g AppleLocale 2>/dev/null)" != "en_US" ] ||
+     [ "$(xcrun simctl spawn "$udid" defaults read com.apple.springboard SBMedusaMultitaskingEnabled 2>/dev/null)" != "0" ]; then
+    xcrun simctl spawn "$udid" defaults write -g AppleLocale -string en_US
+    xcrun simctl spawn "$udid" defaults write com.apple.springboard SBMedusaMultitaskingEnabled -bool false
+    xcrun simctl shutdown "$udid"
+    boot "$udid"
+  fi
   xcrun simctl ui "$udid" appearance dark
   xcrun simctl status_bar "$udid" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 \
     --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100
@@ -45,12 +70,19 @@ for devices in json.load(sys.stdin)['devices'].values():
   local result="build/screenshots/$device.xcresult" out="build/screenshots/$device"
   rm -rf "$result" "$out" "$out.attachments"
   mkdir -p "$out"
-  xcodebuild test -project ChatWithWork.xcodeproj -scheme ChatWithWorkUITests \
-    -destination "platform=iOS Simulator,id=$udid" -parallel-testing-enabled NO \
-    -resultBundlePath "$result" -only-testing:ChatWithWorkUITests/StoreScreenshotTests \
-    CODE_SIGNING_ALLOWED=NO CWW_DISPLAY_NAME="Chat with Work" > "build/screenshots/$device.log" 2>&1 ||
-    { echo "$device failed, see build/screenshots/$device.log" >&2; return 1; }
+  # The test writes each screenshot into $out itself (CWW_SCREENSHOT_SHOTS):
+  # result bundles drop attachments on iPad simulators. A production
+  # environment ignores -CWWBaseURL, so the server is built in.
+  local args=(-project ChatWithWork.xcodeproj -scheme ChatWithWorkUITests -destination "platform=iOS Simulator,id=$udid"
+    -parallel-testing-enabled NO -collect-test-diagnostics never -resultBundlePath "$result"
+    -only-testing:ChatWithWorkUITests/StoreScreenshotTests)
+  [ -n "${DERIVED_DATA:-}" ] && args+=(-derivedDataPath "$DERIVED_DATA")
+  TEST_RUNNER_CWW_SCREENSHOT_SHOTS="$PWD/$out" xcodebuild test "${args[@]}" \
+    CODE_SIGNING_ALLOWED=NO CWW_DISPLAY_NAME="Chat with Work" CWW_ENVIRONMENT=production CWW_BASE_URL="$base_url" \
+    > "build/screenshots/$device.log" 2>&1 ||
+    { xcrun simctl shutdown "$udid"; echo "$device failed, see build/screenshots/$device.log" >&2; return 1; }
 
+  # Whatever the test couldn't write, from the result bundle.
   xcrun xcresulttool export attachments --path "$result" --output-path "$out.attachments" >/dev/null
   /usr/bin/python3 - "$out.attachments" "$out" <<'PY'
 import json, os, shutil, sys
@@ -58,9 +90,9 @@ source, target = sys.argv[1:]
 for test in json.load(open(os.path.join(source, "manifest.json"))):
     for attachment in test["attachments"]:
         name = attachment["suggestedHumanReadableName"]
-        if name.startswith("store-"):
-            shutil.copy(os.path.join(source, attachment["exportedFileName"]),
-                        os.path.join(target, name.split("_0_")[0].removeprefix("store-") + ".png"))
+        path = os.path.join(target, name.split("_0_")[0].removeprefix("store-") + ".png")
+        if name.startswith("store-") and not os.path.exists(path):
+            shutil.copy(os.path.join(source, attachment["exportedFileName"]), path)
 PY
   rm -rf "$out.attachments"
   xcrun simctl shutdown "$udid"
@@ -68,6 +100,12 @@ PY
 }
 
 mkdir -p build/screenshots
-shoot iphone-69 com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max
-shoot iphone-65 com.apple.CoreSimulator.SimDeviceType.iPhone-14-Plus
-shoot ipad-13 com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB
+[ $# -eq 0 ] && set -- iphone-69 iphone-65 ipad-13
+for device in "$@"; do
+  case "$device" in
+    iphone-69) shoot iphone-69 com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max ;;
+    iphone-65) shoot iphone-65 com.apple.CoreSimulator.SimDeviceType.iPhone-14-Plus ;;
+    ipad-13) shoot ipad-13 com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB ;;
+    *) echo "No device $device: iphone-69, iphone-65 or ipad-13" >&2; exit 2 ;;
+  esac
+done
