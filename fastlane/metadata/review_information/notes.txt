@@ -1,12 +1,13 @@
 Sign in with the demo account above (Welcome screen > Sign in). It belongs to a made-up organization, Northwind Studio, with synthetic chats and projects.
 
-Things to try:
-1. Chats > "Morning Acme brief": an answer from a scheduled run that searched Slack and Google Drive, with its sources.
-2. Chats > "Acme launch update": a change waiting for approval (a Slack post). The demo account has no Slack connected, so approving it posts nothing anywhere.
-3. New chat: ask anything. The demo account can use the free model (30 answers a day) and trial credits for the other models.
-4. Projects: chats shared with the team. Settings: notifications, schedules, and Account > Delete account.
+Things to try (the sidebar opens from the button at the top left):
+1. Decisions: everything waiting for the person, one at a time. It holds a change waiting for approval, a Slack post from the chat "Acme launch update". The demo account has no Slack connected, so approving it posts nothing anywhere.
+2. "Morning Acme brief": an answer from a scheduled run that searched Slack and Google Drive, with its sources.
+3. Bots: bots start work by themselves (a time of day, an email, a new GitHub issue) and ask before changing anything unless someone lets them run. The page lists recipes to start one from.
+4. New chat: ask anything. The demo account can use the free model (30 answers a day) and trial credits for the other models.
+5. Settings (the person at the bottom of the sidebar): notifications, and Account > Delete account.
 
-Services such as Slack or Google Drive are connected on chatwithwork.com from a computer, because their sign-in pages don't work inside an app; the app shows "Connect from chatwithwork.com on a computer" instead.
+Services such as Slack or Google Drive are connected through the system's sign-in sheet, since their sign-in pages refuse to run inside an app's web view. The demo account has none connected.
 
 The app sells nothing. Accounts are free to create, with free daily answers. It is a companion to the Chat with Work web service (guideline 3.1.3(f)).
 

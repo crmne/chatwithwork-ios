@@ -1,34 +1,36 @@
 AI bots in Europe. They work. You just decide.
 
-Chat with Work runs AI bots and an assistant for work on our servers in Germany, with every model in the EU. Hand them the job: they search the tools you use, draft and post, and come back on a schedule. Your team shares them, and nothing changes in your tools until you approve it.
+Chat with Work runs AI bots and an assistant for your team's work, on our servers in Germany with every model in the EU. Bots start on their own: a time of day, a new GitHub issue, an email, a customer's message. They work with the tools you connect, and anything that needs you lands in one queue.
 
-The app puts them in your pocket:
+In the app:
+• See your bots and what they did while you were away.
+• Work through Decisions: approve a change, edit a drafted reply, or answer a question, one at a time, with why you're asked.
+• Read your morning briefing, ready before you start.
 • Ask anything about your work and get answers with their sources.
-• Approve or deny a change, like a Slack post or a new file, shown exactly as it will run.
-• Get a notification when an answer is ready or a change waits for you.
-• Read and continue your team's project chats.
+• Get a notification when something waits for you.
 • Dictate instead of typing: speech is transcribed on our servers in the EU.
-• Attach photos and files, and share answers.
 
-EVERY TOOL YOU USE, IN ONE PLACE
-Google Drive, Dropbox, OneDrive, Outlook, Teams, Slack, Discord, Basecamp, Notion, GitHub, Linear, Jira, HubSpot, Odoo and many more, plus your own MCP servers. You connect them on chatwithwork.com from a computer, and the app uses them from then on. Every connection starts at Read, so it only reads until you allow changes.
+BOTS THAT WORK WHILE YOU'RE AWAY
+Start from a recipe or describe the job: triage new issues, chase overdue invoices, answer customers, brief you every morning. A bot follows its instructions, works with the integrations you give it, and stays within its monthly cap.
 
-NOTHING CHANGES WITHOUT YOU
-Every change to your tools waits for your approval, shown exactly as it will run. Admins can turn changes off for the whole organization.
+CHANGES ASK FIRST
+Every tool you connect starts at Read. Changes ask first, shown exactly as they'll run, unless you let a bot or a chat run them. Admins decide what the organization allows.
 
-IT COMES BACK TO YOU
-"Every weekday at 8, brief me on the launch." Each run starts a new chat as you, at your connectors' access levels, and you hear when it's ready.
+EVERY TOOL YOU USE
+Files, mail, chat, projects, CRM, and finance tools, the vendors' own MCP servers, and your own. You connect them on chatwithwork.com, and the app uses them from then on.
 
 BUILT FOR TEAMS
-Projects share chats with the people on them, while each person's connected accounts stay their own: sharing a chat shares the answers, not access to the sources.
+Share bots and chats in projects. Each person's connected accounts stay their own: sharing a chat shares the answers, not access to the sources.
 
 PRIVATE BY DESIGN
-• The app and its data are hosted in Germany, and the models (Gemini, GPT, Claude, and Qwen) run in the EU.
+• The app and its data are hosted in Germany. Your questions, and what the assistant reads to answer them, go to the model you pick (Gemini, GPT, Claude, or Qwen), each running in the EU.
 • No index of your company: it searches live when you ask.
 • Chats and the text it reads are encrypted at rest.
-• We don't train models on your data.
+• We don't train models on your data, and our model providers' terms don't allow it either.
 • Web search is off by default. Turned on, its queries go to Google or Bing outside the EU.
 
-Start free, with 30 free answers a day on free models.
+Free to start, with 30 answers a day on free models.
+
+Answers are written by AI and can be wrong: check important ones against their sources.
 
 Made in Berlin by Plenty.

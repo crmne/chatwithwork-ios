@@ -193,9 +193,12 @@ for kids, so it stays out of the Kids category.
 - **4.2, minimum functionality.** Native tabs, sheets, menus, alerts,
   toasts, haptics, search, the share sheet, Quick Look, push notifications,
   and universal links, around the web app's pages.
-- **4.8, sign in with Apple.** Not required: the app signs in only with
-  Chat with Work's own email and password. Google, Slack, and Dropbox
-  sign-ins are hidden in the apps.
+- **4.8, sign in with Apple.** The tab builds hid the Google, Slack, and
+  Dropbox sign-ins, so it wasn't required. The sidebar builds show Google,
+  Microsoft, Slack, and Dropbox (through the system's sign-in sheet), so App
+  Review will ask for an equivalent login that keeps the email private:
+  hide them again in the app, or add Sign in with Apple, before submitting
+  (the Rails app's `docs/marketing/marketplaces.md`, decision 14).
 - **5.1.1(v), account deletion.** Settings > Account > Delete account.
 - **Permissions.** Microphone (dictation, and sound with a video),
   camera (a photo or video to attach), notifications (offered once after

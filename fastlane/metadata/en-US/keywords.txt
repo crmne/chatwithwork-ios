@@ -1,1 +1,1 @@
-ai agent,assistant,work,team,slack,drive,notion,outlook,teams,approval,schedule,europe,private,mcp
+ai bots,ai agent,assistant,automation,workflow,approval,decisions,team,briefing,europe,eu,private
