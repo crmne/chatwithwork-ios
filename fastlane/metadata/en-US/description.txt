@@ -1,8 +1,8 @@
-Your work agent. Not on your laptop.
+AI bots in Europe. They work. You just decide.
 
-Chat with Work is an AI agent for work that runs on our servers in Germany, with every model in the EU. Hand it the job: it searches the tools you use, drafts and posts, and comes back on a schedule. Your team shares it, and nothing changes in your tools until you approve it.
+Chat with Work runs AI bots and an assistant for work on our servers in Germany, with every model in the EU. Hand them the job: they search the tools you use, draft and post, and come back on a schedule. Your team shares them, and nothing changes in your tools until you approve it.
 
-The app puts it in your pocket:
+The app puts them in your pocket:
 • Ask anything about your work and get answers with their sources.
 • Approve or deny a change, like a Slack post or a new file, shown exactly as it will run.
 • Get a notification when an answer is ready or a change waits for you.
@@ -10,7 +10,7 @@ The app puts it in your pocket:
 • Dictate instead of typing: speech is transcribed on our servers in the EU.
 • Attach photos and files, and share answers.
 
-EVERY TOOL YOU USE, ONE AGENT
+EVERY TOOL YOU USE, IN ONE PLACE
 Google Drive, Dropbox, OneDrive, Outlook, Teams, Slack, Discord, Basecamp, Notion, GitHub, Linear, Jira, HubSpot, Odoo and many more, plus your own MCP servers. You connect them on chatwithwork.com from a computer, and the app uses them from then on. Every connection starts at Read, so it only reads until you allow changes.
 
 NOTHING CHANGES WITHOUT YOU

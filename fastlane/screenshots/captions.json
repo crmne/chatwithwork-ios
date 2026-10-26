@@ -1,6 +1,6 @@
 {
   "brief": {
-    "title": "Your work agent. Not on your laptop.",
+    "title": "AI bots in Europe.",
     "text": "It searches the tools you use and answers with its sources, even on a schedule."
   },
   "approval": {
@@ -8,7 +8,7 @@
     "text": "Every change to your tools, shown exactly as it will run."
   },
   "new-chat": {
-    "title": "Every tool you use. One agent.",
+    "title": "Every tool you use. One place.",
     "text": "Slack, Drive, Dropbox, Basecamp, and many more."
   },
   "schedules": {
