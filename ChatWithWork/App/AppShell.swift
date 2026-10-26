@@ -283,11 +283,22 @@ extension AppShell: NavigatorDelegate {
     func handle(proposal: VisitProposal, from navigator: Navigator) -> ProposalResult {
         let route = AppRoute(url: proposal.url)
 
-        if case .historicalLocation = route.kind {
+        if case .historicalLocation(let location) = route.kind {
             showNotice(in: proposal.url)
             if case .signedOut = state {
                 later { $0.didSignIn() }
                 return .reject
+            }
+            // Going back from the one chat screen, with nothing over it
+            // (deleting it, on a server that still recedes): there's nothing
+            // under it, so a new chat takes its place rather than leaving
+            // the deleted one up.
+            if location == .recede, case .signedIn(let shell) = state {
+                let main = shell.navigator.rootViewController
+                if main.viewControllers.count <= 1, main.presentedViewController == nil {
+                    later { _ in shell.startNewChat() }
+                    return .reject
+                }
             }
             return .accept
         }
