@@ -207,8 +207,25 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
                         self.navigator.route(self.environment.url(path: newChat))
                     }
                 }
-            }
+            },
+            perform: { [weak self] action in self?.perform(action) }
         )
+    }
+
+    /// A chat's action from the sidebar: a page opens as any link would;
+    /// anything else (Pin, Delete) goes to the page on screen to send, which
+    /// asks first where the action says so, and the sidebar follows the
+    /// change through `changed`.
+    private func perform(_ action: SidebarData.Action) {
+        if action.opensPage {
+            open(path: action.url)
+            return
+        }
+        if action.confirm != nil { setOpen(false, animated: true) }
+        let main = navigator.rootViewController
+        if !SidebarComponent.perform(action, on: main.topViewController) {
+            ToastCenter.shared.show(String(localized: "That didn't work. Open a chat and try again."), style: .alert)
+        }
     }
 
     private func open(path: String) {

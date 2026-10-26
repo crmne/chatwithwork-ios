@@ -160,7 +160,15 @@ If a public page ever renders differently for the apps, add
    end
    ```
 
-   and give every page the apps reach a `content_for :title`:
+   and give every page the apps reach a `content_for :title`. A page may
+   retitle itself later: a chat's `<title>` follows the chat's title as it
+   changes (the automatic title arriving after the first answer, a rename
+   elsewhere), and the app retitles the screen whenever `<title>` changes,
+   not only when a visit renders. The page's part is a hidden copy of the
+   bar's title that `Chat#broadcast_title` updates, whose
+   `document-title` controller rewrites `<title>`.
+
+   Every page's title:
 
    | Page | Title |
    |---|---|
@@ -448,7 +456,7 @@ Android ignores, are marked "iOS". Every message the bridge sends also carries
 | `context-menu` | `show` `{items: [{title, iosImage?, androidImage?, destructive?, copy?, copyHtml?, nativeAction?}], rect: {x, y, width, height}, scroll: {x, y}, title?}` | reply to `show` `{index}`: click that item (not for `copy` items) | `bridge--context-menu` |
 | `auth-session` | `start` `{url, ephemeral?}`; `cancel` | reply to `start` `{url}` (the callback URL) or `{error}`: `canceled` \| `invalid_url` \| `unavailable` \| `failed` | `bridge--auth-session` |
 | `notification-token` | `connect`; `get`; `offer` `{reason}` (`approval` or `answer`); `openSettings` | reply to `connect`, `get` and `offer`: `{status, token?, platform, environment, appId}` | `bridge--notification-token` |
-| `sidebar` | `connect` `{}`; `changed` `{}` | none | `bridge--sidebar` (section 11) |
+| `sidebar` | `connect` `{}`; `changed` `{}` | reply to `connect` `{action: "perform", url, method, confirm?, destructive?}`: send a chat's action from the sidebar | `bridge--sidebar` (section 11) |
 | `composer` | `connect` and `state` with the composer's state | reply to the latest `connect` `{action, ...}` | `bridge--composer` (section 12) |
 
 Rules for every component:
@@ -703,9 +711,15 @@ end
 ### Deleting
 
 The chat's Delete menu item (`chat_path(@chat, recede: 1)` with
-`data-turbo-method="delete"`) pops the chat and shows "Chat deleted." as a
-toast. Deleting from the chat list keeps its Turbo Stream, which removes the
-row. The same for other destroys reached from their own page
+`data-turbo-method="delete"`) pops the chat in tab builds and shows "Chat
+deleted." as a toast. Sidebar builds have nothing under their one chat
+screen, so the server answers them with a new chat in the deleted chat's
+list (`/chats/new?project_id=…`, which replaces the root) and the notice as
+a toast: nothing of the deleted chat, its title included, stays. Should a
+recede still reach the root (an older server), the app starts a new chat
+itself. Deleting another chat (from the chat list, or the sidebar's long
+press while a different chat shows) keeps its Turbo Stream and leaves the
+screen as it is. The same for other destroys reached from their own page
 (`ProjectsController#destroy` from a project's menu).
 
 ### Links the app handles itself
@@ -1121,8 +1135,10 @@ is the server's switch for anything that differs.
   something. Top to bottom: the list switcher (`list`, "Project" or
   "Showing"; its menu lists `lists`, then All projects… and New project), a
   search field (titles, natively; the first search loads `all=1`), New chat,
-  Waiting for you (`waiting`, with an attention dot and count; it opens the
-  list of `waiting.items`), Bots (`links.bots`, with `bots`' count, dot, or
+  Decisions (`waiting`, with an attention dot and count, named as on the
+  web; it opens the Decisions page, `waiting.url`, or, from a server without
+  one, the list of `waiting.items`; earlier builds called it "Waiting for
+  you"), Bots (`links.bots`, with `bots`' count, dot, or
   next run), Pinned (`pins`), then the chats under their `group` headings
   with a live dot while `state` is `processing` and an attention dot while
   `waiting`, the next page loading from `next` near the end. At the foot,
@@ -1157,7 +1173,7 @@ path of the following page. A signed-out request gets `401`.
 
 where `CHAT` is `{"number": 42, "title": "…", "url": "/482139075/chats/42",
 "state": "idle", "waiting": false, "project": "Website relaunch" or null,
-"asked_at": "2026-10-25T08:12:00Z", "group": "Today"}`. A list's `kind` is
+"asked_at": "2026-10-25T08:12:00Z", "group": "Today", "actions": [ACTION]}`. A list's `kind` is
 `recent`, `all` or `project`; a waiting item's `approval`, `question` or
 `bot`; a chat's `state` `idle`, `processing` or `error`. Links that don't
 apply are `null` (a guest's `new_chat`, `bots`, `projects` and
@@ -1180,6 +1196,25 @@ Opening `waiting.url` or an item's `url` in the web view is all a first
 version needs: the page decides through the chat's own cards, swiping left
 or right on it moves between decisions, and the sidebar's `changed` follows
 its count.
+
+**Long press (2026-10-26).** Each `CHAT` carries `actions`, what the web
+row's menu offers for it, in its order: `rename`, `pin` or `unpin`,
+`section`, `project` and `delete`, the creator's own only where the web's
+are (someone else's project chat offers Pin and Move to section). `ACTION`
+is `{"key": "delete", "title": "Delete", "method": "delete", "url":
+"/482139075/chats/42", "iosImage": "trash", "androidImage": "delete",
+"confirm": "Delete this chat?", "destructive": true}`; `confirm` and
+`destructive` only where they apply. A long press on a chat's row opens
+them as a native menu (titles and symbols as sent, `destructive` in red).
+Picking one with `method` `get` opens its `url` like any link (Rename and
+the Move pages are sheets); any other goes to the page on screen as a reply
+to its `sidebar` component's latest `connect`, `{action: "perform", url,
+method, confirm, destructive}`, and the page sends it as the web's link
+would: a Turbo request with that method, behind the native alert where
+there's a `confirm`. Its answer lands on that page: deleting the chat on
+screen replaces it with a new chat (section 7, "Deleting"), anything else
+leaves the screen as it is, and the sidebar follows through `changed`.
+Without `actions` (an older server) a long press does nothing.
 
 ### Keeping it current
 

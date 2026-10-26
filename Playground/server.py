@@ -857,6 +857,17 @@ def sidebar_json(handler, account, query):
                 "project": chat["project"], "asked_at": "2026-10-25T08:12:00Z"}
         if group:
             data["group"] = chat["when"]
+        # What a long press offers (NativeSidebarHelper#native_sidebar_chat_actions).
+        pinned = number in handler.session["pinned"]
+        url = "/%s/chats/%d" % (account, number)
+        data["actions"] = [
+            {"key": "rename", "title": "Rename", "method": "get", "url": url + "/edit", "iosImage": "pencil", "androidImage": "edit"},
+            {"key": "unpin" if pinned else "pin", "title": "Unpin" if pinned else "Pin", "method": "delete" if pinned else "post",
+             "url": url + "/pin", "iosImage": "pin.slash" if pinned else "pin", "androidImage": "keep_off" if pinned else "keep"},
+            {"key": "project", "title": "Move to project", "method": "get", "url": url + "/project/edit", "iosImage": "folder", "androidImage": "drive_file_move"},
+            {"key": "delete", "title": "Delete", "method": "delete", "url": url, "iosImage": "trash", "androidImage": "delete",
+             "confirm": "Delete this chat?", "destructive": True},
+        ]
         return data
 
     if project:

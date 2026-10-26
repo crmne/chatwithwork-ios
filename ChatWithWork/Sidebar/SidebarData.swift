@@ -40,6 +40,7 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
         let newProject: String?
         let organizations: String?
         let newOrganization: String?
+        let decisions: String?
     }
 
     struct Waiting: Decodable, Equatable, Sendable {
@@ -54,6 +55,8 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
 
         let count: Int
         let items: [Item]
+        /// The Decisions page (servers from 2026-10-26).
+        let url: String?
     }
 
     struct Bots: Decodable, Equatable, Sendable {
@@ -71,10 +74,29 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
         let project: String?
         let askedAt: String?
         let group: String?
+        /// What a long press offers, as the web row's menu does.
+        let actions: [Action]?
 
         var id: Int { number }
+        /// Its row's id among the pins, apart from its row in the list.
+        var pinID: String { "pin-\(number)" }
         var isWorking: Bool { state == "processing" }
         var isWaiting: Bool { waiting == true }
+    }
+
+    /// One of a chat's actions: `get` opens `url`, any other method goes to
+    /// the page on screen to send (SidebarComponent), behind `confirm`.
+    struct Action: Decodable, Equatable, Sendable, Identifiable {
+        let key: String
+        let title: String
+        let method: String
+        let url: String
+        let iosImage: String?
+        let confirm: String?
+        let destructive: Bool?
+
+        var id: String { key }
+        var opensPage: Bool { method == "get" }
     }
 
     let organization: Organization

@@ -7,13 +7,16 @@ struct SidebarActions {
     var open: (String) -> Void
     var newChat: () -> Void
     var chooseList: (String) -> Void
+    /// A chat's action from its long-press menu.
+    var perform: (SidebarData.Action) -> Void
 }
 
 /// The sidebar: the same things in the same order as the web's
 /// (chats/_sidebar_chats, application/_me_menu), drawn natively from
 /// `/native/sidebar`. Which list it's about at the top, search, New chat,
-/// what waits for the person, Bots, pins, the chats by latest question, and
-/// the person at the foot.
+/// Decisions (what waits for the person), Bots, pins, the chats by latest
+/// question, and the person at the foot. A long press on a chat opens its
+/// menu, as the web row's does.
 struct SidebarView: View {
     @Bindable var store: SidebarStore
     let actions: SidebarActions
@@ -150,7 +153,10 @@ struct SidebarView: View {
             placeRow("New chat", systemImage: "square.and.pencil", identifier: "sidebar.newChat", action: actions.newChat)
         }
 
-        placeRow("Waiting for you", systemImage: "hand.raised", identifier: "sidebar.waiting", trailing: {
+        // Decisions, named as on the web. It opens the Decisions page, which
+        // works through them one at a time; a server without one sends no
+        // url, and the row lists what waits instead.
+        placeRow("Decisions", systemImage: "hand.raised", identifier: "sidebar.waiting", trailing: {
             if data.waiting.count > 0 {
                 HStack(spacing: 5) {
                     Circle().fill(Color(Palette.attention)).frame(width: 7, height: 7)
@@ -158,12 +164,16 @@ struct SidebarView: View {
                 }
             }
         }) {
-            withAnimation(.snappy) { showsWaiting.toggle() }
+            if let decisions = data.waiting.url ?? data.links.decisions {
+                actions.open(decisions)
+            } else {
+                withAnimation(.snappy) { showsWaiting.toggle() }
+            }
         }
 
         if showsWaiting {
             if data.waiting.items.isEmpty {
-                Text("Nothing waits for you.")
+                Text("No decisions are waiting.")
                     .font(.footnote)
                     .foregroundStyle(Color(Palette.inkMuted))
                     .padding(.leading, 40)
@@ -247,7 +257,9 @@ struct SidebarView: View {
     private func chatsList(_ data: SidebarData) -> some View {
         if !data.pins.isEmpty {
             sectionLabel("Pinned")
-            ForEach(data.pins) { chat in chatRow(chat, pinned: true) }
+            // A pinned chat is also in its day's list: the rows need ids of
+            // their own, or the lazy stack leaves a gap where one should be.
+            ForEach(data.pins, id: \.pinID) { chat in chatRow(chat, pinned: true) }
         }
 
         if data.chats.isEmpty {
@@ -310,7 +322,7 @@ struct SidebarView: View {
                 Spacer(minLength: 0)
                 if chat.isWaiting {
                     Circle().fill(Color(Palette.attention)).frame(width: 7, height: 7)
-                        .accessibilityLabel("Waiting for you")
+                        .accessibilityLabel("Waiting for a decision")
                 } else if chat.isWorking {
                     Circle().fill(Color(Palette.live)).frame(width: 7, height: 7)
                         .accessibilityLabel("Answering")
@@ -322,9 +334,22 @@ struct SidebarView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            ForEach(chat.actions ?? []) { action in
+                Button(role: action.destructive == true ? .destructive : nil) {
+                    actions.perform(action)
+                } label: {
+                    if let image = action.iosImage {
+                        Label(action.title, systemImage: image)
+                    } else {
+                        Text(action.title)
+                    }
+                }
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(chat.title)
-        .accessibilityValue(chat.isWaiting ? String(localized: "Waiting for you") : chat.isWorking ? String(localized: "Answering") : "")
+        .accessibilityValue(chat.isWaiting ? String(localized: "Waiting for a decision") : chat.isWorking ? String(localized: "Answering") : "")
         .accessibilityIdentifier("sidebar.chat")
         .accessibilityAddTraits(current ? [.isButton, .isSelected] : .isButton)
     }

@@ -50,6 +50,22 @@ struct SidebarTests {
         #expect(data.next != nil)
     }
 
+    @Test("reads a chat's long-press actions and the Decisions page, which older servers leave out")
+    func actionsAndDecisions() throws {
+        let json = Self.json
+            .replacingOccurrences(of: #""waiting": {"count": 1, "items""#, with: #""waiting": {"count": 1, "url": "/482139075/decisions", "items""#)
+            .replacingOccurrences(of: #""group": "Today"},"#, with: #""group": "Today", "actions": [{"key": "pin", "title": "Pin", "method": "post", "url": "/482139075/chats/42/pin", "iosImage": "pin", "androidImage": "keep"}, {"key": "delete", "title": "Delete", "method": "delete", "url": "/482139075/chats/42", "iosImage": "trash", "androidImage": "delete", "confirm": "Delete this chat?", "destructive": true}, {"key": "rename", "title": "Rename", "method": "get", "url": "/482139075/chats/42/edit", "iosImage": "pencil", "androidImage": "edit"}]},"#)
+        let data = try SidebarData.decode(Data(json.utf8))
+        #expect(data.waiting.url == "/482139075/decisions")
+        let actions = try #require(data.chats[0].actions)
+        #expect(actions.map(\.key) == ["pin", "delete", "rename"])
+        #expect(actions[1].confirm == "Delete this chat?" && actions[1].destructive == true && !actions[1].opensPage)
+        #expect(actions[2].opensPage && actions[2].iosImage == "pencil")
+
+        let old = try SidebarData.decode(Data(Self.json.utf8))
+        #expect(old.waiting.url == nil && old.chats[0].actions == nil)
+    }
+
     @Test("reads a guest's, with what they can't reach left out")
     func guest() throws {
         let json = Self.json
