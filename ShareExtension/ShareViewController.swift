@@ -28,19 +28,20 @@ final class ShareViewController: UIViewController {
 
         var text: String?
         var link: String?
-        var files: [SharedFile] = []
+        let share = SharedInbox.begin()
+        var files: [SharedInbox.Entry] = []
 
         for provider in providers {
             if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier), let url = await loadURL(provider), !url.isFileURL {
                 link = url.absoluteString
             } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier), !provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
                 text = await loadText(provider) ?? text
-            } else if let file = await loadFile(provider) {
+            } else if let share, let file = await keepFile(provider, index: files.count, in: share) {
                 files.append(file)
             }
         }
 
-        let folder = SharedInbox.store(files)
+        let folder = share.flatMap { SharedInbox.finish($0, entries: files) }
         open(AppLink.newChat(title: title?.isEmpty == false && title != text ? title : nil, text: text, url: link, shared: folder))
         extensionContext?.completeRequest(returningItems: nil)
     }
@@ -55,16 +56,18 @@ final class ShareViewController: UIViewController {
         try? await provider.loadItem(forTypeIdentifier: UTType.plainText.identifier) as? String
     }
 
-    private func loadFile(_ provider: NSItemProvider) async -> SharedFile? {
+    /// Copies the shared file straight into the share's folder: the
+    /// provider's copy lasts only as long as its callback.
+    private func keepFile(_ provider: NSItemProvider, index: Int, in share: SharedInbox.Share) async -> SharedInbox.Entry? {
         let type = [UTType.pdf, .image, .data].first { provider.hasItemConformingToTypeIdentifier($0.identifier) } ?? .data
         return await withCheckedContinuation { continuation in
             provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { url, _ in
-                guard let url, let data = try? Data(contentsOf: url), data.count <= SharedInbox.largest else {
+                guard let url else {
                     continuation.resume(returning: nil)
                     return
                 }
                 let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? type.preferredMIMEType ?? "application/octet-stream"
-                continuation.resume(returning: SharedFile(name: url.lastPathComponent, type: mime, data: data))
+                continuation.resume(returning: SharedInbox.keep(url, name: url.lastPathComponent, type: mime, index: index, in: share))
             }
         }
     }

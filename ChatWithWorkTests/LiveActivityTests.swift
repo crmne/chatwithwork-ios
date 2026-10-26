@@ -32,8 +32,29 @@ struct LiveActivityTests {
     }
 
     @Test("takes nothing for a folder that isn't a share's")
-    func inbox() {
-        #expect(SharedInbox.take("../etc").isEmpty)
-        #expect(SharedInbox.store([]) == nil)
+    func inbox() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        #expect(SharedInbox.take("../etc", in: root).isEmpty)
+
+        let empty = try #require(SharedInbox.begin(in: root))
+        #expect(SharedInbox.finish(empty, entries: []) == nil)
+        #expect(!FileManager.default.fileExists(atPath: empty.folder.path))
+    }
+
+    @Test("hands over the shared files once, then forgets them")
+    func inboxRoundTrip() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appendingPathComponent("plan.pdf")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data("%PDF-1.7".utf8).write(to: source)
+
+        let share = try #require(SharedInbox.begin(in: root))
+        let entry = try #require(SharedInbox.keep(source, name: "plan.pdf", type: "application/pdf", index: 0, in: share))
+        let name = try #require(SharedInbox.finish(share, entries: [entry]))
+
+        #expect(SharedInbox.take(name, in: root) == [SharedFile(name: "plan.pdf", type: "application/pdf", data: Data("%PDF-1.7".utf8))])
+        #expect(SharedInbox.take(name, in: root).isEmpty)
     }
 }
