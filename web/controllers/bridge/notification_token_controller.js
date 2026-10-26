@@ -12,8 +12,12 @@ import { BridgeComponent } from "@hotwired/hotwire-native-bridge"
 //
 // The element gets data-push-status (authorized, provisional, ephemeral,
 // denied or not_determined) so CSS can show the right button. A token is
-// posted when the person turns notifications on, and on any page at most
-// once a day while they're on.
+// posted when the person turns notifications on, on any page at most once a
+// day while they're on, and at once when the app says it has no
+// notification key yet (needsKey). The server answers with the phone's
+// notification key, which goes to the app ("key"): the app fetches what
+// its notifications say with it, so their words never pass through Apple
+// or Google.
 //
 // The layout's hidden element also offers notifications at the moment they
 // make sense (data-bridge--notification-token-offers-value="true"): the
@@ -76,7 +80,7 @@ export default class extends BridgeComponent {
     this.element.dataset.pushStatus = state.status
     this.dispatch("changed", { detail: state })
 
-    if (state.token && (force || this.#due(state.token))) this.#register(state)
+    if (state.token && (force || state.needsKey || this.#due(state.token))) this.#register(state)
   }
 
   #due(token) {
@@ -98,6 +102,9 @@ export default class extends BridgeComponent {
 
     if (response.ok) {
       try { localStorage.setItem(`push-registration:${state.token}`, String(Date.now())) } catch {}
+
+      const { notification_key: key } = await response.json().catch(() => ({}))
+      if (key) this.send("key", { key, token: state.token })
     }
   }
 }

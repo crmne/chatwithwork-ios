@@ -13,6 +13,12 @@ import UserNotifications
 /// explanation before iOS's own prompt. When the person allows
 /// notifications, every `notification-token` on screen hears the new state,
 /// so the page registers the token without waiting for another page.
+///
+/// The registration's answer is the phone's notification key, which the
+/// page hands back (`key`) and the app keeps in the keychain group it shares
+/// with its notification service extension, which fetches each
+/// notification's words with it (`NotificationWords`). Until it has one for
+/// the current token, the app says `needsKey`, and the page registers at once.
 final class PushNotifications: NSObject {
     static let shared = PushNotifications()
 
@@ -45,6 +51,46 @@ final class PushNotifications: NSObject {
         self.environment = environment
         self.defaults = defaults
         UNUserNotificationCenter.current().delegate = self
+        UNUserNotificationCenter.current().setNotificationCategories(Self.categories)
+    }
+
+    /// One category per kind the server sends (its `category`), each with
+    /// what a notification says when the person hides previews: what
+    /// happened, never the chat's title or words.
+    static var categories: Set<UNNotificationCategory> {
+        let placeholders = [
+            "answered": String(localized: "Your answer is ready."),
+            "approval_waiting": String(localized: "A change is waiting for your approval."),
+            "input_requested": String(localized: "A question is waiting for your answer."),
+            "handed_off": String(localized: "A bot handed a conversation to your team."),
+            "failed": String(localized: "A chat couldn't finish its answer."),
+            "decisions_waiting": String(localized: "Decisions are waiting for you.")
+        ]
+        return Set(placeholders.map { kind, placeholder in
+            UNNotificationCategory(identifier: kind, actions: [], intentIdentifiers: [], hiddenPreviewsBodyPlaceholder: placeholder, options: [])
+        })
+    }
+
+    // MARK: Notification key
+
+    /// Keeps the key the server issued for `token`, on this server, for the
+    /// notification service extension.
+    func keep(key: String, for token: String) {
+        guard !key.isEmpty, !token.isEmpty else { return }
+        NotificationKey.save(NotificationKey.Stored(key: key, token: token, baseURL: environment.baseURL))
+    }
+
+    /// Whether the app has no key for `token` on this server yet.
+    func needsKey(for token: String?) -> Bool {
+        guard let token else { return false }
+        let stored = NotificationKey.load()
+        return stored?.token != token || stored?.baseURL != environment.baseURL
+    }
+
+    /// Signing out ends the key's use: the server deleted the registration,
+    /// and the next person on this phone gets one of their own.
+    func forgetKey() {
+        NotificationKey.delete()
     }
 
     // MARK: State and token
@@ -165,7 +211,8 @@ final class PushNotifications: NSObject {
             token: token,
             platform: "ios",
             environment: environment.pushEnvironment.apnsName,
-            appId: environment.bundleIdentifier
+            appId: environment.bundleIdentifier,
+            needsKey: needsKey(for: token)
         )
     }
 
@@ -271,13 +318,21 @@ enum NotificationPrompt {
     }
 }
 
-/// What `notification-token` replies with.
+/// What `notification-token` replies with. `needsKey`: the app has a token
+/// but no notification key for it, so the page registers it at once.
 nonisolated struct PushState: Encodable, Equatable, Sendable {
     let status: String
     let token: String?
     let platform: String
     let environment: String
     let appId: String
+    var needsKey = false
+}
+
+/// What the page hands back after registering the token (`key`).
+nonisolated struct NotificationKeyData: Decodable, Equatable {
+    let key: String
+    let token: String
 }
 
 /// The page a notification points to: its `path` key, on this server.

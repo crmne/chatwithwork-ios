@@ -228,6 +228,7 @@ final class AppShell: NSObject {
         memory.hasSignedIn = false
         memory.lastAccount = nil
         account = nil
+        PushNotifications.shared.forgetKey()
 
         let flow = SignedOutFlow(environment: environment, navigatorDelegate: self)
         flow.onLocationChange = { [weak self] url in

@@ -455,7 +455,7 @@ Android ignores, are marked "iOS". Every message the bridge sends also carries
 | `review-prompt` | `prompt` | none | not used yet |
 | `context-menu` | `show` `{items: [{title, iosImage?, androidImage?, destructive?, copy?, copyHtml?, nativeAction?}], rect: {x, y, width, height}, scroll: {x, y}, title?}` | reply to `show` `{index}`: click that item (not for `copy` items) | `bridge--context-menu` |
 | `auth-session` | `start` `{url, ephemeral?}`; `cancel` | reply to `start` `{url}` (the callback URL) or `{error}`: `canceled` \| `invalid_url` \| `unavailable` \| `failed` | `bridge--auth-session` |
-| `notification-token` | `connect`; `get`; `offer` `{reason}` (`approval` or `answer`); `openSettings` | reply to `connect`, `get` and `offer`: `{status, token?, platform, environment, appId}` | `bridge--notification-token` |
+| `notification-token` | `connect`; `get`; `offer` `{reason}` (`approval` or `answer`); `openSettings`; `key` `{key, token}` | reply to `connect`, `get` and `offer`: `{status, token?, platform, environment, appId, needsKey}` | `bridge--notification-token` |
 | `sidebar` | `connect` `{}`; `changed` `{}` | reply to `connect` `{action: "perform", url, method, confirm?, destructive?}`: send a chat's action from the sidebar | `bridge--sidebar` (section 11) |
 | `composer` | `connect` and `state` with the composer's state | reply to the latest `connect` `{action, ...}` | `bridge--composer` (section 12) |
 
@@ -862,9 +862,22 @@ any account):
 - `app_id`: the bundle identifier (iOS), which is the APNs topic, or the
   package name (Android).
 
-Answer `201` with `{ "id": … }`. Upsert by `(platform, token)`: a token
-moves to whoever registers it last (someone else signed in on that phone).
-Remember it in the session (`session[:native_push_token] = token`).
+Answer `201` with `{ "id": …, "notification_key": "…" }`. Upsert by
+`(platform, token)`: a token moves to whoever registers it last (someone else
+signed in on that phone). Remember it in the session
+(`session[:native_push_token] = token`).
+
+**The notification key (2026-10-26).** `notification_key` is the phone's key
+for fetching what its notifications say (below, "The words"): the same for as
+long as the token stays its person's, so pages registering at once all get the
+same one; signing out deletes it with the registration, and someone else
+registering the token gets another. The page hands it to the app with
+`notification-token`'s `key` `{key, token}`, and the app keeps it with the
+token it belongs to, in a keychain group the app shares with its notification
+service extension (`CWW_KEYCHAIN_GROUP`, readable after the phone's first
+unlock, never in a backup). Until the app holds a key for the current token,
+its replies say `needsKey: true`, and the page registers at once instead of
+once a day. Signing out forgets it.
 
 The model, outside any account (one phone gets every organization's
 notifications for its person):
@@ -909,10 +922,12 @@ file name. The organization's name and the service's name are fine.
     "alert": { "title": "Acme", "body": "A change is waiting for your approval in Slack." },
     "sound": "default",
     "thread-id": "chat-482139075-42",
-    "category": "approval"
+    "category": "approval_waiting",
+    "mutable-content": 1
   },
   "path": "/482139075/chats/42",
-  "kind": "approval_waiting"
+  "kind": "approval_waiting",
+  "notification_id": "Zm9vYmFy--YmF6--cXV4"
 }
 ```
 
@@ -920,8 +935,45 @@ file name. The organization's name and the service's name are fine.
   The app opens it inside the right organization (a chat as the root of the
   sidebar shell, other pages over it).
 - `thread-id` groups a chat's notifications.
+- `category` is the kind; the app registers one category per kind, each with
+  what the notification says when the person hides previews in iOS's
+  settings ("Your answer is ready."), never the chat's words.
 - `kind`: `approval_waiting` or `input_requested` (body: "A question is
-  waiting for your answer in Notion.").
+  waiting for your answer in Notion."), `answered`, `failed`, `handed_off`,
+  `decisions_waiting`.
+- `notification_id` and `mutable-content` (2026-10-26): an id the app can't
+  read, for fetching the notification's words, sent only to someone whose
+  "Show the chat and its answer" is on.
+
+### The words (2026-10-26)
+
+A notification shows the chat's title and the start of the answer, or, for a
+change or question, what waits and what's to decide, like the web's browser
+notifications, without those words passing through Apple: the app's
+notification service extension (`NotificationService/`, the target
+`ChatWithWorkNotifications`) fetches them from the server as the push
+arrives, before iOS shows it:
+
+```
+GET /native/notifications/<notification_id>
+Authorization: Bearer <the phone's notification key>
+Accept: application/json
+
+200 {"title": "Acme launch", "subtitle": "Waiting for your approval in Slack", "body": "Post the launch recap to #acme-launch"}
+```
+
+`subtitle` comes only for what waits ("Waiting for your approval in Slack",
+"Waiting for your answer in Notion", "3 decisions are waiting for you").
+`body` is at most 180 characters of plain text. The server answers only the
+notification's recipient's phone, while they can still read the chat, and
+gives their phone only what happened (the push's own words) once they turn
+"Show the chat and its answer" off; anything else (no key, a key that isn't
+theirs, an id that's wrong or more than a day old) is `401` or `404`. There's
+no session or cookie, `Cache-Control: no-store`, and the id stays out of the
+server's request logs. The extension waits at most 8 seconds, and shows the
+push as it came when there's no key, the server answers anything but `200`,
+or nothing comes in time. iOS hides title, subtitle and body when the person
+turns previews off.
 
 **Decisions digest (server, 2026-10-26).** Once 3 or more decisions wait for
 someone, a new one's push becomes `decisions_waiting` instead of

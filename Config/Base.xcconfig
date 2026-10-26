@@ -35,6 +35,12 @@ CWW_CALLBACK_SCHEME = chatwithwork
 // build's own: group.com.chatwithwork.app, .staging and .debug.
 CWW_APP_GROUP = group.$(CWW_BUNDLE_IDENTIFIER_BASE)$(CWW_BUNDLE_IDENTIFIER_SUFFIX)
 
+// The keychain group the app shares the phone's notification key through
+// with its notification service extension (Shared/NotificationWords.swift),
+// after the team's prefix. Each build's own. Keychain groups under the
+// team's prefix need nothing in the developer portal.
+CWW_KEYCHAIN_GROUP = $(CWW_BUNDLE_IDENTIFIER_BASE)$(CWW_BUNDLE_IDENTIFIER_SUFFIX).notifications
+
 CODE_SIGN_STYLE = Automatic
 
 // Signing.xcconfig is git-ignored: it holds DEVELOPMENT_TEAM and anything

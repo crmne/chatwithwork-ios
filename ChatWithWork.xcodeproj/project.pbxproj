@@ -11,6 +11,7 @@
 		0A0000000000000000000061 /* BridgeComponents in Frameworks */ = {isa = PBXBuildFile; productRef = 0A0000000000000000000073 /* BridgeComponents */; };
 		0A0000000000000000000160 /* ChatWithWorkWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0A0000000000000000000130 /* ChatWithWorkWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		0A0000000000000000000161 /* ChatWithWorkShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0A0000000000000000000131 /* ChatWithWorkShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		0A0000000000000000000162 /* ChatWithWorkNotifications.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0A0000000000000000000132 /* ChatWithWorkNotifications.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -42,6 +43,13 @@
 			remoteGlobalIDString = 0A0000000000000000000141;
 			remoteInfo = ChatWithWorkShare;
 		};
+		0A0000000000000000000184 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0A0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0A0000000000000000000142;
+			remoteInfo = ChatWithWorkNotifications;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -53,6 +61,7 @@
 			files = (
 				0A0000000000000000000160 /* ChatWithWorkWidgets.appex in Embed Foundation Extensions */,
 				0A0000000000000000000161 /* ChatWithWorkShare.appex in Embed Foundation Extensions */,
+				0A0000000000000000000162 /* ChatWithWorkNotifications.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -69,6 +78,7 @@
 		0A0000000000000000000032 /* ChatWithWorkUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChatWithWorkUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0A0000000000000000000130 /* ChatWithWorkWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ChatWithWorkWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		0A0000000000000000000131 /* ChatWithWorkShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ChatWithWorkShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		0A0000000000000000000132 /* ChatWithWorkNotifications.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ChatWithWorkNotifications.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -94,6 +104,14 @@
 				ShareExtension.entitlements,
 			);
 			target = 0A0000000000000000000141 /* ChatWithWorkShare */;
+		};
+		0A0000000000000000000118 /* Exceptions for "NotificationService" folder in "ChatWithWorkNotifications" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				NotificationService.entitlements,
+			);
+			target = 0A0000000000000000000142 /* ChatWithWorkNotifications */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -137,6 +155,14 @@
 			path = Shared;
 			sourceTree = "<group>";
 		};
+		0A0000000000000000000117 /* NotificationService */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0A0000000000000000000118 /* Exceptions for "NotificationService" folder in "ChatWithWorkNotifications" target */,
+			);
+			path = NotificationService;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -177,6 +203,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0A0000000000000000000158 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -190,6 +223,7 @@
 				0A0000000000000000000112 /* Shared */,
 				0A0000000000000000000110 /* Widgets */,
 				0A0000000000000000000111 /* ShareExtension */,
+				0A0000000000000000000117 /* NotificationService */,
 				0A0000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -202,6 +236,7 @@
 				0A0000000000000000000032 /* ChatWithWorkUITests.xctest */,
 				0A0000000000000000000130 /* ChatWithWorkWidgets.appex */,
 				0A0000000000000000000131 /* ChatWithWorkShare.appex */,
+				0A0000000000000000000132 /* ChatWithWorkNotifications.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -234,6 +269,7 @@
 			dependencies = (
 				0A0000000000000000000182 /* PBXTargetDependency */,
 				0A0000000000000000000183 /* PBXTargetDependency */,
+				0A0000000000000000000185 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				0A0000000000000000000010 /* ChatWithWork */,
@@ -332,6 +368,27 @@
 			productReference = 0A0000000000000000000131 /* ChatWithWorkShare.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		0A0000000000000000000142 /* ChatWithWorkNotifications */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0A0000000000000000000192 /* Build configuration list for PBXNativeTarget "ChatWithWorkNotifications" */;
+			buildPhases = (
+				0A0000000000000000000157 /* Sources */,
+				0A0000000000000000000158 /* Frameworks */,
+				0A0000000000000000000159 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				0A0000000000000000000117 /* NotificationService */,
+				0A0000000000000000000112 /* Shared */,
+			);
+			name = ChatWithWorkNotifications;
+			productName = ChatWithWorkNotifications;
+			productReference = 0A0000000000000000000132 /* ChatWithWorkNotifications.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -359,6 +416,9 @@
 					0A0000000000000000000141 = {
 						CreatedOnToolsVersion = 27.0;
 					};
+					0A0000000000000000000142 = {
+						CreatedOnToolsVersion = 27.0;
+					};
 				};
 			};
 			buildConfigurationList = 0A0000000000000000000090 /* Build configuration list for PBXProject "ChatWithWork" */;
@@ -384,6 +444,7 @@
 				0A0000000000000000000042 /* ChatWithWorkUITests */,
 				0A0000000000000000000140 /* ChatWithWorkWidgets */,
 				0A0000000000000000000141 /* ChatWithWorkShare */,
+				0A0000000000000000000142 /* ChatWithWorkNotifications */,
 			);
 		};
 /* End PBXProject section */
@@ -418,6 +479,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0A0000000000000000000155 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0A0000000000000000000159 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -462,6 +530,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0A0000000000000000000157 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -484,6 +559,11 @@
 			isa = PBXTargetDependency;
 			target = 0A0000000000000000000141 /* ChatWithWorkShare */;
 			targetProxy = 0A0000000000000000000181 /* PBXContainerItemProxy */;
+		};
+		0A0000000000000000000185 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0A0000000000000000000142 /* ChatWithWorkNotifications */;
+			targetProxy = 0A0000000000000000000184 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -898,6 +978,66 @@
 			};
 			name = Release;
 		};
+		0A00000000000000000001A6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = NotificationService/NotificationService.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = NotificationService/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(CWW_BUNDLE_IDENTIFIER_BASE)$(CWW_BUNDLE_IDENTIFIER_SUFFIX).notifications";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Debug;
+		};
+		0A00000000000000000001A7 /* Staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = NotificationService/NotificationService.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = NotificationService/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(CWW_BUNDLE_IDENTIFIER_BASE)$(CWW_BUNDLE_IDENTIFIER_SUFFIX).notifications";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Staging;
+		};
+		0A00000000000000000001A8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = NotificationService/NotificationService.entitlements;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = NotificationService/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(CWW_BUNDLE_IDENTIFIER_BASE)$(CWW_BUNDLE_IDENTIFIER_SUFFIX).notifications";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -957,6 +1097,16 @@
 				0A00000000000000000001A3 /* Debug */,
 				0A00000000000000000001A4 /* Staging */,
 				0A00000000000000000001A5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0A0000000000000000000192 /* Build configuration list for PBXNativeTarget "ChatWithWorkNotifications" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0A00000000000000000001A6 /* Debug */,
+				0A00000000000000000001A7 /* Staging */,
+				0A00000000000000000001A8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -68,6 +68,12 @@ MODELS = [
 MONOCHROME = {"basecamp", "brain", "github", "intercom", "ollama", "openai", "openrouter", "qwen", "xai"}
 
 STATE_LOCK = threading.Lock()
+# The phone's notification key that registering a push token answers, and
+# what every notification says when the extension fetches it with that key
+# (docs/server-contract.md, "Push notifications").
+NOTIFICATION_KEY = "playground-notification-key"
+NOTIFICATION_TEXT = {"title": "Acme launch", "subtitle": "Waiting for your approval in Slack",
+                     "body": "Post the launch recap to #acme-launch"}
 SESSIONS = {}  # cookie value -> {"flash": [(type, message)], "pinned": set(), "asked": {}, "paused": set()}
 CHATS = {
     42: {"title": "Q3 launch commitments for Acme", "project": None, "when": "Today", "processing": False},
@@ -1260,6 +1266,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.page(sign_up_page(self))
         if path == "/":
             return self.redirect("/chats" if self.signed_in else "/users/sign_in", 302)
+        if path.startswith("/native/notifications/"):
+            # What a notification says, for the notification service
+            # extension: only with the phone's key, never a session.
+            if self.headers.get("Authorization") != f"Bearer {NOTIFICATION_KEY}":
+                return self.send(401, "", "application/json")
+            return self.send(200, json.dumps(NOTIFICATION_TEXT), "application/json")
 
         if not self.signed_in:
             return self.unauthorized()
@@ -1323,7 +1335,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.redirect("/users/sign_in", 303, {"Set-Cookie": "pg_session=; Path=/; Max-Age=0"})
         if path == "/native/push_registrations":
             print(f"push registration: {json.dumps(form)}", flush=True)
-            return self.send(201, json.dumps({"ok": True}), "application/json")
+            return self.send(201, json.dumps({"ok": True, "notification_key": NOTIFICATION_KEY}), "application/json")
 
         if not self.signed_in:
             return self.unauthorized()

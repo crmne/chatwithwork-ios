@@ -15,12 +15,17 @@ import UIKit
 ///   otherwise it replies at once.
 /// - `openSettings`: opens this app's page in iOS Settings, for someone who
 ///   turned notifications off there.
+/// - `key` `{key, token}`: the phone's notification key, which the server
+///   answered the token's registration with. The app keeps it for its
+///   notification service extension, which fetches each notification's
+///   words with it.
 ///
 /// Native → web, for `connect`, `get` and `offer`: `{status, token?, platform,
-/// environment, appId}`. `status` is `authorized`, `provisional`,
+/// environment, appId, needsKey}`. `status` is `authorized`, `provisional`,
 /// `ephemeral`, `denied` or `not_determined`; `environment` is the APNs
 /// gateway (`sandbox` or `production`); `appId` the bundle identifier the
-/// server sends to (the APNs topic).
+/// server sends to (the APNs topic); `needsKey` that the app has no key for
+/// the token yet, so the page registers it now rather than once a day.
 ///
 /// When the person allows notifications anywhere else (an offer, another
 /// page's Turn on), the component answers its latest
@@ -54,6 +59,10 @@ final class NotificationTokenComponent: BridgeComponent, PushStateListener {
         case "openSettings":
             if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
                 UIApplication.shared.open(url)
+            }
+        case "key":
+            if let data: NotificationKeyData = message.data() {
+                PushNotifications.shared.keep(key: data.key, for: data.token)
             }
         default:
             break

@@ -179,10 +179,17 @@ struct BridgeContractTests {
 
     @Test("push state uses the contract's names")
     func pushState() throws {
-        let state = PushState(status: "authorized", token: "abc", platform: "ios", environment: "sandbox", appId: "com.chatwithwork.app.debug")
+        let state = PushState(status: "authorized", token: "abc", platform: "ios", environment: "sandbox", appId: "com.chatwithwork.app.debug", needsKey: true)
         let json = try #require(String(data: JSONEncoder().encode(state), encoding: .utf8))
         #expect(json.contains(#""appId":"com.chatwithwork.app.debug""#))
+        #expect(json.contains(#""needsKey":true"#))
         #expect(UNAuthorizationStatusNames.all == ["authorized", "provisional", "ephemeral", "denied", "not_determined"])
+    }
+
+    @Test("notification-token's key hands over the phone's notification key and its token")
+    func notificationKey() {
+        let data: NotificationKeyData? = message("notification-token", "key", #"{"key":"eyJ--abc","token":"a1b2",\#(metadata)}"#).data()
+        #expect(data == NotificationKeyData(key: "eyJ--abc", token: "a1b2"))
     }
 }
 

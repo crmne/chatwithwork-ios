@@ -11,10 +11,11 @@ feel like an iOS app: it opens on a new chat, with a native sidebar that
 slides in from the left (your chats, projects, what waits for you, Bots, and
 Settings), large titles, sheets, a welcome screen, native menus, alerts,
 toasts, haptics, search, the share sheet, sign-in and connecting services
-through the system's secure browser sheet, push notifications and universal
-links, a native composer with a "+" sheet and dictation, Live Activities for
-answers that work on after you leave them, a home-screen widget, and a share
-extension.
+through the system's secure browser sheet, push notifications that show the
+answer's start or what waits for you (fetched from the server as they arrive,
+never through Apple) and universal links, a native composer with a "+" sheet
+and dictation, Live Activities for answers that work on after you leave them,
+a home-screen widget, and a share extension.
 
 What the server has to do for all of that is written down in
 [docs/server-contract.md](docs/server-contract.md).
@@ -86,7 +87,13 @@ builds ignore the first:
 
 Push notifications and universal links need the Push Notifications and
 Associated Domains capabilities on the App ID, which automatic signing adds
-from `ChatWithWork/Resources/ChatWithWork.entitlements`.
+from `ChatWithWork/Resources/ChatWithWork.entitlements`. The app and its
+notification service extension share the phone's notification key through a
+keychain group under the team's prefix (`CWW_KEYCHAIN_GROUP`), which needs
+nothing in the developer portal. The extension's own App IDs
+(`com.chatwithwork.app.notifications`, `.staging.notifications` and
+`.debug.notifications`) are registered there, as a new extension's must be
+before Xcode Cloud signs it.
 
 ## How it's put together
 
@@ -100,10 +107,12 @@ ChatWithWork/
   Notifications/  push notifications
   Composer/       the native composer, its + sheet and dictation
   LiveActivities/ starting Live Activities and telling the server their tokens
-Shared/           what the app and its extensions share: Live Activity attributes, app links, the share inbox
+  Resources/      Info.plist, entitlements, assets, the bundled path configuration
+Shared/           what the app and its extensions share: Live Activity attributes, app links, the share inbox,
+                  a notification's words and the phone's notification key
 Widgets/          the widget extension: Ask on the home screen, and the Live Activity
 ShareExtension/   the share extension
-  Resources/      Info.plist, entitlements, assets, the bundled path configuration
+NotificationService/  the notification service extension, which fetches a notification's words from the server
 ChatWithWorkTests/    unit tests (Swift Testing)
 ChatWithWorkUITests/  UI tests (signed out against staging, signed in against the playground)
 web/              the web half of the bridge, for the Rails app to copy
