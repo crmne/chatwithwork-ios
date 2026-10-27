@@ -26,6 +26,8 @@ enum NavigationBarItems {
         case menu
         case button
         case share
+        /// A file viewer's Share (FileShareComponent).
+        case file
 
         static func < (lhs: Slot, rhs: Slot) -> Bool { lhs.rawValue < rhs.rawValue }
     }

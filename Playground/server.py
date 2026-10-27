@@ -699,6 +699,7 @@ def conversation(handler, account, number):
             <div id="chat_messages" data-scroll-target="resizable">{user_message(account, number, 6, QUESTION, author)}
 {searches}
 {assistant_message(account, number, 12, ANSWER, ANSWER_HTML, SOURCES, project_chat=in_project)}
+{code_files(account, number)}
 {user_message(account, number, 13, RECAP_REQUEST, author)}
 {recap_activity(account, number, state, session.get("denial_reason"))}{after}{asked}
             </div>
@@ -726,6 +727,105 @@ def conversation(handler, account, number):
     </turbo-frame>
 {'' if in_project else share_dialog(handler, number, chat["title"])}"""
     return Page(chat["title"], body, body_class="chat-view", account=account)
+
+
+# MARK: - A chat's files, in the markup of messages/_code_files and chats/files/show
+
+# What a code run made, as the server's FilePreview shows it: a deck's slides
+# as pictures, with the PDF they came from.
+FILES = {
+    "board-update": {"name": "board-update.pptx", "type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                     "kind": "PowerPoint", "size": "52 KB", "slides": ["Margins up, churn down", "Agenda", "Quarter in numbers"]},
+}
+
+
+def code_files(account, number):
+    """A code run's deliverables, each a file chip that opens its viewer
+    (messages/files/_chip with a preview), Download at its end."""
+    chips = "".join(f"""
+      <li>
+        <span class="file-chip file-chip--preview" title="{esc(file["name"])}">
+          <a class="file-chip__open" data-turbo-frame="_top" aria-label="Preview {esc(file["name"])}, {file["size"]}"
+             href="/{account}/chats/{number}/files/{key}">
+            <span class="file-chip__thumb file-chip__thumb--icon">{icon("presentation-chart", "file-chip__icon")}</span>
+            <span class="file-chip__name">{esc(file["name"])}</span>
+            <span class="file-chip__meta">{file["size"]}</span>
+          </a>
+          <a class="file-chip__download" download="{esc(file["name"])}" data-turbo="false" aria-label="Download {esc(file["name"])}"
+             href="/rails/active_storage/blobs/proxy/{key}/{esc(file["name"])}?disposition=attachment">{icon("download-simple", "size-4")}</a>
+        </span>
+      </li>""" for key, file in FILES.items())
+    return f"""<turbo-frame id="files_message_12">
+              <ul class="run-code__files">{chips}
+              </ul>
+            </turbo-frame>"""
+
+
+def slide_picture(title, number):
+    """A slide as the server renders one: a picture, drawn here as an SVG."""
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">'
+           '<rect width="1600" height="900" fill="#06070B"/><rect x="107" y="372" width="280" height="6" fill="#44B0FF"/>'
+           f'<text x="107" y="500" fill="#E9ECF4" font-family="Helvetica, Arial, sans-serif" font-size="86" font-weight="700">{esc(title)}</text>'
+           f'<text x="1493" y="860" fill="#80889D" font-family="Menlo, monospace" font-size="22" text-anchor="end">{number}</text></svg>')
+    return "data:image/svg+xml," + urllib.parse.quote(svg)
+
+
+def file_viewer(handler, account, number, key):
+    """A file's viewer (chats/files/show): its own bar, which the apps draw
+    themselves, Share through bridge--file, and the file's pages."""
+    file = FILES.get(key)
+    if file is None or number not in CHATS:
+        return None
+    download = f"/rails/active_storage/blobs/proxy/{key}/{file['name']}?disposition=attachment"
+    pdf_name = file["name"].rsplit(".", 1)[0] + ".pdf"
+    pdf = f"/rails/active_storage/blobs/proxy/{key}-pdf/{pdf_name}?disposition=attachment"
+    shared = json.dumps([
+        {"url": download, "name": file["name"], "contentType": file["type"], "title": file["kind"]},
+        {"url": pdf, "name": pdf_name, "contentType": "application/pdf", "title": "PDF"},
+    ])
+    count = len(file["slides"])
+    pages = "".join(f"""
+            <li class="file-viewer__page file-viewer__page--wide" style="--page-ratio: 1.7778">
+              <img src="{slide_picture(title, index)}" alt="Slide {index}" width="1600" height="900">
+              <span class="file-viewer__number" aria-hidden="true">{index}</span>
+            </li>""" for index, title in enumerate(file["slides"], start=1))
+    body = f"""
+    <div class="file-viewer" data-controller="file-viewer">
+      <header class="file-viewer__bar">
+        <a href="/{account}/chats/{number}" class="file-viewer__close btn btn-ghost btn-sm btn-square native-hidden"
+           aria-label="Back to the chat">{icon("x", "size-5")}</a>
+        <div class="file-viewer__title native-hidden">
+          <div class="file-viewer__heading">
+            <h1 class="file-viewer__name">{esc(file["name"])}</h1>
+            <p class="file-viewer__meta">{file["kind"]} · {file["size"]} · {count} slides</p>
+          </div>
+        </div>
+        <div class="file-viewer__actions">
+          <a href="{download}" class="btn btn-primary btn-sm" download="{esc(file["name"])}" data-turbo="false"
+             aria-label="Download {esc(file["name"])}">{icon("download-simple", "size-4")}<span class="file-viewer__label">Download</span></a>
+        </div>
+      </header>
+      <div class="file-viewer__body file-viewer__body--pages">
+        <turbo-frame id="file_preview_pages" class="file-viewer__frame">
+          <div hidden data-controller="bridge--file" data-bridge--file-files-value='{esc(shared)}'></div>
+          <p class="file-viewer__summary">
+            <span>{count} slides</span>
+            <a href="{pdf}" class="file-viewer__pdf" download="{esc(pdf_name)}" data-turbo="false">{icon("file-pdf", "size-4")}<span>Download as PDF</span></a>
+          </p>
+          <ol class="file-viewer__pages">{pages}
+          </ol>
+        </turbo-frame>
+      </div>
+    </div>"""
+    return Page(file["name"], body, account=account)
+
+
+def file_download(name):
+    """A file's bytes: a blank PDF, or an empty package for anything else."""
+    if name.endswith(".pdf"):
+        return (b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Count 0/Kids[]>>endobj\n"
+                b"trailer<</Root 1 0 R>>\n%%EOF\n"), "application/pdf"
+    return b"PK\x05\x06" + b"\x00" * 18, "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
 
 # MARK: - New chat, in the markup of chats/new, _reach and _suggestions
@@ -1276,6 +1376,12 @@ class Handler(BaseHTTPRequestHandler):
         if not self.signed_in:
             return self.unauthorized()
 
+        # A file's download, as Active Storage's proxy answers it: made-up bytes of its type.
+        if m := re.fullmatch(r"/rails/active_storage/blobs/proxy/[\w-]+/([^/]+)", path):
+            name = urllib.parse.unquote(m.group(1))
+            data, content_type = file_download(name)
+            return self.send(200, data, content_type, {"Content-Disposition": f'attachment; filename="{name}"'})
+
         match = re.fullmatch(r"(?:/(\d{7,}))?(/.*)", path)
         account, rest = match.group(1), match.group(2)
         if account is None:
@@ -1301,6 +1407,8 @@ class Handler(BaseHTTPRequestHandler):
             page = conversation(self, account, int(m.group(1)))
         elif m := re.fullmatch(r"/chats/(\d+)/edit", rest):
             page = rename_form(self, account, int(m.group(1)))
+        elif m := re.fullmatch(r"/chats/(\d+)/files/([\w-]+)", rest):
+            page = file_viewer(self, account, int(m.group(1)), m.group(2))
         elif m := re.fullmatch(r"/chats/(\d+)/project/edit", rest):
             page = move_form(self, account, int(m.group(1)))
         elif rest == "/projects":

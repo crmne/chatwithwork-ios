@@ -27,7 +27,7 @@ struct BridgeContractTests {
         #expect(names == [
             "alert", "review-prompt", "theme",
             "button", "menu", "search", "form", "share", "toast", "haptic",
-            "context-menu", "auth-session", "notification-token", "sidebar", "composer"
+            "context-menu", "auth-session", "notification-token", "sidebar", "composer", "file"
         ])
         #expect(Set(names).count == names.count)
     }
@@ -72,6 +72,30 @@ struct BridgeContractTests {
         #expect(decoded.index == 2)
         #expect(reply.id == "1")
         #expect(reply.event == "connect")
+    }
+
+    @Test("file reads the files a viewer shares, the file first, then its PDF")
+    func file() {
+        let data: FileShareData? = message("file", "connect", #"{"files":[{"url":"https://chatwithwork.com/rails/active_storage/blobs/proxy/abc/deck.pptx?disposition=attachment","name":"deck.pptx","contentType":"application/vnd.openxmlformats-officedocument.presentationml.presentation","title":"PowerPoint"},{"url":"/rails/active_storage/blobs/proxy/def/deck.pdf","name":"deck.pdf","contentType":"application/pdf","title":"PDF"}],\#(metadata)}"#).data()
+        #expect(data?.files.map(\.name) == ["deck.pptx", "deck.pdf"])
+        #expect(data?.files.map(\.isPDF) == [false, true])
+        #expect(data?.files.first?.title == "PowerPoint")
+
+        let page = URL(string: "https://chatwithwork.com/1000001/chats/42/files/xyz")!
+        #expect(data?.files[1].resolvedURL(relativeTo: page)?.absoluteString == "https://chatwithwork.com/rails/active_storage/blobs/proxy/def/deck.pdf")
+        let script = ViewerFile(url: "javascript:alert(1)", name: "x", contentType: nil, title: nil)
+        #expect(script.resolvedURL(relativeTo: page) == nil, "Only http(s) addresses download")
+
+        let bare: FileShareData? = message("file", "connect", #"{"files":[{"url":"/a.csv","name":"a.csv"}],\#(metadata)}"#).data()
+        #expect(bare?.files.first?.contentType == nil, "contentType and title are optional")
+    }
+
+    @Test("a shared file keeps its name, without folders")
+    func sharedFileName() {
+        #expect(SessionDownload.safeName("Q3 board/deck.pptx") == "Q3 board-deck.pptx")
+        #expect(SessionDownload.safeName("..") == "file")
+        #expect(SessionDownload.safeName("  ") == "file")
+        #expect(SessionDownload.safeName("report.docx") == "report.docx")
     }
 
     @Test("form reads its button title")

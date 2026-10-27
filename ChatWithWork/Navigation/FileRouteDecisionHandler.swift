@@ -25,8 +25,11 @@ nonisolated struct FileRouteDecisionHandler: RouteDecisionHandler {
     }
 }
 
-/// Downloads a file with the web views' session, then shows it in Quick Look.
-/// Anything that fails to download opens in the in-app browser instead.
+/// Downloads a file with the web views' session (SessionDownload), then shows
+/// it in Quick Look. Anything that fails to download opens in the in-app
+/// browser instead. A chat's files open in their viewer, a page of the
+/// server's (the path configuration's `/chats/<n>/files/` rule); this is for
+/// the links that still lead to a file itself, like older pages' downloads.
 final class DocumentPreviewer: NSObject {
     static let shared = DocumentPreviewer()
 
@@ -35,7 +38,8 @@ final class DocumentPreviewer: NSObject {
     func preview(_ url: URL, from presenter: UIViewController) {
         Task {
             do {
-                file = try await download(url)
+                if let file { SessionDownload.discard(file) }
+                file = try await SessionDownload.file(from: url)
                 let preview = QLPreviewController()
                 preview.dataSource = self
                 presenter.present(preview, animated: true)
@@ -45,23 +49,6 @@ final class DocumentPreviewer: NSObject {
                 presenter.present(safari, animated: true)
             }
         }
-    }
-
-    private func download(_ url: URL) async throws -> URL {
-        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
-        HTTPCookieStorage.shared.setCookies(cookies, for: url, mainDocumentURL: url)
-
-        let (temporary, response) = try await URLSession.shared.download(from: url)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw URLError(.badServerResponse)
-        }
-
-        let directory = FileManager.default.temporaryDirectory.appending(path: "Previews", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let destination = directory.appending(path: response.suggestedFilename ?? url.lastPathComponent)
-        try? FileManager.default.removeItem(at: destination)
-        try FileManager.default.moveItem(at: temporary, to: destination)
-        return destination
     }
 }
 

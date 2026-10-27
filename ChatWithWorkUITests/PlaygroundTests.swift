@@ -219,6 +219,59 @@ final class PlaygroundTests: XCTestCase {
         XCTAssertFalse(prompt.waitForExistence(timeout: 6), "The app offers notifications only once")
     }
 
+    /// A file the assistant made opens in its viewer, full screen over the
+    /// chat: its slides, the file's name for a title, and Share in the bar,
+    /// which asks which file (the deck or the PDF of its slides) and hands
+    /// the file itself to the share sheet.
+    @MainActor
+    func testFileViewer() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground, "-CWWAskForNotifications", "NO"]
+        app.launch()
+
+        app.buttons["welcome.signIn"].tap()
+        let signIn = app.webViews.buttons["Sign in"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 20))
+        signIn.tap()
+        openChat(app, titled: "Q3 launch commitments for Acme")
+
+        let chip = app.webViews.links["Preview board-update.pptx, 52 KB"]
+        XCTAssertTrue(chip.waitForExistence(timeout: 20), "The answer's file should be a chip")
+        chip.tap()
+
+        XCTAssertTrue(app.navigationBars["board-update.pptx"].waitForExistence(timeout: 20), "The viewer should be titled with the file's name")
+        // WebKit names a picture by its alt text, as an image or (an SVG's) a group.
+        XCTAssertTrue(app.webViews.descendants(matching: .any)["Slide 1"].waitForExistence(timeout: 10), "The viewer should show the slides")
+        let share = app.buttons["bridge.file"]
+        XCTAssertTrue(share.waitForExistence(timeout: 10), "Share should be in the bar")
+        XCTAssertTrue(app.buttons["sheet.close"].exists, "The viewer should close like a sheet")
+        XCTAssertFalse(app.webViews.links["Download board-update.pptx"].exists, "The page's own bar is left out")
+        settle()
+        keep("file-viewer")
+
+        share.tap()
+        XCTAssertTrue(app.buttons["PDF"].waitForExistence(timeout: 5), "Share should ask which file")
+        XCTAssertTrue(app.buttons["PowerPoint"].exists)
+        settle(0.6)
+        keep("file-share-menu")
+        app.buttons["PDF"].tap()
+
+        // The share sheet runs out of process; its Copy action is one of its own.
+        let copy = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Copy")).firstMatch
+        XCTAssertTrue(copy.waitForExistence(timeout: 20), "The share sheet should open with the file")
+        settle()
+        keep("file-share-sheet")
+        // A tap outside puts it away: iOS shows it as a card under the button,
+        // or as a sheet from the bottom.
+        let card = app.otherElements["ShareSheet.RemoteContainerView"]
+        let below = !card.exists || card.frame.midY < app.frame.midY
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: below ? 0.9 : 0.05)).tap()
+        XCTAssertTrue(copy.waitForNonExistence(timeout: 10), "A tap outside the share sheet should put it away")
+
+        app.buttons["sheet.close"].tap()
+        XCTAssertTrue(chip.waitForExistence(timeout: 10), "Closing should go back to the chat")
+    }
+
     /// Opens one of the app's own links, as a widget or the share extension
     /// would; iOS asks first when it comes from outside.
     @MainActor

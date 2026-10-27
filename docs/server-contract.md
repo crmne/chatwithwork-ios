@@ -408,6 +408,7 @@ anchoring unless written):
 | `^/shared/` | default | | off | |
 | `/settings(\?\|$)` | modal (`large` sheet) | | on | swipe down dismisses; its sections push inside the sheet |
 | `/chats(\?\|$)`, `/projects(\?\|$)`, `/bots(\?\|$)` | default | | on | pushed over the chat |
+| `/chats/\d+/files/` | modal (`full`) | | off | a chat's file in its viewer, over the chat ([A file](#a-file-chatsfilesshow)) |
 
 v1, for the tab builds, opened `/chats/new` as a sheet, pushed chats, and
 treated `/chats`, `/projects` and `/settings` as tab roots.
@@ -458,6 +459,7 @@ Android ignores, are marked "iOS". Every message the bridge sends also carries
 | `notification-token` | `connect`; `get`; `offer` `{reason}` (`approval` or `answer`); `openSettings`; `key` `{key, token}` | reply to `connect`, `get` and `offer`: `{status, token?, platform, environment, appId, needsKey}` | `bridge--notification-token` |
 | `sidebar` | `connect` `{}`; `changed` `{}` | reply to `connect` `{action: "perform", url, method, confirm?, destructive?}`: send a chat's action from the sidebar | `bridge--sidebar` (section 11) |
 | `composer` | `connect` and `state` with the composer's state | reply to the latest `connect` `{action, ...}` | `bridge--composer` (section 12) |
+| `file` | `connect` `{files: [{url, name, contentType?, title?}]}`; `disconnect` | none | `bridge--file` ([A file](#a-file-chatsfilesshow)) |
 
 Rules for every component:
 
@@ -510,6 +512,17 @@ Details the table can't hold:
   `data-bridge-description`. A dismissed alert sends nothing, which leaves
   Turbo's submission unstarted: that's what cancelling is.
 - **`notification-token`** and **`auth-session`**: sections 9 and 10.
+- **`file`**: one per page, in a file's viewer. The app puts Share in the
+  bar (iOS `square.and.arrow.up`, Android `share`); with one file it shares
+  that file, with more (an Office file, then the PDF of its pages) its menu
+  lists each by `title` first. Sharing downloads `url` with the web views'
+  cookies, only from the app's own server, and hands the file itself, named
+  `name`, to the share sheet (Save to Files, Print, AirDrop, other apps on
+  iOS; the chooser on Android, whose overflow menu also has "Save to
+  device"). The element sends `connect` again whenever it reconnects, so a
+  frame that swaps it (the pages once rendered, adding the PDF) updates the
+  button. native.css hides the page's own Download and the chips' Download
+  once the app lists the component.
 
 ## 7. Page by page
 
@@ -722,14 +735,41 @@ press while a different chat shows) keeps its Turbo Stream and leaves the
 screen as it is. The same for other destroys reached from their own page
 (`ProjectsController#destroy` from a project's menu).
 
+### A file (`chats/files/show`)
+
+A chat's file chips (`messages/files/_chip`) and an answer's links to files
+it made open the file's viewer, `/:account/chats/:number/files/:signed_id`
+(the server's `docs/file-store.md`, "Previews"): a PDF's or an Office file's
+pages as pictures rendered on the server (LibreOffice and poppler in a
+sandbox, with the file's own fonts), a CSV as a table, Markdown and text as
+an answer shows them, pictures, and HTML in a frame where nothing runs. So a
+deck the assistant made shows as its slides without PowerPoint on the phone.
+
+- The path configuration presents it full screen over the chat (`modal`,
+  `full` on iOS; `hotwire://fragment/web/modal` on Android), titled with the
+  file's name from `<title>`, with the app's close button. The page's own
+  title and close are `native-hidden`, and its bar, then holding only
+  Download, goes too once the app lists `file`.
+- Share is the `file` component's: `connect` `{files}` with the file, then
+  the PDF of its pages once they're rendered. Each `title` says what the
+  file is, as its chip does (`"PowerPoint"`, `"PDF"`), and the apps add the
+  verb: with two files, iOS's Share menu and Android's Share and Save
+  dialogs list them by it. A build without the component gets the page's
+  own Download, which opens as files always did (below).
+- While the pages render, the page asks for its frame
+  (`file_preview_pages`) again every second or so; nothing native.
+- The page allows zooming (no `maximum-scale`); Android turns on its web
+  view's pinch zoom for these pages only.
+
 ### Links the app handles itself
 
 Nothing to do, but worth knowing:
 
 - Links to another site open in an in-app browser. Links to files
-  (`/rails/active_storage/...`) are downloaded with the person's session and
-  open in Quick Look, which shows PDFs, images and Office documents with
-  Share, Save to Files and Print.
+  (`/rails/active_storage/...`, like a viewer's Download in a build without
+  `file`) are downloaded with the person's session and open in Quick Look,
+  which shows PDFs, images and Office documents with Share, Save to Files
+  and Print. A chat's files themselves open in their viewer (above).
 - In tab builds, a link to another tab's list (`/482139075/projects` from a
   chat) switches tabs instead of pushing a copy of the list. Sidebar builds
   push it over the chat.

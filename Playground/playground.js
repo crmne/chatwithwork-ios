@@ -7,6 +7,7 @@ import AuthSessionController from "/web/controllers/bridge/auth_session_controll
 import ButtonController from "/web/controllers/bridge/button_controller.js"
 import ConfirmController from "/web/controllers/bridge/confirm_controller.js"
 import ContextMenuController from "/web/controllers/bridge/context_menu_controller.js"
+import FileController from "/web/controllers/bridge/file_controller.js"
 import FormController from "/web/controllers/bridge/form_controller.js"
 import HapticController from "/web/controllers/bridge/haptic_controller.js"
 import MenuController from "/web/controllers/bridge/menu_controller.js"
@@ -23,6 +24,7 @@ application.register("bridge--auth-session", AuthSessionController)
 application.register("bridge--button", ButtonController)
 application.register("bridge--confirm", ConfirmController)
 application.register("bridge--context-menu", ContextMenuController)
+application.register("bridge--file", FileController)
 application.register("bridge--form", FormController)
 application.register("bridge--haptic", HapticController)
 application.register("bridge--menu", MenuController)

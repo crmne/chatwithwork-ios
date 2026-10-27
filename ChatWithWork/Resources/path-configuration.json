@@ -77,6 +77,16 @@
         "context": "default",
         "pull_to_refresh_enabled": true
       }
+    },
+    {
+      "patterns": [
+        "/chats/\\d+/files/"
+      ],
+      "properties": {
+        "context": "modal",
+        "modal_style": "full",
+        "pull_to_refresh_enabled": false
+      }
     }
   ]
 }

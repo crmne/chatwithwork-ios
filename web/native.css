@@ -107,6 +107,12 @@
     display: none !important;
   }
 
+  /* A file's Share moves to the viewer's bar (bridge--file), so the viewer's own buttons go, and so does Download on
+     the chat's file chips: the viewer shares the file itself. */
+  html[data-bridge-components~="file"] :is(.file-viewer__bar, .file-viewer__pdf, .file-chip__download) {
+    display: none !important;
+  }
+
   /* Push notification settings: show what fits the device's state. */
   :is(.push-row__status, .push-row__action) {
     display: none !important;

@@ -32,7 +32,8 @@ enum BridgeRegistry {
             AuthSessionComponent.self, // "auth-session"
             NotificationTokenComponent.self, // "notification-token"
             SidebarComponent.self, // "sidebar"
-            ComposerComponent.self // "composer"
+            ComposerComponent.self, // "composer"
+            FileShareComponent.self // "file"
         ]
     }
 }

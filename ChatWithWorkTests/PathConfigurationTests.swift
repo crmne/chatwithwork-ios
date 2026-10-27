@@ -76,6 +76,16 @@ struct PathConfigurationTests {
         #expect(properties(path).pullToRefreshEnabled)
     }
 
+    @Test("opens a chat's files in their viewer, full screen over the chat", arguments: [
+        "/1000001/chats/42/files/eyJfcmFpbHMiOnsiZGF0YSI6MTJ9fQ==--abc", "/1000001/chats/42/files/abc?poll=2"
+    ])
+    func fileViewer(path: String) {
+        #expect(properties(path).context == .modal)
+        #expect(properties(path).modalStyle == .full)
+        #expect(!properties(path).pullToRefreshEnabled)
+        #expect(properties(path).presentation == .default, "never the chat's own screen")
+    }
+
     @Test("keeps Hotwire's historical locations")
     func historicalLocations() {
         #expect(properties("/recede_historical_location").presentation == .pop)
