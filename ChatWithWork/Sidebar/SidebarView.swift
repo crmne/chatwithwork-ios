@@ -256,12 +256,18 @@ struct SidebarView: View {
         }
     }
 
-    /// Chats | Bots, under Decisions. The Bots half carries a dot, never a
-    /// number, while a bot needs the person: Decisions holds the one count.
+    /// Chats | Bots, under Decisions: two equal halves, each its icon and
+    /// label centred together. The Bots half carries a dot, never a number,
+    /// while a bot needs the person: Decisions holds the one count.
     private func halfSwitch(attention: Bool) -> some View {
         HStack(spacing: 2) {
-            halfButton(.chats, title: "Chats", attention: false)
-            halfButton(.bots, title: "Bots", attention: attention)
+            halfButton(.chats, title: "Chats", attention: false) {
+                Image(systemName: "bubble.left.and.bubble.right").font(.footnote.weight(.semibold))
+            }
+            halfButton(.bots, title: "Bots", attention: attention) {
+                // Down a point, so the bubble's middle meets the label's, as the chats icon's does.
+                BotMark(size: 15).offset(y: 1)
+            }
         }
         .padding(2)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color(Palette.line).opacity(0.55)))
@@ -271,28 +277,35 @@ struct SidebarView: View {
         .accessibilityLabel("Show")
     }
 
-    private func halfButton(_ half: Half, title: LocalizedStringKey, attention: Bool) -> some View {
+    /// One half. Chosen or not, it has the same size, padding and type, so
+    /// nothing moves when the switch changes; only its fill and ink do. The
+    /// attention dot hangs just past the label, outside the centred group.
+    private func halfButton(_ half: Half, title: LocalizedStringKey, attention: Bool, @ViewBuilder icon: () -> some View) -> some View {
         let chosen = store.view == half
         return Button {
             query = ""
             withAnimation(.snappy) { store.view = half }
         } label: {
-            HStack(spacing: 5) {
-                Text(title).font(.subheadline.weight(chosen ? .semibold : .medium))
-                if attention {
-                    Circle().fill(Color(Palette.attention)).frame(width: 6, height: 6)
-                }
+            HStack(spacing: 6) {
+                icon().frame(width: 16, height: 16).accessibilityHidden(true)
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .overlay(alignment: .trailing) {
+                        if attention {
+                            Circle().fill(Color(Palette.attention))
+                                .frame(width: 6, height: 6)
+                                .offset(x: 10)
+                        }
+                    }
             }
             .foregroundStyle(Color(chosen ? Palette.ink : Palette.inkMuted))
-            .frame(maxWidth: .infinity, minHeight: 30)
-            .background {
-                if chosen {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(Palette.surface))
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(Palette.lineStrong), lineWidth: 0.5))
-                        .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
-                }
-            }
+            .frame(maxWidth: .infinity, minHeight: 30, alignment: .center)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(chosen ? Color(Palette.surface) : .clear)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(chosen ? Color(Palette.lineStrong) : .clear, lineWidth: 0.5))
+                    .shadow(color: .black.opacity(chosen ? 0.08 : 0), radius: 1, y: 1)
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
