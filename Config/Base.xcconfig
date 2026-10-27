@@ -12,7 +12,7 @@ PRODUCT_BUNDLE_IDENTIFIER = $(CWW_BUNDLE_IDENTIFIER_BASE)$(CWW_BUNDLE_IDENTIFIER
 // main carry it, so bump it once a version goes to App Review. Builds from a
 // vX.Y.Z tag (script/archive, or Xcode Cloud started from a tag) take the
 // tag's version instead (see README, Releasing).
-MARKETING_VERSION = 1.0.1
+MARKETING_VERSION = 1.1.0
 CURRENT_PROJECT_VERSION = 1
 
 IPHONEOS_DEPLOYMENT_TARGET = 18.0
