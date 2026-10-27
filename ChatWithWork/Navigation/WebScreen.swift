@@ -35,6 +35,7 @@ enum WebScreen {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         TextSize.follow(webView)
         PageTitle.follow(webView)
+        PinchZoom.resetOnNewPage(webView)
         // No white flash before the first paint in dark mode.
         webView.isOpaque = false
         webView.backgroundColor = Palette.canvas
@@ -72,6 +73,32 @@ enum PageTitle {
             }
         }
         objc_setAssociatedObject(webView, &key, observation, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+}
+
+/// A page starts whole, however far someone pinched the one before it.
+/// Turbo keeps the document from page to page, and WebKit keeps its zoom
+/// with it, so a file's pages zoomed in the viewer left the next sheet in
+/// the same web view (another file, Settings) zoomed in too. A file's
+/// viewer also resets it as it goes (FileShareComponent), for the same file
+/// opened again, whose address doesn't change.
+enum PinchZoom {
+    private nonisolated(unsafe) static var key: UInt8 = 0
+
+    static func resetOnNewPage(_ webView: WKWebView) {
+        let observation = webView.observe(\.url, options: [.old, .new]) { webView, change in
+            MainActor.assumeIsolated {
+                guard let old = change.oldValue.flatMap({ $0 }), let new = change.newValue.flatMap({ $0 }),
+                      old.path != new.path else { return }
+                reset(webView)
+            }
+        }
+        objc_setAssociatedObject(webView, &key, observation, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+
+    static func reset(_ webView: WKWebView?) {
+        guard let scrollView = webView?.scrollView, scrollView.zoomScale > scrollView.minimumZoomScale + 0.001 else { return }
+        scrollView.setZoomScale(scrollView.minimumZoomScale, animated: false)
     }
 }
 

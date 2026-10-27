@@ -268,8 +268,31 @@ final class PlaygroundTests: XCTestCase {
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: below ? 0.9 : 0.05)).tap()
         XCTAssertTrue(copy.waitForNonExistence(timeout: 10), "A tap outside the share sheet should put it away")
 
+        // Two fingers zoom in on the slides, and the file opens whole again.
+        settle()
+        let slide = app.webViews.descendants(matching: .any)["Slide 1"]
+        let whole = slide.frame.width
+        slide.pinch(withScale: 2.5, velocity: 1.5)
+        XCTAssertTrue(eventually { slide.frame.width > whole * 1.5 }, "Two fingers should zoom in on the slides")
+        keep("file-zoomed")
         app.buttons["sheet.close"].tap()
         XCTAssertTrue(chip.waitForExistence(timeout: 10), "Closing should go back to the chat")
+        chip.tap()
+        XCTAssertTrue(app.navigationBars["board-update.pptx"].waitForExistence(timeout: 20))
+        XCTAssertTrue(eventually { abs(slide.frame.width - whole) < 2 }, "The file should open whole again")
+        app.buttons["sheet.close"].tap()
+    }
+
+    /// Whether a condition holds within a few seconds, as the accessibility
+    /// tree catches up with a gesture.
+    @MainActor
+    private func eventually(_ condition: () -> Bool) -> Bool {
+        let end = Date().addingTimeInterval(5)
+        while Date() < end {
+            if condition() { return true }
+            settle(0.25)
+        }
+        return condition()
     }
 
     /// Opens one of the app's own links, as a widget or the share extension

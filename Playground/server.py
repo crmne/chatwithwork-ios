@@ -157,7 +157,7 @@ def layout(handler, page):
 <head>
   <title>{esc(page.title)}</title>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="playground">
   <meta name="turbo-prefetch" content="false">
 {css}

@@ -26,6 +26,8 @@ final class FileShareComponent: BridgeComponent {
         case "disconnect":
             files = []
             showButton()
+            // Its pages go; whatever the web view shows next starts whole.
+            PinchZoom.reset(delegate?.webView)
         default:
             break
         }
