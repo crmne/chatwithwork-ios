@@ -1,4 +1,4 @@
-AI bots in Europe. They work. You just decide.
+AI bots in Europe. They work. You decide.
 
 Chat with Work runs AI bots and an assistant for your team's work, on our servers in Germany with every model in the EU. Bots start on their own: a time of day, a new GitHub issue, an email, a customer's message. They work with the tools you connect, and anything that needs you lands in one queue.
 

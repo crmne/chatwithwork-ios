@@ -23,7 +23,7 @@ struct WelcomeView: View {
                         .frame(maxWidth: 280)
                         .accessibilityLabel("Chat with Work")
 
-                    Text("AI bots in Europe. They work. You just decide.")
+                    Text("AI bots in Europe. They work. You decide.")
                         .font(.title3.weight(.medium))
                         .foregroundStyle(Color(Palette.inkMuted))
                         .multilineTextAlignment(.center)
