@@ -142,7 +142,7 @@ only the system's HTTPS, so no export compliance documents are needed.
 | App Review contact, demo login, notes | `fastlane/metadata/review_information/` (the password is in 1Password, never here) |
 | Content rights | Yes, it accesses third-party content (people's own files, mail, and chats in the services they connect, and web results when web search is on), and we have the rights to use it |
 | Price | Free |
-| Availability | Every country or region but China mainland, which needs an ICP filing and a licence for generative AI; new ones as Apple adds them |
+| Availability | Every country or region but China mainland, which needs an ICP filing and a licence for generative AI, and Russia and Belarus, under EU sanctions on software and IT services (Regulations 833/2014 and 765/2006); new ones as Apple adds them. Iran, North Korea, Syria, Cuba and Crimea aren't App Store territories. Set by `price_and_availability.rb` in `~/Work/cww-asc` on the Mac mini (its `EXCLUDED` list), last on 2026-10-27 |
 | Release | Manually, once approved |
 
 Version 1.1.0's listing went into App Store Connect on 2026-10-27 from these
