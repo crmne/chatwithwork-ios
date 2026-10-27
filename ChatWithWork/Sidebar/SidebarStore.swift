@@ -33,6 +33,19 @@ final class SidebarStore {
         set { if let account { memory.setListKey(newValue, in: account) } }
     }
 
+    /// The sidebar's half, Chats or Bots, remembered on this install. Only
+    /// a sidebar whose JSON lists the bots (`bots.items`) offers the switch.
+    var view: SidebarView.Half {
+        didSet { memory.sidebarView = view.rawValue }
+    }
+
+    /// Whether the sidebar offers its Chats | Bots switch: not to guests,
+    /// who get no `bots`, nor from a server that sends no `bots.items`.
+    var offersBots: Bool { data?.bots?.items != nil }
+
+    /// What the sidebar shows: the bots only where it offers them.
+    var showsBots: Bool { offersBots && view == .bots }
+
     /// Called when a fetch finds the session gone.
     var onSignedOut: (() -> Void)?
 
@@ -45,6 +58,7 @@ final class SidebarStore {
         self.environment = environment
         self.account = account
         self.memory = memory
+        view = memory.sidebarView.flatMap(SidebarView.Half.init(rawValue:)) ?? .chats
     }
 
     /// The page an organization's new chat opens on, the last time the JSON said.

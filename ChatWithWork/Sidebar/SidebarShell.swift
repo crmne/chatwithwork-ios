@@ -274,16 +274,15 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         Task { await store.refresh() }
     }
 
-    /// While the sidebar is open and a chat in it works, check again every
-    /// few seconds, so its dot goes out when the answer ends.
+    /// While the sidebar is open and a chat or bot in it works, check again
+    /// every few seconds, so its dot goes out when the work ends.
     private func pollWhileOpen() {
         pollTask?.cancel()
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(5))
                 guard let self, self.isOpen, !Task.isCancelled else { return }
-                let working = (self.store.data?.everyChatShown ?? []).contains { $0.isWorking }
-                if working { await self.store.refresh() }
+                if self.store.data?.isAnythingWorking == true { await self.store.refresh() }
             }
         }
     }

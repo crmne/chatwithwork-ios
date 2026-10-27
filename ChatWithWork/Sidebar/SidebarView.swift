@@ -16,10 +16,21 @@ struct SidebarActions {
 /// The sidebar: the same things in the same order as the web's
 /// (chats/_sidebar_chats, application/_me_menu), drawn natively from
 /// `/native/sidebar`. Which list it's about at the top, search, New chat,
-/// Decisions (what waits for the person), Bots, pins, the person's own
-/// sections, the chats in none of them by latest question, and the person at
-/// the foot. A long press on a chat opens its menu, as the web row's does.
+/// Decisions (what waits for the person), the Chats | Bots switch, pins, the
+/// person's own sections, the chats in none of them by latest question, and
+/// the person at the foot. A long press on a chat opens its menu, as the web
+/// row's does.
+///
+/// Its Bots half keeps the same skeleton, as the web's Bots view does
+/// (bots/_sidebar_list): a card opening the Bots page where the list switcher
+/// sits, New bot where New chat sits, then the person's bots. A server that
+/// sends no `bots.items` gets the Bots row instead of the switch.
 struct SidebarView: View {
+    /// The switch's two halves.
+    nonisolated enum Half: String, Sendable {
+        case chats, bots
+    }
+
     @Bindable var store: SidebarStore
     let actions: SidebarActions
     /// The path on screen, to mark its row.
@@ -32,8 +43,12 @@ struct SidebarView: View {
         VStack(spacing: 0) {
             if let data = store.data {
                 VStack(spacing: 10) {
-                    listSwitcher(data)
-                    searchField
+                    if store.showsBots, let bots = data.bots {
+                        botsCard(data, bots)
+                    } else {
+                        listSwitcher(data)
+                        searchField
+                    }
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
@@ -41,7 +56,10 @@ struct SidebarView: View {
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 1) {
-                        if query.isEmpty {
+                        if store.showsBots, let bots = data.bots {
+                            places(data)
+                            botsList(bots)
+                        } else if query.isEmpty {
                             places(data)
                             chatsList(data)
                         } else {
@@ -151,7 +169,11 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func places(_ data: SidebarData) -> some View {
-        if data.links.newChat != nil {
+        if store.showsBots {
+            if let newBot = data.bots?.newUrl {
+                placeRow("New bot", systemImage: "plus", identifier: "sidebar.newBot") { actions.open(newBot) }
+            }
+        } else if data.links.newChat != nil {
             placeRow("New chat", systemImage: "square.and.pencil", identifier: "sidebar.newChat", action: actions.newChat)
         }
 
@@ -194,7 +216,8 @@ struct SidebarView: View {
                             .foregroundStyle(Color(Palette.attentionInk))
                             .frame(width: 18)
                             VStack(alignment: .leading, spacing: 1) {
-                                Text(item.title).lineLimit(1).foregroundStyle(Color(Palette.ink))
+                                // Who asks first, as the web's decision row leads with it.
+                                Text(item.asker?.name ?? item.title).lineLimit(1).foregroundStyle(Color(Palette.ink))
                                 Text(waitingLabel(item)).font(.caption).foregroundStyle(Color(Palette.inkMuted)).lineLimit(1)
                             }
                             Spacer(minLength: 0)
@@ -211,7 +234,9 @@ struct SidebarView: View {
             }
         }
 
-        if let bots = data.links.bots {
+        if store.offersBots, let bots = data.bots {
+            halfSwitch(attention: bots.attention)
+        } else if let bots = data.links.bots {
             placeRow("Bots", icon: BotMark(), identifier: "sidebar.bots", trailing: {
                 if let meta = data.bots {
                     if meta.count > 0 || meta.attention {
@@ -229,6 +254,51 @@ struct SidebarView: View {
                 actions.open(bots)
             }
         }
+    }
+
+    /// Chats | Bots, under Decisions. The Bots half carries a dot, never a
+    /// number, while a bot needs the person: Decisions holds the one count.
+    private func halfSwitch(attention: Bool) -> some View {
+        HStack(spacing: 2) {
+            halfButton(.chats, title: "Chats", attention: false)
+            halfButton(.bots, title: "Bots", attention: attention)
+        }
+        .padding(2)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color(Palette.line).opacity(0.55)))
+        .padding(.horizontal, 4)
+        .padding(.vertical, 6)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Show")
+    }
+
+    private func halfButton(_ half: Half, title: LocalizedStringKey, attention: Bool) -> some View {
+        let chosen = store.view == half
+        return Button {
+            query = ""
+            withAnimation(.snappy) { store.view = half }
+        } label: {
+            HStack(spacing: 5) {
+                Text(title).font(.subheadline.weight(chosen ? .semibold : .medium))
+                if attention {
+                    Circle().fill(Color(Palette.attention)).frame(width: 6, height: 6)
+                }
+            }
+            .foregroundStyle(Color(chosen ? Palette.ink : Palette.inkMuted))
+            .frame(maxWidth: .infinity, minHeight: 30)
+            .background {
+                if chosen {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(Palette.surface))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(Palette.lineStrong), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("sidebar.switch.\(half.rawValue)")
+        .accessibilityValue(attention ? String(localized: "A bot needs you") : "")
+        .accessibilityAddTraits(chosen ? [.isButton, .isSelected] : .isButton)
     }
 
     private func placeRow(_ title: LocalizedStringKey, systemImage: String, identifier: String, @ViewBuilder trailing: () -> some View = { EmptyView() }, action: @escaping () -> Void) -> some View {
@@ -334,6 +404,182 @@ struct SidebarView: View {
         .accessibilityValue(section.collapsed ? String(localized: "Closed, \(section.chats.count) chats") : String(localized: "Open, \(section.chats.count) chats"))
         .accessibilityIdentifier("sidebar.section")
         .accessibilityAddTraits([.isHeader, .isButton])
+    }
+
+    // MARK: Bots
+
+    /// In the list switcher's place: the bots in this organization, how many,
+    /// and what's working or waiting, opening the Bots page.
+    private func botsCard(_ data: SidebarData, _ bots: SidebarData.Bots) -> some View {
+        let items = bots.items ?? []
+        let working = items.filter(\.working).count
+        let waiting = items.reduce(0) { $0 + $1.waiting }
+        return Button {
+            if let url = bots.url ?? data.links.bots { actions.open(url) }
+        } label: {
+            HStack(spacing: 10) {
+                BotMark(size: 18)
+                    .foregroundStyle(Color(Palette.inkInverted))
+                    .frame(width: 30, height: 30)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color(Palette.ink)))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("BOTS IN \(data.organization.name.uppercased())")
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(Color(Palette.inkMuted))
+                        .lineLimit(1)
+                    Text(botCount(items.count))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color(Palette.ink))
+                        .lineLimit(1)
+                    if working > 0 || waiting > 0 {
+                        HStack(spacing: 8) {
+                            if working > 0 { stateText(String(localized: "\(working) working"), tone: "live") }
+                            if waiting > 0 { stateText(String(localized: "\(waiting) waiting for you"), tone: "attention") }
+                        }
+                    }
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(Color(Palette.inkMuted))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color(Palette.surface)))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(Palette.line), lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("sidebar.botsCard")
+    }
+
+    @ViewBuilder
+    private func botsList(_ bots: SidebarData.Bots) -> some View {
+        let groups = bots.groups
+        if groups.isEmpty {
+            Text("Your bots, and the ones shared with you, show up here.")
+                .font(.footnote)
+                .foregroundStyle(Color(Palette.inkMuted))
+                .padding(.horizontal, 8)
+                .padding(.top, 14)
+            if let newBot = bots.newUrl {
+                Button { actions.open(newBot) } label: {
+                    HStack(spacing: 4) {
+                        Text("Start from a recipe")
+                        Image(systemName: "arrow.right")
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color(Palette.ink))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sidebar.recipes")
+            }
+        } else {
+            ForEach(groups, id: \.label) { group in
+                if let label = group.label { sectionLabel(label) }
+                ForEach(group.items) { bot in botRow(bot) }
+            }
+        }
+    }
+
+    /// One bot: its mark (with a live dot while it works), its name, the
+    /// project a shared bot is in, and its state at the end: how many
+    /// decisions wait in it, or the state in the web's words.
+    private func botRow(_ bot: SidebarData.Bots.Item) -> some View {
+        let current = currentPath.map { path in
+            let mine = AppRoute(path: bot.url).path
+            let here = AppRoute(path: path).path
+            return here == mine || here.hasPrefix(mine + "/")
+        } ?? false
+        return Button { actions.open(bot.url) } label: {
+            HStack(spacing: 8) {
+                BotMark(size: 18)
+                    .foregroundStyle(Color(Palette.ink))
+                    .overlay(alignment: .bottomTrailing) {
+                        if bot.working {
+                            Circle().fill(Color(Palette.live))
+                                .frame(width: 7, height: 7)
+                                .overlay(Circle().stroke(Color(Palette.canvasSunken), lineWidth: 1.5))
+                                .offset(x: 2, y: 1)
+                        }
+                    }
+                    .frame(width: 20)
+                Text(bot.name)
+                    .lineLimit(1)
+                    .font(.subheadline.weight(current ? .semibold : .regular))
+                    .foregroundStyle(Color(Palette.ink))
+                if let project = bot.project {
+                    Text(project)
+                        .lineLimit(1)
+                        .font(.caption)
+                        .foregroundStyle(Color(Palette.inkFaint))
+                        .layoutPriority(-1)
+                }
+                Spacer(minLength: 0)
+                if bot.waiting > 0 {
+                    HStack(spacing: 5) {
+                        Circle().fill(Color(Palette.attention)).frame(width: 7, height: 7)
+                        Text("\(bot.waiting)").font(.caption.monospacedDigit()).foregroundStyle(Color(Palette.inkMuted))
+                    }
+                    .fixedSize()
+                } else {
+                    stateText(bot.stateLabel, tone: bot.tone)
+                        .fixedSize()
+                }
+            }
+            .padding(.horizontal, 8)
+            .frame(minHeight: 36)
+            .background(RoundedRectangle(cornerRadius: 9).fill(current ? Color(Palette.line).opacity(0.7) : .clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(bot.project.map { String(localized: "\(bot.name), shared in \($0)") } ?? bot.name)
+        .accessibilityValue(botValue(bot))
+        .accessibilityIdentifier("sidebar.bot")
+        .accessibilityAddTraits(current ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// A state in words with a dot in its tone, as the web's `.state`.
+    private func stateText(_ label: String, tone: String?) -> some View {
+        HStack(spacing: 5) {
+            if let color = toneColor(tone) {
+                Circle().fill(color).frame(width: 6, height: 6)
+            }
+            Text(label).font(.caption).foregroundStyle(Color(Palette.inkMuted)).lineLimit(1)
+        }
+    }
+
+    private func botCount(_ count: Int) -> String {
+        switch count {
+        case 0: String(localized: "No bots yet")
+        case 1: String(localized: "1 bot")
+        default: String(localized: "\(count) bots")
+        }
+    }
+
+    private func toneColor(_ tone: String?) -> Color? {
+        switch tone {
+        case "attention": Color(Palette.attention)
+        case "negative": Color(Palette.negative)
+        case "live": Color(Palette.live)
+        case "positive": Color(Palette.positive)
+        default: nil
+        }
+    }
+
+    private func botValue(_ bot: SidebarData.Bots.Item) -> String {
+        var parts = [String]()
+        if bot.waiting > 0 {
+            parts.append(bot.waiting == 1 ? String(localized: "1 decision waiting for you") : String(localized: "\(bot.waiting) decisions waiting for you"))
+        } else {
+            parts.append(bot.stateLabel)
+        }
+        if bot.working && bot.state != "working" { parts.append(String(localized: "Working now")) }
+        return parts.joined(separator: ", ")
     }
 
     @ViewBuilder
@@ -500,6 +746,10 @@ struct SidebarView: View {
     }
 
     private func waitingLabel(_ item: SidebarData.Waiting.Item) -> String {
+        // With who asks leading, the line under it says what's to decide.
+        if item.asker != nil {
+            return [item.summary ?? item.title, item.asker?.project ?? item.project].compactMap { $0 }.joined(separator: " · ")
+        }
         let what = switch item.kind {
         case "question": String(localized: "A question for you")
         case "bot": String(localized: "A bot handed it to you")

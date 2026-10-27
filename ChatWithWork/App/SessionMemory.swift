@@ -2,7 +2,7 @@ import Foundation
 
 /// The little the app remembers between launches about the session the web
 /// views hold: whether someone signed in, which organization they were in,
-/// the list the sidebar showed there, and the chat they left last. The session itself is the server's cookie in the shared web data
+/// the list the sidebar showed there, its Chats or Bots half, and the chat they left last. The session itself is the server's cookie in the shared web data
 /// store; this only decides what to show before the first page answers.
 struct SessionMemory {
     static let standard = SessionMemory(defaults: .standard)
@@ -16,6 +16,7 @@ struct SessionMemory {
         static let newChatPaths = "CWWNewChatPaths"
         static let lastChat = "CWWLastChat"
         static let lastChatAt = "CWWLastChatAt"
+        static let sidebarView = "CWWSidebarView"
     }
 
     var hasSignedIn: Bool {
@@ -37,6 +38,13 @@ struct SessionMemory {
         var keys = (defaults.dictionary(forKey: Key.listKeys) as? [String: String]) ?? [:]
         keys[account.rawValue] = key
         defaults.set(keys, forKey: Key.listKeys)
+    }
+
+    /// The half of the sidebar's Chats | Bots switch last chosen on this
+    /// install: `chats` or `bots`, nil before anyone chose.
+    var sidebarView: String? {
+        get { defaults.string(forKey: Key.sidebarView) }
+        nonmutating set { defaults.set(newValue, forKey: Key.sidebarView) }
     }
 
     /// Where New chat leads in each organization: into the list's project, if
@@ -64,6 +72,6 @@ struct SessionMemory {
     }
 
     func reset() {
-        [Key.hasSignedIn, Key.lastAccount, Key.listKeys, Key.newChatPaths, Key.lastChat, Key.lastChatAt].forEach(defaults.removeObject(forKey:))
+        [Key.hasSignedIn, Key.lastAccount, Key.listKeys, Key.newChatPaths, Key.lastChat, Key.lastChatAt, Key.sidebarView].forEach(defaults.removeObject(forKey:))
     }
 }
