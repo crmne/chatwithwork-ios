@@ -208,7 +208,10 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         let pill = DecisionsPill { [weak self] in self?.open(path: path) }
         pill.update(count: store.data?.waiting.count ?? 0)
         let item = UIBarButtonItem(customView: pill)
-        item.accessibilityIdentifier = "shell.decisions.item"
+        // The bar may expose the item rather than its view: both say the same.
+        item.accessibilityIdentifier = pill.accessibilityIdentifier
+        item.accessibilityLabel = pill.accessibilityLabel
+        item.accessibilityValue = pill.accessibilityValue
         return item
     }
 
