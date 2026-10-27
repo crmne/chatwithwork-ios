@@ -980,6 +980,21 @@ def bots_index(handler, account):
     return Page("Bots", body, account=account)
 
 
+def decisions_page(handler, account):
+    """decisions/index, cut to the list of what waits, each leading to its chat."""
+    waits = handler.session.get("approval", "waiting") == "waiting" and 42 in CHATS
+    rows = f"""
+        <a class="rows__row" href="/{account}/chats/42">
+          <div class="rows__body"><h3>{esc(CHATS[42]["title"])}</h3><p class="micro">A change to approve</p></div>
+        </a>""" if waits else '<p class="text-ink-muted">Nothing waits for you.</p>'
+    body = f"""
+    <div class="page">
+      <header class="page__header native-hidden"><div class="page__heading"><h1>Decisions</h1></div></header>
+      <section class="page__section"><div class="rows">{rows}</div></section>
+    </div>"""
+    return Page("Decisions", body, account=account)
+
+
 def bot_page(handler, account, number):
     """bots/show, cut to its heading and what it does."""
     bot = BOTS.get(number)
@@ -1064,7 +1079,7 @@ def sidebar_json(handler, account, query):
         "links": {"new_chat": f"/{account}/chats/new" + (f"?project_id={key}" if project else ""), "bots": f"/{account}/bots",
                   "settings": f"/{account}/settings", "projects": f"/{account}/projects", "new_project": f"/{account}/projects/new",
                   "organizations": "/accounts", "new_organization": "/accounts/new"},
-        "waiting": {"count": len(waiting), "items": waiting},
+        "waiting": {"count": len(waiting), "items": waiting, "url": f"/{account}/decisions"},
         "bots": {"count": sum(bot["waiting"] for bot in BOTS.values()), "attention": True, "next_run": None,
                  "url": f"/{account}/bots", "new_url": f"/{account}/bots/new",
                  "items": [dict({key: value for key, value in bot.items() if key != "summary"}, id=number, url=f"/{account}/bots/{number}")
@@ -1442,6 +1457,8 @@ class Handler(BaseHTTPRequestHandler):
         page = None
         if rest == "/bots":
             page = bots_index(self, account)
+        elif rest == "/decisions":
+            page = decisions_page(self, account)
         elif m := re.fullmatch(r"/bots/(\d+)", rest):
             page = bot_page(self, account, int(m.group(1)))
         elif rest == "/chats":

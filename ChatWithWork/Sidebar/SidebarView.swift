@@ -15,10 +15,10 @@ struct SidebarActions {
 
 /// The sidebar: the same things in the same order as the web's
 /// (chats/_sidebar_chats, application/_me_menu), drawn natively from
-/// `/native/sidebar`. Which list it's about at the top, search, New chat,
-/// Decisions (what waits for the person), the Chats | Bots switch, pins, the
-/// person's own sections, the chats in none of them by latest question, and
-/// the person at the foot. A long press on a chat opens its menu, as the web
+/// `/native/sidebar`. The Chats | Bots switch at the top, which list it's
+/// about, search, New chat, pins, the person's own sections, the chats in
+/// none of them by latest question, and the person at the foot. Decisions
+/// sit in the chat screen's bar (DecisionsPill), as in the web's top bar. A long press on a chat opens its menu, as the web
 /// row's does.
 ///
 /// Its Bots half keeps the same skeleton, as the web's Bots view does
@@ -43,6 +43,11 @@ struct SidebarView: View {
         VStack(spacing: 0) {
             if let data = store.data {
                 VStack(spacing: 10) {
+                    // The switch comes first, as on the web, where Decisions
+                    // moved to the top bar (the shell's Decisions pill).
+                    if store.offersBots, let bots = data.bots {
+                        halfSwitch(attention: bots.attention)
+                    }
                     if store.showsBots, let bots = data.bots {
                         botsCard(data, bots)
                     } else {
@@ -177,9 +182,37 @@ struct SidebarView: View {
             placeRow("New chat", systemImage: "square.and.pencil", identifier: "sidebar.newChat", action: actions.newChat)
         }
 
-        // Decisions, named as on the web. It opens the Decisions page, which
-        // works through them one at a time; a server without one sends no
-        // url, and the row lists what waits instead.
+        // Decisions sit in the chat screen's bar (DecisionsPill) once the
+        // server names its page. A server without one keeps them here, a row
+        // listing what waits.
+        if data.waiting.url == nil && data.links.decisions == nil {
+            decisionsRow(data)
+        }
+
+        if !store.offersBots, let bots = data.links.bots {
+            placeRow("Bots", icon: BotMark(), identifier: "sidebar.bots", trailing: {
+                if let meta = data.bots {
+                    if meta.count > 0 || meta.attention {
+                        HStack(spacing: 5) {
+                            Circle().fill(Color(Palette.attention)).frame(width: 7, height: 7)
+                            if meta.count > 0 {
+                                Text("\(meta.count)").font(.caption.monospacedDigit()).foregroundStyle(Color(Palette.inkMuted))
+                            }
+                        }
+                    } else if let next = meta.nextRun {
+                        Text(next).font(.caption.monospaced()).foregroundStyle(Color(Palette.inkMuted))
+                    }
+                }
+            }) {
+                actions.open(bots)
+            }
+        }
+    }
+
+    /// Decisions as older servers have them: a row that opens the list of
+    /// what waits beneath it.
+    @ViewBuilder
+    private func decisionsRow(_ data: SidebarData) -> some View {
         placeRow("Decisions", systemImage: "hand.raised", identifier: "sidebar.waiting", trailing: {
             if data.waiting.count > 0 {
                 HStack(spacing: 5) {
@@ -188,11 +221,7 @@ struct SidebarView: View {
                 }
             }
         }) {
-            if let decisions = data.waiting.url ?? data.links.decisions {
-                actions.open(decisions)
-            } else {
-                withAnimation(.snappy) { showsWaiting.toggle() }
-            }
+            withAnimation(.snappy) { showsWaiting.toggle() }
         }
 
         if showsWaiting {
@@ -233,30 +262,9 @@ struct SidebarView: View {
                 }
             }
         }
-
-        if store.offersBots, let bots = data.bots {
-            halfSwitch(attention: bots.attention)
-        } else if let bots = data.links.bots {
-            placeRow("Bots", icon: BotMark(), identifier: "sidebar.bots", trailing: {
-                if let meta = data.bots {
-                    if meta.count > 0 || meta.attention {
-                        HStack(spacing: 5) {
-                            Circle().fill(Color(Palette.attention)).frame(width: 7, height: 7)
-                            if meta.count > 0 {
-                                Text("\(meta.count)").font(.caption.monospacedDigit()).foregroundStyle(Color(Palette.inkMuted))
-                            }
-                        }
-                    } else if let next = meta.nextRun {
-                        Text(next).font(.caption.monospaced()).foregroundStyle(Color(Palette.inkMuted))
-                    }
-                }
-            }) {
-                actions.open(bots)
-            }
-        }
     }
 
-    /// Chats | Bots, under Decisions: two equal halves, each its icon and
+    /// Chats | Bots, the sidebar's first control: two equal halves, each its icon and
     /// label centred together. The Bots half carries a dot, never a number,
     /// while a bot needs the person: Decisions holds the one count.
     private func halfSwitch(attention: Bool) -> some View {
@@ -271,8 +279,6 @@ struct SidebarView: View {
         }
         .padding(2)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color(Palette.line).opacity(0.55)))
-        .padding(.horizontal, 4)
-        .padding(.vertical, 6)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Show")
     }

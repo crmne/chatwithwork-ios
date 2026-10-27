@@ -166,6 +166,18 @@ struct SidebarTests {
         #expect(!store.offersBots && !store.showsBots)
     }
 
+    @Test("Decisions' pill says how many wait, or shows its icon alone")
+    @MainActor
+    func decisionsPill() {
+        let pill = DecisionsPill {}
+        #expect(pill.configuration?.attributedTitle == nil && pill.accessibilityValue == "None waiting")
+        pill.update(count: 3)
+        #expect(pill.configuration?.attributedTitle.map { String($0.characters) } == "3")
+        #expect(pill.accessibilityValue == "3 waiting")
+        pill.update(count: 1)
+        #expect(pill.accessibilityValue == "1 waiting")
+    }
+
     @Test("keeps the server's groups in order")
     func groups() throws {
         let data = try SidebarData.decode(Data(Self.json.utf8))

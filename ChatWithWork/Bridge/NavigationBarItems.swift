@@ -23,6 +23,8 @@ enum NavigationBarItems {
         /// The shell's own: the sidebar button (leading) and New chat
         /// (trailing), on the main stack's screens.
         case shell
+        /// The Decisions pill beside the sidebar button, on the root screen.
+        case decisions
         case menu
         case button
         case share

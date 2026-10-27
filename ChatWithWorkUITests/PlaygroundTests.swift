@@ -52,19 +52,28 @@ final class PlaygroundTests: XCTestCase {
         settle()
         keep("new-chat")
 
-        // The sidebar: what waits for you, then the chat that waits.
+        // Decisions in the bar beside the sidebar button, with what waits.
+        let decisions = app.buttons["shell.decisions"]
+        XCTAssertTrue(decisions.waitForExistence(timeout: 10), "Decisions should sit in the bar")
+        XCTAssertEqual(decisions.value as? String, "1 waiting")
+
+        // The sidebar: the switch first, then the chats.
         app.buttons["shell.sidebar"].tap()
-        let waiting = app.buttons["sidebar.waiting"]
-        XCTAssertTrue(waiting.waitForExistence(timeout: 10), "The sidebar should open with its list")
-        XCTAssertTrue(app.buttons["Summarize the security review thread"].exists || app.buttons["Q3 launch commitments for Acme"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["sidebar.switch.chats"].waitForExistence(timeout: 10), "The sidebar should open with its switch")
+        XCTAssertFalse(app.buttons["sidebar.waiting"].exists, "Decisions moved to the bar")
+        XCTAssertTrue(app.buttons["Q3 launch commitments for Acme"].waitForExistence(timeout: 5))
         settle(0.8)
         keep("sidebar")
-        waiting.tap()
-        let item = app.buttons["sidebar.waiting.item"].firstMatch
-        XCTAssertTrue(item.waitForExistence(timeout: 5))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        settle(0.5)
+
+        // Decisions opens its page, and a decision its chat.
+        decisions.tap()
+        let decision = app.webViews.links.matching(NSPredicate(format: "label CONTAINS %@", "Q3 launch commitments for Acme")).firstMatch
+        XCTAssertTrue(decision.waitForExistence(timeout: 20), "Decisions should open its page")
         settle(0.6)
-        keep("waiting")
-        item.tap()
+        keep("decisions")
+        decision.tap()
 
         // The chat replaces the root: the sidebar button stays, no back button.
         XCTAssertTrue(app.webViews.staticTexts["What did we promise Acme for the Q3 launch?"].waitForExistence(timeout: 20))
