@@ -131,16 +131,47 @@ final class PlaygroundTests: XCTestCase {
         XCTAssertTrue(app.buttons["attach.files"].waitForNonExistence(timeout: 5), "A tap above the sheet should put it away")
         settle(0.5)
 
-        // A swipe from the left edge opens the sidebar; Bots is pushed over the chat.
+        // A swipe from the left edge opens the sidebar; its switch shows the
+        // bots in the same skeleton, those that need you first.
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.005, dy: 0.5))
         start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)))
-        let bots = app.buttons["sidebar.bots"]
-        XCTAssertTrue(bots.waitForExistence(timeout: 10), "An edge swipe should open the sidebar")
-        bots.tap()
+        let botsHalf = app.buttons["sidebar.switch.bots"]
+        XCTAssertTrue(botsHalf.waitForExistence(timeout: 10), "An edge swipe should open the sidebar")
+        XCTAssertEqual(botsHalf.value as? String, "A bot needs you", "The Bots half should carry the attention dot")
+        botsHalf.tap()
+        XCTAssertTrue(app.buttons["sidebar.botsCard"].waitForExistence(timeout: 5), "The Bots card should take the list switcher's place")
+        XCTAssertTrue(app.buttons["sidebar.newBot"].exists, "New bot should sit where New chat does")
+        XCTAssertFalse(app.buttons["sidebar.newChat"].exists)
+        let botRows = app.buttons.matching(identifier: "sidebar.bot")
+        XCTAssertEqual(botRows.count, 3)
+        XCTAssertEqual(botRows.element(boundBy: 0).label, "Front desk, shared in Acme launch", "Bots that need you come first")
+        XCTAssertTrue(app.staticTexts["Needs you"].exists && app.staticTexts["Quiet"].exists)
+        settle(0.8)
+        keep("sidebar-bots")
+
+        // A bot's row opens its page over the chat.
+        app.buttons["Monday Drive digest"].tap()
+        XCTAssertTrue(app.webViews.staticTexts["Every Monday at 8:30, tells you what changed in Drive."].waitForExistence(timeout: 20), "A bot should open from its row")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        // The card opens the Bots page.
+        app.buttons["shell.sidebar"].tap()
+        let card = app.buttons["sidebar.botsCard"]
+        XCTAssertTrue(card.waitForExistence(timeout: 10), "The sidebar should keep the Bots half")
+        card.tap()
         XCTAssertTrue(app.webViews.staticTexts["Monday Drive digest"].waitForExistence(timeout: 20), "Bots should open from the sidebar")
         settle()
         keep("bots")
         app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        // Back to the chats for the rest.
+        app.buttons["shell.sidebar"].tap()
+        let chatsHalf = app.buttons["sidebar.switch.chats"]
+        XCTAssertTrue(chatsHalf.waitForExistence(timeout: 10))
+        chatsHalf.tap()
+        XCTAssertTrue(app.buttons["sidebar.newChat"].waitForExistence(timeout: 5), "Chats should come back")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        settle(0.5)
 
         // Settings, from the person at the sidebar's foot, comes up as a sheet.
         app.buttons["shell.sidebar"].tap()

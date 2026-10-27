@@ -92,6 +92,16 @@ PROJECTS = {
     2: {"name": "Acme launch", "hq": False, "all_access": False, "summary": "Invite-only · 4 people", "audience": "4 people", "chats": 7},
     3: {"name": "Onboarding", "hq": False, "all_access": True, "summary": "All-Access · 3 people", "audience": "3 people", "chats": 3},
 }
+# The person's bots, as the apps' Bots list gets them (NativeSidebarHelper#native_sidebar_bot):
+# those that need them first, each with its state in the web's words and tone.
+BOTS = {
+    5: {"name": "Front desk", "summary": "Answers the website's chat, hands refunds to you.", "group": "needs_you", "project": "Acme launch",
+        "state": "waiting", "state_label": "Waiting for you", "tone": "attention", "waiting": 1, "working": False, "next_run": None},
+    3: {"name": "Monday Drive digest", "summary": "Every Monday at 8:30, tells you what changed in Drive.", "group": "quiet", "project": None,
+        "state": "next", "state_label": "Next 08:30", "tone": "positive", "waiting": 0, "working": False, "next_run": "08:30"},
+    2: {"name": "Inbox triage", "summary": "Sorts new mail in Demo requests.", "group": "quiet", "project": None,
+        "state": "working", "state_label": "Working now", "tone": "live", "waiting": 0, "working": True, "next_run": None},
+}
 ASSETS = {"css": [], "cache": {}, "providers": {}}
 
 
@@ -970,6 +980,22 @@ def bots_index(handler, account):
     return Page("Bots", body, account=account)
 
 
+def bot_page(handler, account, number):
+    """bots/show, cut to its heading and what it does."""
+    bot = BOTS.get(number)
+    if bot is None:
+        return None
+    body = f"""
+    <div class="page">
+      <header class="page__header native-hidden"><div class="page__heading"><h1>{esc(bot["name"])}</h1></div></header>
+      <section class="page__section">
+        <p class="text-ink-muted">{esc(bot["summary"])}</p>
+        <p class="micro">{esc(bot["state_label"])}</p>
+      </section>
+    </div>"""
+    return Page(bot["name"], body, account=account)
+
+
 def sidebar_json(handler, account, query):
     """GET /:account/native/sidebar, as Native::SidebarsController answers it."""
     key = (query.get("list") or ["recent"])[0]
@@ -1025,7 +1051,8 @@ def sidebar_json(handler, account, query):
     sectioned = {n for section in SECTIONS.values() for n in section["chats"]}
 
     waiting = [] if handler.session.get("approval", "waiting") != "waiting" else [
-        {"title": CHATS[42]["title"], "url": f"/{account}/chats/42", "kind": "approval", "project": CHATS[42]["project"]}] if 42 in CHATS else []
+        {"title": CHATS[42]["title"], "url": f"/{account}/chats/42", "kind": "approval", "project": CHATS[42]["project"],
+         "summary": "A change to approve", "asker": {"kind": "chat", "name": CHATS[42]["title"], "project": CHATS[42]["project"]}}] if 42 in CHATS else []
     initials = lambda name: "".join(word[0] for word in name.split()[:2]).upper()
     return {
         "organization": {"id": account, "name": ACCOUNTS[account], "initials": initials(ACCOUNTS[account])},
@@ -1038,7 +1065,10 @@ def sidebar_json(handler, account, query):
                   "settings": f"/{account}/settings", "projects": f"/{account}/projects", "new_project": f"/{account}/projects/new",
                   "organizations": "/accounts", "new_organization": "/accounts/new"},
         "waiting": {"count": len(waiting), "items": waiting},
-        "bots": {"count": 0, "attention": False, "next_run": "08:30"},
+        "bots": {"count": sum(bot["waiting"] for bot in BOTS.values()), "attention": True, "next_run": None,
+                 "url": f"/{account}/bots", "new_url": f"/{account}/bots/new",
+                 "items": [dict({key: value for key, value in bot.items() if key != "summary"}, id=number, url=f"/{account}/bots/{number}")
+                           for number, bot in BOTS.items()]},
         "pins": [chat_json(n, CHATS[n], group=False) for n in sorted(handler.session["pinned"]) if n in CHATS],
         "sections": sections,
         "chats": [chat_json(n, c) for n, c in chats if n not in sectioned],
@@ -1412,6 +1442,8 @@ class Handler(BaseHTTPRequestHandler):
         page = None
         if rest == "/bots":
             page = bots_index(self, account)
+        elif m := re.fullmatch(r"/bots/(\d+)", rest):
+            page = bot_page(self, account, int(m.group(1)))
         elif rest == "/chats":
             page = chats_index(self, account)
         elif rest == "/chats/new":
