@@ -140,6 +140,17 @@ only the system's HTTPS, so no export compliance documents are needed.
 | Copyright | `fastlane/metadata/copyright.txt` |
 | Screenshots | `fastlane/screenshots/en-US/`: 6.9" (1320 x 2868), 6.5" (1284 x 2778), 6.3" (1206 x 2622), iPad 13" (2064 x 2752) |
 | App Review contact, demo login, notes | `fastlane/metadata/review_information/` (the password is in 1Password, never here) |
+| Content rights | Yes, it accesses third-party content (people's own files, mail, and chats in the services they connect, and web results when web search is on), and we have the rights to use it |
+| Price | Free |
+| Availability | Every country or region but China mainland, which needs an ICP filing and a licence for generative AI; new ones as Apple adds them |
+| Release | Manually, once approved |
+
+Version 1.1.0's listing went into App Store Connect on 2026-10-27 from these
+files, through the API with the Mac mini's key: the words, the screenshots,
+the review contact, demo login and notes, the age rating, the categories,
+content rights, price, and availability, with build 10017. What's New can't
+be set on an app's first version; `release_notes.txt` is for the next one.
+App Privacy has no API: it's answered on the website, signed in.
 
 Screenshots come from the app itself: `ChatWithWorkUITests/StoreScreenshotTests`
 signs in to a server holding a synthetic organization (Northwind Studio,
@@ -234,7 +245,7 @@ for kids, so it stays out of the Kids category.
   don't message each other, so there's nobody to block. Contact: the
   listing's support URL and support@chatwithwork.com, which the privacy
   policy gives too.
-- **5.1.1(v), account deletion.** Settings > Account > Delete account.
+- **5.1.1(v), account deletion.** Settings > Profile > Delete account.
 - **Permissions.** Microphone (dictation, and sound with a video),
   camera (a photo or video to attach), notifications (offered once after
   the first sign-in, with a short explanation before iOS's prompt, and from
