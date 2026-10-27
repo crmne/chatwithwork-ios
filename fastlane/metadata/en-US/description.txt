@@ -9,6 +9,7 @@ In the app:
 • Ask anything about your work and get answers with their sources.
 • Get a notification when something waits for you.
 • Dictate instead of typing: speech is transcribed on our servers in the EU.
+• Rate an answer, or report one as offensive or harmful, from its menu.
 
 BOTS THAT WORK WHILE YOU'RE AWAY
 Start from a recipe or describe the job: triage new issues, chase overdue invoices, answer customers, brief you every morning. A bot follows its instructions, works with the integrations you give it, and stays within its monthly cap.
@@ -23,7 +24,7 @@ BUILT FOR TEAMS
 Share bots and chats in projects. Each person's connected accounts stay their own: sharing a chat shares the answers, not access to the sources.
 
 PRIVATE BY DESIGN
-• The app and its data are hosted in Germany. Your questions, and what the assistant reads to answer them, go to the model you pick (Gemini, GPT, Claude, or Qwen), each running in the EU.
+• The app and its data are hosted in Germany. Your questions, and what the assistant reads to answer them, go to the model you pick: Gemini on Google Vertex AI, GPT on Microsoft Azure, Claude on AWS Bedrock, or Qwen on Hetzner, each in the EU. The app asks before your first question goes to them.
 • No index of your company: it searches live when you ask.
 • Chats and the text it reads are encrypted at rest.
 • We don't train models on your data, and our model providers' terms don't allow it either.

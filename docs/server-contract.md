@@ -601,6 +601,15 @@ click.
 
   native.css hides the other icons and shows this one once the app says it
   draws `context-menu`.
+- **Rating and reporting an answer (2026-10-27).** The answer's thumbs
+  (`messages/feedbacks/_buttons`) are items of its menu too, after Copy:
+  Good answer (`hand.thumbsup`/`thumb_up`) and Bad answer
+  (`hand.thumbsdown`/`thumb_down`), each a `button_to` the app clicks like
+  Retry; once pressed, its title is "Remove your rating" and its symbols the
+  `.fill` ones. A thumb opens the reasons under the answer, in the page, and
+  Bad answer's include "Offensive or harmful": that's the in-app report
+  Google Play's AI-Generated Content policy and the App Store's guideline 1.2
+  ask for. Nothing changes in the app: the menu shows whatever items come.
 - **Retry** asks through the retry dialog today. In the apps, render the
   retry action as the dialog's own `button_to` with
   `form: { data: { turbo_confirm: "Retry this answer?", bridge_confirm: "Retry",
@@ -1043,6 +1052,14 @@ cookies are Safari's, not the app's. The server hands the flow over to that
 sheet with a one-time URL, and the sheet hands the result back by redirecting
 to the app's callback scheme, `chatwithwork://`.
 
+**iPhone and iPad (2026-10-27).** The server offers `platform=ios` no
+provider sign-in at all, on the sign-in and sign-up pages alike: the App
+Store asks an app that signs in with another company's account to offer
+Sign in with Apple beside it (guideline 4.8). Email and a password, or a
+passkey, sign in; the sign-in page tells someone who signed up with a
+service to choose a password first. Android keeps them. Connecting services
+(below) is unchanged on both.
+
 **Sidebar builds** (section 11) get these flows from the ones Chat with
 Work Desktop uses (`Native::SignInsController`, `Native::HandoffsController`,
 `DesktopHandBack`), which also accept the apps' callbacks
@@ -1365,7 +1382,20 @@ upload's progress, a lock, an answer starting or ending), both with:
 ```
 
 `webSearch` and `dictation` are `null` where the composer doesn't offer
-them. `text` is what the web composer already holds (a shared link, a
+them.
+
+**The yes before the first question (2026-10-27).** Before anything a
+person sends goes to a model, the page asks them once, in a dialog of its
+own over the chat (the server's `docs/model-consent.md`), naming the
+companies that run the models and where. The app needs nothing for it: a
+`send` puts the words in the web composer as always, and the web composer
+waits for the dialog before it submits. Agree sends them; Not now sends
+nothing and the page connects again, so the reply to `connect` carries the
+words as `text` and the app's empty field takes them back. Until the
+person agrees, `dictation` is `null` (dictation goes to a model too), and a
+`state` brings it back once they do. A dictation posted anyway is refused
+with `403` and `{error, model_consent: true}`, whose `error` the app shows
+like any other. `text` is what the web composer already holds (a shared link, a
 restored draft), files left out: the app starts an empty field with it.
 Each new web composer (a chat draws it again as an answer starts and ends)
 connects again, and the app always answers the latest `connect`.

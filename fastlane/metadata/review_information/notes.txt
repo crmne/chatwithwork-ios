@@ -1,14 +1,23 @@
-Sign in with the demo account above (Welcome screen > Sign in). It belongs to a made-up organization, Northwind Studio, with synthetic chats and projects.
+Sign in with the demo account above (Welcome screen > Sign in, then the email and password). It belongs to a made-up organization, Northwind Studio, with synthetic chats and projects; nothing in it is real. The app signs in with email and a password, or a passkey; it offers no sign-in with another company's account (guideline 4.8).
 
 Things to try (the sidebar opens from the button at the top left):
-1. Decisions: everything waiting for the person, one at a time. It holds a change waiting for approval, a Slack post from the chat "Acme launch update". The demo account has no Slack connected, so approving it posts nothing anywhere.
-2. "Morning Acme brief": an answer from a scheduled run that searched Slack and Google Drive, with its sources.
-3. Bots: bots start work by themselves (a time of day, an email, a new GitHub issue) and ask before changing anything unless someone lets them run. The page lists recipes to start one from.
-4. New chat: ask anything. The demo account can use the free model (30 answers a day) and trial credits for the other models.
-5. Settings (the person at the bottom of the sidebar): notifications, and Account > Delete account.
+
+1. Your first question asks first (guideline 5.1.2(i)). On the New chat screen, type a question and tap Send. Before anything goes to an AI model, the app shows "Before your first question": which companies run the models and where (Gemini on Google Vertex AI, GPT on Microsoft Azure's EU Data Zone, Claude on AWS Bedrock, Qwen on Hetzner, all in the EU), that web search, if someone turns it on, goes outside the EU, and a link to the privacy policy. Not now sends nothing and keeps the words; Agree and continue sends the question. It's asked once per account, and the demo account hasn't agreed yet. Dictation and the other ways of sending words to a model wait for the same answer.
+
+2. Reporting an answer (guideline 1.2). Under any answer, tap the "..." button. Its menu has Copy, Good answer, Bad answer, Retry, Branch, and Share link. Bad answer asks what went wrong, with "Offensive or harmful" among the reasons and a comment, and Send reports it to our staff without leaving the app. People don't message each other in the app, so there is no one to block.
+
+3. Decisions: everything waiting for the person, one at a time. It holds a change waiting for approval, a Slack post from the chat "Acme launch update". The demo account has no Slack connected, so approving it posts nothing anywhere.
+
+4. "Morning Acme brief": an answer from a scheduled run that searched Slack and Google Drive, with its sources.
+
+5. Bots: bots start work by themselves (a time of day, an email, a new GitHub issue, a customer's message) and ask before changing anything unless someone lets them run. The page lists recipes to start one from; a bot needs the services it works with connected, and the demo account has none.
+
+6. Settings (the person at the bottom of the sidebar): notifications, and Profile > Delete account.
 
 Services such as Slack or Google Drive are connected through the system's sign-in sheet, since their sign-in pages refuse to run inside an app's web view. The demo account has none connected.
 
+The same account and its chats also work on the web at chatwithwork.com and in the Word, Excel, PowerPoint, and Google Docs add-ins; the app shows the same chats, bots, and decisions, and nothing in it is hidden or switched on remotely.
+
 The app sells nothing. Accounts are free to create, with free daily answers. It is a companion to the Chat with Work web service (guideline 3.1.3(f)).
 
-Microphone: dictation in the composer. Camera: attaching a photo or video to a chat. Notifications: an answer is ready or a change waits for approval; they carry no chat content.
+Microphone: dictation in the composer. Camera: attaching a photo or video to a chat. Notifications: an answer is ready or something waits for the person. A push carries no chat content; the app fetches the words it shows from our server as the notification arrives.

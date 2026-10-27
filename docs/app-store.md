@@ -26,8 +26,11 @@ repository).
 4. **The demo login** for App Review, on production: the 1Password item
    "App Review demo login" (vault chatwithwork) holds it, and the Rails
    app's `script/store/seed production review app-review@chatwithwork.com
-   <password file>` creates it with synthetic content, once the release
-   that serves the apps is deployed.
+   <password file>` makes it with synthetic content, past the first-run
+   tour. It was first made on 2026-10-27. Run it again just before each
+   submission: it rebuilds the demo's chats, so the morning brief reads as
+   that day's and the Slack post waits again, and it takes back an
+   earlier reviewer's yes to AI models, so the next one sees that question.
 
 ## Building and uploading
 
@@ -172,6 +175,23 @@ bought on the web, never in the app. Push tokens are not a "Device ID" in
 Apple's sense (that category is for advertising and vendor identifiers).
 `ChatWithWork/Resources/PrivacyInfo.xcprivacy` declares the same types.
 
+Two things that look like collection aren't new types:
+
+- **Notification words.** The notification service extension fetches a
+  chat's title and the start of its answer from our server as a push
+  arrives (server contract, section 9): the app receives them, and sends
+  only the phone's notification key, which identifies no one outside our
+  server. They're the same User Content the app already shows.
+- **The yes to AI models.** Before the first question goes to a model, the
+  page asks once (5.1.2(i), below); the server keeps when, which wording,
+  and that it was the iOS app, with the account. That's account data, not a
+  type of its own.
+
+Each extension (share, notifications, widgets) carries its own
+`PrivacyInfo.xcprivacy` too: they compile `Shared/`, whose shared inbox
+reads its folders' creation dates (file timestamps, reason `C617.1`, also
+in the app's), and they collect nothing themselves.
+
 ## Age rating
 
 Answer the questionnaire as: no violence, sexual content, nudity, profanity,
@@ -193,12 +213,27 @@ for kids, so it stays out of the Kids category.
 - **4.2, minimum functionality.** Native tabs, sheets, menus, alerts,
   toasts, haptics, search, the share sheet, Quick Look, push notifications,
   and universal links, around the web app's pages.
-- **4.8, sign in with Apple.** The tab builds hid the Google, Slack, and
-  Dropbox sign-ins, so it wasn't required. The sidebar builds show Google,
-  Microsoft, Slack, and Dropbox (through the system's sign-in sheet), so App
-  Review will ask for an equivalent login that keeps the email private:
-  hide them again in the app, or add Sign in with Apple, before submitting
-  (the Rails app's `docs/marketing/marketplaces.md`, decision 14).
+- **4.8, sign in with Apple.** Not required: since 2026-10-27 the server
+  offers the iPhone and iPad app no other company's sign-in (no Google,
+  Microsoft, Slack, or Dropbox), only email and a password, or a passkey
+  (the Rails app's `docs/security/sign-in.md`, "Apps"; decision 14).
+  Connecting a service from the app (Google Drive, Slack, ...) isn't a
+  login. Android and the web keep the provider sign-ins.
+- **5.1.2(i), third-party AI.** Before the first question, dictation, or
+  bot fill-in goes to a model, the app shows the page's dialog "Before your
+  first question", naming who runs the models and where (Gemini on Google
+  Vertex AI, GPT on Microsoft Azure's EU Data Zone, Claude on AWS Bedrock,
+  Qwen on Hetzner, all in the EU), with Not now and Agree and continue, and
+  a link to the privacy policy. It's asked once per login and recorded. The
+  demo login hasn't agreed, so the reviewer sees it on their first question
+  (the Rails app's `docs/model-consent.md`).
+- **1.2, user-generated and AI content.** An answer's menu (the "…" under
+  it) has Good answer and Bad answer; Bad answer asks what went wrong, with
+  "Offensive or harmful" among the reasons and a comment, sent to our staff
+  without leaving the app (the Rails app's `docs/feedback.md`). People
+  don't message each other, so there's nobody to block. Contact: the
+  listing's support URL and support@chatwithwork.com, which the privacy
+  policy gives too.
 - **5.1.1(v), account deletion.** Settings > Account > Delete account.
 - **Permissions.** Microphone (dictation, and sound with a video),
   camera (a photo or video to attach), notifications (offered once after
