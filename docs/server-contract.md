@@ -1417,10 +1417,12 @@ App to web, as replies to `connect`, `{action, ...}`:
 - The field, with `placeholder`, growing to about five lines. Locked: the
   field disabled and `lockReason` above it.
 - The files on their way as chips with their progress and a remove button.
-- Three controls, as on the web: "+", the model (a menu of `models`, hidden
+- The controls, as on the web: "+", the model (a menu of `models`, hidden
   while locked or working), and Send. While `working` and the field is
-  empty, Send is Stop (disabled while `stopping`); with words, Send steers.
-  A light haptic on Send.
+  empty, Stop ("Stop response", sends `stop`) stands in Send's place; once
+  there are words or files, Stop and Send show side by side, Send steering
+  the answer, and an emptied field leaves Stop alone again. Stop is
+  disabled while `stopping`. A light haptic on Send, a firmer one on Stop.
 - "+" opens a sheet: the latest photos in a row (the app asks for the photo
   library the first time the sheet opens; Photos and the camera work
   without it), Camera, Photos (`PHPickerViewController`), Files, Scan

@@ -1,8 +1,9 @@
 import UIKit
 
 /// The composer the app draws over a chat: the words, the files on their
-/// way, and the web's three controls, "+" (the attach sheet), the model,
-/// and Send or Stop. Docked above the keyboard; the web view ends above it.
+/// way, and the web's controls, "+" (the attach sheet), the model, and
+/// Send. While an answer works, Stop, with Send beside it once there are
+/// words to steer with. Docked above the keyboard; the web view ends above it.
 /// It only shows what the web composer's state says and reports what the
 /// person did (ComposerComponent); every rule stays the server's.
 final class ComposerView: UIView, UITextViewDelegate {
@@ -29,6 +30,7 @@ final class ComposerView: UIView, UITextViewDelegate {
     private let placeholder = UILabel()
     private let plusButton = UIButton(type: .system)
     private let modelButton = UIButton(type: .system)
+    private let stopButton = UIButton(type: .system)
     private let sendButton = UIButton(type: .system)
     private let meter = LevelMeter()
     private let status = UILabel()
@@ -94,6 +96,13 @@ final class ComposerView: UIView, UITextViewDelegate {
         modelConfiguration.titleLineBreakMode = .byTruncatingTail
         modelButton.configuration = modelConfiguration
 
+        stopButton.accessibilityIdentifier = "composer.stop"
+        stopButton.accessibilityLabel = String(localized: "Stop response")
+        stopButton.addAction(UIAction { [weak self] _ in self?.stopTapped() }, for: .primaryActionTriggered)
+        stopButton.layer.cornerRadius = 17
+        stopButton.setImage(UIImage(systemName: "stop.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .bold)), for: .normal)
+        stopButton.isHidden = true
+
         sendButton.accessibilityIdentifier = "composer.send"
         sendButton.addAction(UIAction { [weak self] _ in self?.sendTapped() }, for: .primaryActionTriggered)
         sendButton.layer.cornerRadius = 17
@@ -111,7 +120,7 @@ final class ComposerView: UIView, UITextViewDelegate {
 
         let spacer = UIView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let controls = UIStackView(arrangedSubviews: [plusButton, cancelButton, meter, status, spacer, modelButton, sendButton])
+        let controls = UIStackView(arrangedSubviews: [plusButton, cancelButton, meter, status, spacer, modelButton, stopButton, sendButton])
         controls.axis = .horizontal
         controls.alignment = .center
         controls.spacing = 6
@@ -150,6 +159,8 @@ final class ComposerView: UIView, UITextViewDelegate {
             placeholder.topAnchor.constraint(equalTo: textView.topAnchor, constant: 8),
             placeholder.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: 7),
             placeholder.widthAnchor.constraint(lessThanOrEqualTo: textView.widthAnchor, constant: -14),
+            stopButton.widthAnchor.constraint(equalToConstant: 34),
+            stopButton.heightAnchor.constraint(equalToConstant: 34),
             sendButton.widthAnchor.constraint(equalToConstant: 34),
             sendButton.heightAnchor.constraint(equalToConstant: 34),
             plusButton.widthAnchor.constraint(equalToConstant: 34),
@@ -176,6 +187,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         super.traitCollectionDidChange(previousTraitCollection)
         [plusButton, cancelButton].forEach { $0.layer.borderColor = Palette.line.cgColor }
         sendButton.backgroundColor = Palette.ink
+        styleStop()
     }
 
     // MARK: State
@@ -262,20 +274,26 @@ final class ComposerView: UIView, UITextViewDelegate {
             image = "stop.fill"
             sendButton.accessibilityLabel = String(localized: "Stop recording")
             sendButton.isEnabled = true
+            sendButton.isHidden = false
+            stopButton.isHidden = true
         } else if transcribing {
             image = "ellipsis"
             sendButton.accessibilityLabel = String(localized: "Transcribing")
             sendButton.isEnabled = false
-        } else if state?.working == true, text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, state?.attachments.isEmpty != false {
-            image = "stop.fill"
-            sendButton.accessibilityLabel = String(localized: "Stop")
-            sendButton.isEnabled = state?.stopping != true
+            sendButton.isHidden = false
+            stopButton.isHidden = true
         } else {
+            let buttons = state?.buttons(text: text)
             image = "arrow.up"
             sendButton.accessibilityLabel = String(localized: "Send")
-            sendButton.isEnabled = state?.canSend(text: text) == true
+            sendButton.isEnabled = buttons?.sendEnabled == true
+            sendButton.isHidden = buttons?.send == false
+            stopButton.isHidden = buttons?.stop != true
+            stopButton.isEnabled = buttons?.stopEnabled == true
         }
         sendButton.setImage(UIImage(systemName: image, withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .bold)), for: .normal)
+        stopButton.alpha = stopButton.isEnabled ? 1 : 0.35
+        styleStop()
         sendButton.alpha = sendButton.isEnabled ? 1 : 0.35
         box.showsEdge = state?.locked != true
         box.alpha = state?.locked == true ? 0.7 : 1
@@ -294,17 +312,32 @@ final class ComposerView: UIView, UITextViewDelegate {
         }
         guard let state else { return }
         let text = textView.text ?? ""
-
-        if state.working, text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, state.attachments.isEmpty {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            onAction?(.stop)
-            return
-        }
-        guard state.canSend(text: text) else { return }
+        guard state.buttons(text: text).sendEnabled else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         onAction?(.send(text: text))
         textView.text = ""
         refreshControls()
+    }
+
+    private func stopTapped() {
+        guard mode == .typing, state?.buttons(text: textView.text ?? "").stopEnabled == true else { return }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        onAction?(.stop)
+    }
+
+    /// Stop alone is the filled button in Send's place; beside Send it steps
+    /// back to an outline, so Send stays the one filled button.
+    private func styleStop() {
+        if sendButton.isHidden {
+            stopButton.tintColor = Palette.inkInverted
+            stopButton.backgroundColor = Palette.ink
+            stopButton.layer.borderWidth = 0
+        } else {
+            stopButton.tintColor = Palette.ink
+            stopButton.backgroundColor = .clear
+            stopButton.layer.borderWidth = 1
+            stopButton.layer.borderColor = Palette.line.cgColor
+        }
     }
 
     /// Words from dictation, after what's typed.

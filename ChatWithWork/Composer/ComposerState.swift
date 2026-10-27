@@ -73,7 +73,28 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     /// Whether Send can go now: words or files, nothing still uploading, and
     /// not locked. While an answer works, Send steers it (the web decides).
     func canSend(text: String) -> Bool {
-        !locked && !isUploading && (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty)
+        !locked && !isUploading && hasContent(text: text)
+    }
+
+    /// Which of Stop and Send the composer shows for these words. Not
+    /// working: Send alone. Working with an empty field: Stop alone. Working
+    /// with words or files: Stop beside Send, which steers. Stop holds while
+    /// the answer is stopping.
+    struct Buttons: Equatable, Sendable {
+        let stop: Bool
+        let stopEnabled: Bool
+        let send: Bool
+        let sendEnabled: Bool
+    }
+
+    func buttons(text: String) -> Buttons {
+        let stop = working
+        let send = !working || hasContent(text: text)
+        return Buttons(stop: stop, stopEnabled: stop && !stopping, send: send, sendEnabled: send && canSend(text: text))
+    }
+
+    private func hasContent(text: String) -> Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
     }
 }
 

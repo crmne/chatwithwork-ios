@@ -59,6 +59,43 @@ struct ComposerTests {
         #expect(!locked.canSend(text: "hello"))
     }
 
+    private func state(_ json: String) throws -> ComposerState {
+        try #require(message("state", json).data() as ComposerState?)
+    }
+
+    @Test("shows Send alone while nothing works")
+    func idleButtons() throws {
+        let idle = try state(#"{"placeholder":""}"#)
+        #expect(idle.buttons(text: "") == .init(stop: false, stopEnabled: false, send: true, sendEnabled: false))
+        #expect(idle.buttons(text: "hello") == .init(stop: false, stopEnabled: false, send: true, sendEnabled: true))
+    }
+
+    @Test("shows Stop alone while an answer works and the field is empty")
+    func stopAlone() throws {
+        let working = try state(#"{"placeholder":"","working":true}"#)
+        #expect(working.buttons(text: "") == .init(stop: true, stopEnabled: true, send: false, sendEnabled: false))
+        #expect(working.buttons(text: " \n ") == .init(stop: true, stopEnabled: true, send: false, sendEnabled: false), "Blank words are an empty field")
+    }
+
+    @Test("shows Stop beside Send once there are words or files to steer with")
+    func stopAndSend() throws {
+        let working = try state(#"{"placeholder":"","working":true}"#)
+        #expect(working.buttons(text: "Shorter, please") == .init(stop: true, stopEnabled: true, send: true, sendEnabled: true))
+
+        let withFile = try state(#"{"placeholder":"","working":true,"attachments":[{"id":"7","name":"plan.pdf","uploading":false}]}"#)
+        #expect(withFile.buttons(text: "") == .init(stop: true, stopEnabled: true, send: true, sendEnabled: true))
+
+        let uploading = try state(#"{"placeholder":"","working":true,"attachments":[{"id":"7","name":"plan.pdf","uploading":true,"progress":40}]}"#)
+        #expect(uploading.buttons(text: "hi") == .init(stop: true, stopEnabled: true, send: true, sendEnabled: false), "Send waits for the upload; Stop doesn't")
+    }
+
+    @Test("holds Stop while the answer is stopping")
+    func stopping() throws {
+        let stopping = try state(#"{"placeholder":"","working":true,"stopping":true}"#)
+        #expect(stopping.buttons(text: "") == .init(stop: true, stopEnabled: false, send: false, sendEnabled: false))
+        #expect(stopping.buttons(text: "wait") == .init(stop: true, stopEnabled: false, send: true, sendEnabled: true))
+    }
+
     @Test("replies with the contract's actions", arguments: [
         (ComposerAction.send(text: "Hi"), #"{"action":"send","text":"Hi"}"#),
         (.stop, #"{"action":"stop"}"#),

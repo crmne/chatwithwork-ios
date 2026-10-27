@@ -169,10 +169,23 @@ final class PlaygroundTests: XCTestCase {
         // A chat still answering, opened from a Live Activity's link: Stop in
         // the composer. Leaving the app starts its Live Activity.
         openAppLink(app, "chatwithwork://open?path=/1000001/chats/41")
-        expectation(for: NSPredicate(format: "label == %@", "Stop"), evaluatedWith: app.buttons["composer.send"])
-        waitForExpectations(timeout: 20)
+        let stop = app.buttons["composer.stop"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 20), "A working chat should show Stop")
+        XCTAssertEqual(stop.label, "Stop response")
+        XCTAssertFalse(app.buttons["composer.send"].exists, "Stop stands alone while the field is empty")
         settle()
         keep("working-chat")
+
+        // Words bring Send beside Stop, to steer; an empty field leaves Stop alone.
+        let field = app.textViews["composer.text"]
+        field.tap()
+        field.typeText("Shorter")
+        XCTAssertTrue(app.buttons["composer.send"].waitForExistence(timeout: 5), "Words should bring Send beside Stop")
+        XCTAssertTrue(stop.exists, "Stop stays beside Send")
+        settle(0.5)
+        keep("working-chat-steer")
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 7))
+        XCTAssertTrue(app.buttons["composer.send"].waitForNonExistence(timeout: 5), "An empty field should leave Stop alone again")
         XCUIDevice.shared.press(.home)
         settle(3)
         keep("live-activity")
