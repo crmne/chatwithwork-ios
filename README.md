@@ -131,7 +131,8 @@ docs/             the server contract and design notes
   beside it, which slides in from the left and pushes the chat aside. The
   sidebar is SwiftUI, drawn from the server's `/native/sidebar` JSON, fetched
   with the web views' own cookies (`SidebarStore`), with a Chats | Bots
-  switch under Decisions. Bots, projects and other
+  switch at its top; Decisions sit in the chat's bar beside the sidebar
+  button (`DecisionsPill`). Bots, projects and other
   pages are pushed over the chat; Settings and forms are sheets.
 - **Web screens** are plain `HotwireWebViewController`s configured from
   outside (`WebScreen`), never subclassed: a subclass recreating the bridge

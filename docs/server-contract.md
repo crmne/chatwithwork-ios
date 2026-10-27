@@ -1234,22 +1234,20 @@ is the server's switch for anything that differs.
   web view, shared by every screen, never reloads the app. Bots, projects and
   other pages are pushed over the chat; Settings and every form are sheets.
 - **The bar.** The sidebar button on the leading side of the root
-  (`sidebar.left`), New chat on the trailing side of every main screen
+  (`sidebar.left`) and Decisions beside it (below), New chat on the trailing side of every main screen
   (`square.and.pencil`), and the page's own `button`, `menu`, `form` and
   `share` beside them. A page's `button` with `nativeAction: "new-chat"` is
   left out.
 - **The sidebar** slides in from the left and pushes the chat aside, opened by
   the bar's button or a swipe from the screen's left edge (on a root screen
   with nothing over it), closed by a tap or a swipe on the chat, or by picking
-  something. Top to bottom: the list switcher (`list`, "Project" or
+  something. Top to bottom: the Chats | Bots switch (below), the list switcher (`list`, "Project" or
   "Showing"; its menu lists `lists`, then All projects… and New project), a
   search field (titles, natively; the first search loads `all=1`), New chat,
-  Decisions (`waiting`, with an attention dot and count, named as on the
-  web; it opens the Decisions page, `waiting.url`, or, from a server without
-  one, the list of `waiting.items`; earlier builds called it "Waiting for
-  you"), the Chats | Bots switch (below; from a server without `bots.items`,
-  the Bots row instead: `links.bots`, with `bots`' count, dot, or
-  next run), Pinned (`pins`), the person's own sections (`sections`, below),
+  from a server without `waiting.url` the Decisions row (the list of
+  `waiting.items`; earlier builds called it "Waiting for you"), from a server
+  without `bots.items` the Bots row instead of the switch (`links.bots`, with
+  `bots`' count, dot, or next run), Pinned (`pins`), the person's own sections (`sections`, below),
   then the chats under their `group` headings (under one "Other chats"
   heading instead when there are sections, as on the web)
   with a live dot while `state` is `processing` and an attention dot while
@@ -1294,6 +1292,16 @@ apply are `null` (a guest's `new_chat`, `bots`, `projects` and
 `new_project`), and so is `bots` for a guest. Every URL is a path on this
 server.
 
+**Decisions in the bar (2026-10-27).** As the web moved Decisions out of
+its sidebar into a pill in its top bar, the app draws Decisions in the root
+screen's bar, beside the sidebar button (`shell.decisions`): the list-checks
+symbol (`checklist`) and `waiting.count` on the attention wash, or the symbol
+alone when the count is 0. It opens `waiting.url` (or `links.decisions`).
+The same data as before, no new keys. Since the count shows while the
+sidebar is closed, the app fetches the JSON on launch, on each `changed` and
+on returning to the foreground, open or not. A server without `waiting.url`
+gets no pill and keeps the Decisions row in the sidebar.
+
 **Decisions (server, 2026-10-26).** `waiting` now lists decisions, not chats:
 everything waiting for the person across their chats, agents, bots' runs
 and the bots they handle (the server's `Decision`, `docs/decisions.md`).
@@ -1315,7 +1323,7 @@ its count.
 `asker`, `{"kind": "bot", "name": "Front desk", "project": "Website
 relaunch"}` (`kind` `bot`, `agent` or `chat`, `project` null outside one),
 the server's `Decision#asker`. The list of `waiting.items` (shown only from a
-server without `waiting.url`) leads each row with `asker.name`, then
+server without `waiting.url`, in the sidebar's Decisions row) leads each row with `asker.name`, then
 `summary` and the project under it, as the web's decision row does. Without
 `asker` the row is as before.
 
@@ -1333,9 +1341,10 @@ and its `tone` (`attention`, `negative`, `live`, `positive`, or null);
 `waiting` how many decisions wait for the person in it; `working` whether one
 of its chats is answering now; `next_run` its next timed run, if any.
 
-With `items`, the sidebar draws a segmented Chats | Bots switch right under
-Decisions, in place of the Bots row (`sidebar.switch.chats`,
-`sidebar.switch.bots`). Its Bots half shows an attention dot, never a number,
+With `items`, the sidebar draws a segmented Chats | Bots switch as its first
+control, above the list switcher, in place of the Bots row
+(`sidebar.switch.chats`, `sidebar.switch.bots`): two equal halves, each its
+icon and label centred together, the Bots half's dot hanging past its label. Its Bots half shows an attention dot, never a number,
 while `bots.attention`: Decisions carries the one count. Chats shows the
 sidebar as before. Bots keeps the same skeleton: a card in the list
 switcher's place ("Bots in <organization>", how many bots, and how many are
