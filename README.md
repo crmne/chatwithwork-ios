@@ -8,8 +8,8 @@ The app is built with [Hotwire Native](https://native.hotwired.dev). Its
 screens are the web app's own pages, so every feature the web app gains
 reaches the app without a release, and it goes native wherever that makes it
 feel like an iOS app: it opens on a new chat, with a native sidebar that
-slides in from the left (your chats, projects, what waits for you, Bots, and
-Settings), large titles, sheets, a welcome screen, native menus, alerts,
+slides in from the left (your chats, projects, what waits for you, your
+bots, and Settings), large titles, sheets, a welcome screen, native menus, alerts,
 toasts, haptics, search, the share sheet, sign-in and connecting services
 through the system's secure browser sheet, push notifications that show the
 answer's start or what waits for you (fetched from the server as they arrive,
@@ -130,7 +130,8 @@ docs/             the server contract and design notes
   configuration replaces the root for every chat page), with the sidebar
   beside it, which slides in from the left and pushes the chat aside. The
   sidebar is SwiftUI, drawn from the server's `/native/sidebar` JSON, fetched
-  with the web views' own cookies (`SidebarStore`). Bots, projects and other
+  with the web views' own cookies (`SidebarStore`), with a Chats | Bots
+  switch under Decisions. Bots, projects and other
   pages are pushed over the chat; Settings and forms are sheets.
 - **Web screens** are plain `HotwireWebViewController`s configured from
   outside (`WebScreen`), never subclassed: a subclass recreating the bridge
@@ -164,7 +165,8 @@ python3 Playground/server.py --open     # every request signed in
 
 then run the app with `-CWWBaseURL http://localhost:8765`, or run the UI
 tests, whose `PlaygroundTests` sign in, use the sidebar, open a chat, use its
-menus and the composer, and visit Bots and Settings.
+menus and the composer, switch the sidebar to its bots, and visit Bots and
+Settings.
 
 `LocalServerTests` needs the real thing instead: a Chat with Work
 development server the simulator reaches, which answers and sends pushes
