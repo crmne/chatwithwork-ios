@@ -11,6 +11,9 @@ import { BridgeComponent } from "@hotwired/hotwire-native-bridge"
 //             webSearch: {on, disabled, note} | null, dictation: {url} | null, csrfToken,
 //             attachments: [{id, name, size, contentType, uploading, progress}], acceptsFiles }
 // +text+ is the words the web composer holds (a shared link, a restored draft), files left out, for the app's empty field.
+// Until the person says yes to their words going to models (model_consent_controller.js), +dictation+ is null, and a
+// send waits for the page's dialog: agreeing sends it, while Not now connects again, so the app's field gets its words
+// back.
 // App to web, as replies to connect: {action, ...}
 //   send {text}        the words, then Send as the web's button would (steering a running answer, or waiting where
 //                      the person may not steer it)
@@ -29,15 +32,23 @@ export default class extends BridgeComponent {
     this.observer = new MutationObserver(() => this.#changed())
     this.observer.observe(this.element, { childList: true, subtree: true, attributes: true, characterData: true })
     this.element.addEventListener("lexxy:upload-progress", this.progressed = () => this.#changed())
-    this.lastState = JSON.stringify(this.#state())
-    this.send("connect", JSON.parse(this.lastState), message => this.#perform(message.data))
+    window.addEventListener("model-consent:given", this.consented = () => this.#changed())
+    window.addEventListener("model-consent:declined", this.declined = () => this.#connectToApp())
+    this.#connectToApp()
   }
 
   disconnect() {
     this.observer?.disconnect()
     this.element.removeEventListener("lexxy:upload-progress", this.progressed)
+    window.removeEventListener("model-consent:given", this.consented)
+    window.removeEventListener("model-consent:declined", this.declined)
     clearTimeout(this.timer)
     super.disconnect()
+  }
+
+  #connectToApp() {
+    this.lastState = JSON.stringify(this.#state())
+    this.send("connect", JSON.parse(this.lastState), message => this.#perform(message.data))
   }
 
   #changed() {
@@ -111,7 +122,9 @@ export default class extends BridgeComponent {
     const editor = element.querySelector("lexxy-editor")
     const lock = [ ...element.querySelectorAll(".chat-prompt__lock") ].find(lock => !lock.hidden)
     const webSearch = element.querySelector(".chat-prompt__web-search input[type=checkbox]")
-    const dictation = element.dataset.dictationUrlValue && element.querySelector("[data-dictation-target=button]")
+    // The dialog that asks for the yes is on the page only while it's missing (model_consents/_dialog).
+    const consentNeeded = document.getElementById("model_consent") !== null
+    const dictation = element.dataset.dictationUrlValue && element.querySelector("[data-dictation-target=button]") && !consentNeeded
 
     return {
       placeholder: editor?.getAttribute("placeholder") || "",

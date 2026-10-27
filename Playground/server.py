@@ -283,6 +283,21 @@ def retry_button(account, number, message_id, question=False):
               </form>"""
 
 
+def feedback_buttons(account, number, message_id):
+    """Thumbs up and down under an answer (messages/feedbacks/_buttons): in
+    the apps, items of the answer's menu, where Bad answer is how someone
+    reports an answer as offensive or harmful."""
+    thumbs = (("up", "Good answer", "thumbs-up", "hand.thumbsup", "thumb_up"),
+              ("down", "Bad answer", "thumbs-down", "hand.thumbsdown", "thumb_down"))
+    return "".join(f"""
+              <form class="contents" method="post" action="/{account}/chats/{number}/messages/{message_id}/feedback" data-turbo-frame="_top">
+                <input type="hidden" name="rating" value="{rating}">
+                <button type="submit" class="message__action tooltip" aria-label="{label}" aria-pressed="false" data-tip="{label}"
+                        data-bridge--context-menu-target="item" data-bridge-title="{label}" data-bridge-ios-image="{ios_image}"
+                        data-bridge-android-image="{android_image}">{icon(glyph)}</button>
+              </form>""" for rating, label, glyph, ios_image, android_image in thumbs)
+
+
 def more_button():
     return f"""
               <button type="button" class="message__action message__more" aria-label="More actions"
@@ -342,7 +357,7 @@ def assistant_message(account, number, message_id, text, body_html, sources=(), 
               <div data-markdown-target="output" class="message__body prose">{body_html}</div>
 
               <footer class="message__footer">
-                <div class="message__actions">{copy_button()}{retry_button(account, number, message_id)}
+                <div class="message__actions">{copy_button()}{feedback_buttons(account, number, message_id)}{retry_button(account, number, message_id)}
                   <form class="contents" method="post" action="/{account}/chats/{number}/messages/{message_id}/branches" data-turbo-frame="_top">
                     <button type="submit" class="message__action tooltip" aria-label="Branch into a new chat" data-tip="Branch into a new chat"
                             data-bridge--context-menu-target="item" data-bridge-title="Branch into a new chat"
@@ -1524,6 +1539,10 @@ class Handler(BaseHTTPRequestHandler):
             paused = self.session["paused"]
             (paused.discard if method == "delete" else paused.add)(m.group(1))
             return self.redirect(f"/{account}/chats/new")
+        if m := re.fullmatch(r"/chats/(\d+)/messages/\d+/feedback", rest):
+            # The server opens the reasons under the answer; the playground only thanks.
+            self.flash("notice", "Thanks for your feedback.")
+            return self.redirect(f"/{account}/chats/{m.group(1)}")
         if m := re.fullmatch(r"/chats/(\d+)/messages/\d+/(retries|branches)", rest):
             self.flash("notice", "Asking again." if m.group(2) == "retries" else "Branched into a new chat.")
             return self.redirect(f"/{account}/chats/{m.group(1)}")
