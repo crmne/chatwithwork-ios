@@ -1244,7 +1244,7 @@ is the server's switch for anything that differs.
   something. Top to bottom: the Chats | Bots switch (below), the list switcher (`list`, "Project" or
   "Showing"; its menu lists `lists`, then All projects… and New project), a
   search field (titles, natively; the first search loads `all=1`), New chat,
-  from a server without `waiting.url` the Decisions row (the list of
+  from a server with neither `waiting.url` nor `links.decisions` the Decisions row (the list of
   `waiting.items`; earlier builds called it "Waiting for you"), from a server
   without `bots.items` the Bots row instead of the switch (`links.bots`, with
   `bots`' count, dot, or next run), Pinned (`pins`), the person's own sections (`sections`, below),
@@ -1273,8 +1273,9 @@ path of the following page. A signed-out request gets `401`.
   "links": {"new_chat": "/482139075/chats/new", "bots": "/482139075/bots", "settings": "/482139075/settings",
             "projects": "/482139075/projects", "new_project": "/482139075/projects/new",
             "organizations": "/accounts", "new_organization": "/accounts/new"},
-  "waiting": {"count": 1, "items": [{"title": "Launch date in #launch", "url": "/482139075/chats/42", "kind": "approval", "project": "Website relaunch"}]},
-  "bots": {"count": 0, "attention": false, "next_run": "08:30",
+  "waiting": {"count": 2, "items": [{"title": "Launch date in #launch", "url": "/482139075/chats/42", "kind": "approval", "project": "Website relaunch"},
+                                    {"title": "Refund for order 1182", "url": "/482139075/chats/57", "kind": "bot", "project": "Website relaunch"}]},
+  "bots": {"count": 1, "attention": true, "next_run": null,
            "url": "/482139075/bots", "new_url": "/482139075/bots/new", "items": [BOT]},
   "pins": [CHAT],
   "sections": [SECTION],
@@ -1299,8 +1300,9 @@ symbol (`checklist`) and `waiting.count` on the attention wash, or the symbol
 alone when the count is 0. It opens `waiting.url` (or `links.decisions`).
 The same data as before, no new keys. Since the count shows while the
 sidebar is closed, the app fetches the JSON on launch, on each `changed` and
-on returning to the foreground, open or not. A server without `waiting.url`
-gets no pill and keeps the Decisions row in the sidebar.
+on returning to the foreground, open or not. A server with neither
+`waiting.url` nor `links.decisions` gets no pill and keeps the Decisions row
+in the sidebar, so Decisions shows in one place or the other, never both.
 
 **Decisions (server, 2026-10-26).** `waiting` now lists decisions, not chats:
 everything waiting for the person across their chats, agents, bots' runs

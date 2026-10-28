@@ -965,19 +965,34 @@ def new_chat(handler, account, project_number=None, prefill=""):
 
 
 def bots_index(handler, account):
-    """bots/index, as a person with one bot sees it."""
+    """bots/index, cut to All bots: the same bots the sidebar's Bots half lists."""
+    rows = "".join(f"""
+          <li class="rows__row"><div class="rows__body"><h3><a class="hover:underline" href="/{account}/bots/{number}">{esc(bot["name"])}</a></h3>
+            <p class="text-ink-muted">{esc(bot["summary"])}</p></div></li>""" for number, bot in BOTS.items())
     body = f"""
     <div class="page">
-      <header class="page__header native-hidden"><div class="page__heading"><h1>Bots</h1></div></header>
-      <section class="page__section">
-        <header><h2>Yours</h2></header>
-        <ul class="rows">
-          <li class="rows__row"><div class="rows__body"><h3>Monday Drive digest</h3>
-            <p class="text-ink-muted">Every Monday at 8:30, tells you what changed in Drive.</p></div></li>
+      <header class="page__header"><div class="page__heading"><h1 class="native-hidden">Bots</h1></div></header>
+      <section class="page__section" id="bots">
+        <header><h2>All bots</h2></header>
+        <ul class="rows">{rows}
         </ul>
       </section>
     </div>"""
     return Page("Bots", body, account=account)
+
+
+def new_bot(handler, account):
+    """bots/new, cut to its heading and lede: the playground stops before describing a bot."""
+    body = """
+    <div class="page">
+      <header class="page__header">
+        <div class="page__heading">
+          <h1 class="native-hidden">New bot</h1>
+          <p class="page__lede">Say what it should do, or start from a recipe. The playground stops here.</p>
+        </div>
+      </header>
+    </div>"""
+    return Page("New bot", body, account=account)
 
 
 def decisions_page(handler, account):
@@ -1457,6 +1472,8 @@ class Handler(BaseHTTPRequestHandler):
         page = None
         if rest == "/bots":
             page = bots_index(self, account)
+        elif rest == "/bots/new":
+            page = new_bot(self, account)
         elif rest == "/decisions":
             page = decisions_page(self, account)
         elif m := re.fullmatch(r"/bots/(\d+)", rest):
