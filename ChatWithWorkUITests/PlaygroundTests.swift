@@ -133,12 +133,53 @@ final class PlaygroundTests: XCTestCase {
         let dontAllow = springboard.alerts.buttons["Don’t Allow"]
         if dontAllow.waitForExistence(timeout: 3) { dontAllow.tap() }
         XCTAssertTrue(app.buttons["attach.files"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["attach.dictate"].exists)
+        XCTAssertFalse(app.buttons["attach.dictate"].exists, "Dictation is in the bar, not the sheet")
         settle(0.8)
         keep("attach-sheet")
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap()
         XCTAssertTrue(app.buttons["attach.files"].waitForNonExistence(timeout: 5), "A tap above the sheet should put it away")
         settle(0.5)
+
+        // The microphone and the globe are one tap away in the bar.
+        let dictate = app.buttons["composer.dictate"]
+        let globe = app.buttons["composer.webSearch"]
+        XCTAssertTrue(dictate.exists, "The microphone should be in the bar")
+        XCTAssertTrue(globe.exists, "The globe should be in the bar")
+        XCTAssertEqual(globe.label, "Search the web")
+        XCTAssertEqual(globe.value as? String, "Off")
+        globe.tap()
+        let note = app.staticTexts["composer.lock"]
+        XCTAssertTrue(note.waitForExistence(timeout: 5), "Turning web search on should say where searches go")
+        XCTAssertTrue(note.label.contains("leave the EU"))
+        keep("composer-bar")
+
+        // Dictation takes the whole composer while it listens, then gives the words back.
+        dictate.tap()
+        let allow = springboard.alerts.buttons["Allow"]
+        if allow.waitForExistence(timeout: 3) { allow.tap() }
+        let line = app.descendants(matching: .any)["composer.dictation"]
+        let refused = app.staticTexts["composer.lock"]
+        let listening = NSPredicate { _, _ in line.exists || (refused.exists && refused.label.contains("Dictation couldn't start")) }
+        expectation(for: listening, evaluatedWith: NSNull())
+        waitForExpectations(timeout: 10)
+        // A Mac without a microphone (the Mac mini) gives its simulators none: there the app says so
+        // and the field stays. ComposerTests covers the line itself.
+        if line.exists {
+            XCTAssertEqual(line.label, "Listening")
+            XCTAssertFalse(composer.exists, "The field steps aside while dictating")
+            XCTAssertFalse(dictate.exists, "The bar steps aside too")
+            XCTAssertTrue(app.buttons["composer.cancelDictation"].exists)
+            settle(1.5)
+            keep("dictation-listening")
+            app.buttons["composer.send"].tap()
+            let dictated = NSPredicate(format: "value CONTAINS %@", "Draft the recap for Priya")
+            expectation(for: dictated, evaluatedWith: composer)
+            waitForExpectations(timeout: 20)
+            XCTAssertFalse(line.exists, "The field comes back with the words")
+            keep("dictation-words")
+        } else {
+            XCTAssertTrue(composer.exists, "Without a microphone the field stays")
+        }
 
         // A swipe from the left edge opens the sidebar; its switch shows the
         // bots in the same skeleton, those that need you first.

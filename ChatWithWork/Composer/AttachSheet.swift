@@ -8,28 +8,26 @@ import VisionKit
 /// What the "+" sheet offers, from the composer's state.
 struct AttachOptions {
     var acceptsFiles: Bool
-    var canDictate: Bool
-    var webSearch: ComposerState.WebSearch?
     var canScan: Bool = VNDocumentCameraViewController.isSupported
     var hasCamera: Bool = UIImagePickerController.isSourceTypeAvailable(.camera)
 }
 
 /// The "+" sheet: recent photos (where the person lets the app see their
-/// library), then Camera, Photos, Files, Scan and
-/// Dictate, and Web search as a switch. Tools and models live elsewhere, so
-/// "+" never becomes a drawer of everything.
+/// library), then Camera, Photos, Files and Scan. Dictation and web search
+/// are one tap away in the composer's bar, and tools and models live
+/// elsewhere, so "+" never becomes a drawer of everything.
+/// (On the web, "+" holds only what its bar has no room for; at phone width
+/// the app's bar has room for all of it.)
 struct AttachSheet: View {
     enum Choice {
-        case camera, photos, files, scan, dictate
+        case camera, photos, files, scan
         case recent(PHAsset)
-        case webSearch(Bool)
     }
 
     let options: AttachOptions
     let choose: (Choice) -> Void
 
     @State private var recent: [PHAsset] = []
-    @State private var webSearchOn = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -51,24 +49,6 @@ struct AttachSheet: View {
                     tile("Files", "doc", .files, id: "attach.files")
                     if options.canScan { tile("Scan", "doc.viewfinder", .scan, id: "attach.scan") }
                 }
-                if options.canDictate { tile("Dictate", "mic", .dictate, id: "attach.dictate") }
-            }
-
-            if let webSearch = options.webSearch {
-                VStack(alignment: .leading, spacing: 4) {
-                    Toggle(isOn: $webSearchOn) {
-                        Label("Web search", systemImage: "globe")
-                    }
-                    .disabled(webSearch.disabled)
-                    .onChange(of: webSearchOn) { _, on in
-                        if on != webSearch.on { choose(.webSearch(on)) }
-                    }
-                    .accessibilityIdentifier("attach.webSearch")
-                    if let note = webSearch.note, !note.isEmpty {
-                        Text(note).font(.footnote).foregroundStyle(Color(Palette.inkMuted))
-                    }
-                }
-                .onAppear { webSearchOn = webSearch.on }
             }
         }
         .padding(20)

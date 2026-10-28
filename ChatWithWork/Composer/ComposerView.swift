@@ -1,7 +1,8 @@
 import UIKit
 
 /// The composer the app draws over a chat: the words, the files on their
-/// way, and the web's controls, "+" (the attach sheet), the model, and
+/// way, and the web's controls, each one tap away as in the web's bar: "+"
+/// (the attach sheet), the microphone, the web search globe, the model, and
 /// Send. While an answer works, Stop, with Send beside it once there are
 /// words to steer with. While dictation listens or transcribes, its line
 /// takes the field's place (DictationLine), since nobody types meanwhile.
@@ -31,6 +32,8 @@ final class ComposerView: UIView, UITextViewDelegate {
     let textView = UITextView()
     private let placeholder = UILabel()
     private let plusButton = UIButton(type: .system)
+    private let dictateButton = UIButton(type: .system)
+    private let webSearchButton = UIButton(type: .system)
     private let modelButton = UIButton(type: .system)
     private let stopButton = UIButton(type: .system)
     private let sendButton = UIButton(type: .system)
@@ -87,6 +90,14 @@ final class ComposerView: UIView, UITextViewDelegate {
         configure(plusButton, symbol: "plus", label: String(localized: "Add"), identifier: "composer.plus")
         plusButton.addAction(UIAction { [weak self] _ in self?.onPlus?() }, for: .primaryActionTriggered)
 
+        configure(dictateButton, symbol: "mic", label: String(localized: "Dictate"), identifier: "composer.dictate")
+        dictateButton.addAction(UIAction { [weak self] _ in self?.onDictate?() }, for: .primaryActionTriggered)
+        dictateButton.isHidden = true
+
+        configure(webSearchButton, symbol: "globe", label: String(localized: "Search the web"), identifier: "composer.webSearch")
+        webSearchButton.addAction(UIAction { [weak self] _ in self?.webSearchTapped() }, for: .primaryActionTriggered)
+        webSearchButton.isHidden = true
+
         modelButton.showsMenuAsPrimaryAction = true
         modelButton.accessibilityIdentifier = "composer.model"
         var modelConfiguration = UIButton.Configuration.plain()
@@ -119,7 +130,7 @@ final class ComposerView: UIView, UITextViewDelegate {
 
         let spacer = UIView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let controls = UIStackView(arrangedSubviews: [plusButton, cancelButton, spacer, modelButton, stopButton, sendButton])
+        let controls = UIStackView(arrangedSubviews: [plusButton, dictateButton, webSearchButton, cancelButton, spacer, modelButton, stopButton, sendButton])
         controls.axis = .horizontal
         controls.alignment = .center
         controls.spacing = 6
@@ -164,6 +175,10 @@ final class ComposerView: UIView, UITextViewDelegate {
             sendButton.heightAnchor.constraint(equalToConstant: 34),
             plusButton.widthAnchor.constraint(equalToConstant: 34),
             plusButton.heightAnchor.constraint(equalToConstant: 34),
+            dictateButton.widthAnchor.constraint(equalToConstant: 34),
+            dictateButton.heightAnchor.constraint(equalToConstant: 34),
+            webSearchButton.widthAnchor.constraint(equalToConstant: 34),
+            webSearchButton.heightAnchor.constraint(equalToConstant: 34),
             cancelButton.widthAnchor.constraint(equalToConstant: 34),
             cancelButton.heightAnchor.constraint(equalToConstant: 34),
             // As tall as the field at rest, so the box doesn't jump.
@@ -185,7 +200,8 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
-        [plusButton, cancelButton].forEach { $0.layer.borderColor = Palette.line.cgColor }
+        [plusButton, dictateButton, cancelButton].forEach { $0.layer.borderColor = Palette.line.cgColor }
+        styleWebSearch()
         sendButton.backgroundColor = Palette.ink
         styleStop()
     }
@@ -279,7 +295,12 @@ final class ComposerView: UIView, UITextViewDelegate {
         placeholder.isHidden = !textView.text.isEmpty
         cancelButton.isHidden = !busy
         plusButton.isHidden = busy
-        plusButton.isEnabled = state?.locked != true
+        plusButton.isEnabled = state?.locked != true && state?.acceptsFiles != false
+        dictateButton.isHidden = busy || state?.dictation == nil
+        dictateButton.isEnabled = state?.locked != true
+        dictateButton.alpha = dictateButton.isEnabled ? 1 : 0.35
+        webSearchButton.isHidden = busy || state?.webSearch == nil
+        styleWebSearch()
         modelButton.isHidden = busy || state == nil || state?.locked == true || state?.working == true || (state?.models.isEmpty ?? true)
 
         let text = textView.text ?? ""
@@ -331,6 +352,34 @@ final class ComposerView: UIView, UITextViewDelegate {
         onAction?(.send(text: text))
         textView.text = ""
         refreshControls()
+    }
+
+    /// The globe switches web search like the sheet's switch. Where the
+    /// model can't search it stays, faint, and says why.
+    private func webSearchTapped() {
+        guard mode == .typing, let webSearch = state?.webSearch else { return }
+        if webSearch.disabled {
+            if let note = webSearch.note, !note.isEmpty { flash(note) }
+            return
+        }
+        UISelectionFeedbackGenerator().selectionChanged()
+        onAction?(.webSearch(on: !webSearch.on))
+        // Turning it on says where searches go, as the web's switch does beside it.
+        if !webSearch.on, let note = webSearch.note, !note.isEmpty { flash(note) }
+    }
+
+    /// On: the live wash and edge, as the web's pressed globe. Off: an
+    /// outline like "+". Faint where the model can't search.
+    private func styleWebSearch() {
+        let webSearch = state?.webSearch
+        let on = webSearch?.on == true
+        webSearchButton.tintColor = on ? Palette.liveInk : Palette.ink
+        webSearchButton.backgroundColor = on ? Palette.live.withAlphaComponent(0.12) : .clear
+        webSearchButton.layer.borderColor = (on ? Palette.live.withAlphaComponent(0.4) : Palette.line).cgColor
+        webSearchButton.alpha = webSearch?.disabled == true ? 0.35 : 1
+        webSearchButton.accessibilityValue = on ? String(localized: "On") : String(localized: "Off")
+        webSearchButton.accessibilityHint = webSearch?.disabled == true ? webSearch?.note : nil
+        webSearchButton.accessibilityTraits = webSearch?.disabled == true ? [.button, .notEnabled] : on ? [.button, .selected] : .button
     }
 
     private func stopTapped() {

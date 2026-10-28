@@ -150,6 +150,43 @@ struct ComposerTests {
         #expect(view.descendant("composer.cancelDictation")?.isHidden == true)
     }
 
+    @Test("puts the microphone and the globe in the bar, and the globe switches web search")
+    @MainActor
+    func oneTapButtons() throws {
+        let view = ComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 120))
+        var sent: [ComposerAction] = []
+        var dictated = 0
+        view.onAction = { sent.append($0) }
+        view.onDictate = { dictated += 1 }
+        view.update(try #require(message("connect", Self.state).data()))
+
+        let dictate = try #require(view.descendant("composer.dictate") as? UIButton)
+        let globe = try #require(view.descendant("composer.webSearch") as? UIButton)
+        #expect(!dictate.isHidden && dictate.isEnabled && dictate.accessibilityLabel == "Dictate")
+        #expect(!globe.isHidden && globe.accessibilityLabel == "Search the web" && globe.accessibilityValue == "Off")
+        dictate.sendActions(for: .primaryActionTriggered)
+        globe.sendActions(for: .primaryActionTriggered)
+        #expect(dictated == 1)
+        #expect(sent == [.webSearch(on: true)])
+
+        // Where the model can't search, the globe stays and does nothing.
+        let off = Self.state.replacingOccurrences(of: #""disabled":false"#, with: #""disabled":true"#)
+        view.update(try #require(message("state", off).data()))
+        globe.sendActions(for: .primaryActionTriggered)
+        #expect(sent == [.webSearch(on: true)])
+        #expect(globe.accessibilityTraits.contains(.notEnabled))
+
+        // Neither is drawn where the composer doesn't offer it, nor while dictating.
+        let without = Self.state
+            .replacingOccurrences(of: #""webSearch":{"on":false,"disabled":false,"note":"Searches leave the EU."}"#, with: #""webSearch":null"#)
+            .replacingOccurrences(of: #""dictation":{"url":"/482139075/dictations"}"#, with: #""dictation":null"#)
+        view.update(try #require(message("state", without).data()))
+        #expect(dictate.isHidden && globe.isHidden)
+        view.update(try #require(message("state", Self.state).data()))
+        view.setMode(.transcribing)
+        #expect(dictate.isHidden && globe.isHidden)
+    }
+
     @Test("dictation's clock reads as the web's, and in words for VoiceOver")
     func dictationClock() {
         #expect(DictationLine.clock(0) == "0:00")

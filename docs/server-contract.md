@@ -1485,17 +1485,28 @@ App to web, as replies to `connect`, `{action, ...}`:
 - The field, with `placeholder`, growing to about five lines. Locked: the
   field disabled and `lockReason` above it.
 - The files on their way as chips with their progress and a remove button.
-- The controls, as on the web: "+", the model (a menu of `models`, hidden
-  while locked or working), and Send. While `working` and the field is
+- The controls, one tap each as in the web's bar: "+", the microphone
+  (`composer.dictate`, while `dictation` isn't `null`; disabled while
+  locked), the web search globe (`composer.webSearch`, while `webSearch`
+  isn't `null`: "Search the web", On or Off, sends `webSearch` with the
+  opposite of `on`; on shows the live wash; faint where `disabled`, and a
+  tap then shows `note`; turning it on shows `note` above the composer for
+  a moment, since it says where searches go), the model (a menu of
+  `models`, hidden while locked or working), and Send. At 390 points the
+  three 34-point buttons leave the model's name about 180 points; the
+  name gives way first. While `working` and the field is
   empty, Stop ("Stop response", sends `stop`) stands in Send's place; once
   there are words or files, Stop and Send show side by side, Send steering
   the answer, and an emptied field leaves Stop alone again. Stop is
   disabled while `stopping`. A light haptic on Send, a firmer one on Stop.
 - "+" opens a sheet: the latest photos in a row (the app asks for the photo
   library the first time the sheet opens; Photos and the camera work
-  without it), Camera, Photos (`PHPickerViewController`), Files, Scan
-  (VisionKit's document camera, the pages sent as one PDF), Dictate, and Web
-  search as a switch when `webSearch` isn't `null`. Photos go as JPEGs at
+  without it), Camera, Photos (`PHPickerViewController`), Files and Scan
+  (VisionKit's document camera, the pages sent as one PDF). Dictate and Web
+  search left it for the bar (2026-10-28), as the web's "+" holds only what
+  its bar has no room for.
+- Not drawn yet, since the state doesn't carry them: the permission mode
+  (the web bar's "Changes" button) and attaching from a connected service. Photos go as JPEGs at
   most 2560 pixels on their longest side; files over 25 MB are refused with
   a note to attach them from a computer.
 
