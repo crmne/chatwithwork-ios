@@ -1001,7 +1001,12 @@ def decisions_page(handler, account):
     rows = f"""
         <a class="rows__row" href="/{account}/chats/42">
           <div class="rows__body"><h3>{esc(CHATS[42]["title"])}</h3><p class="micro">A change to approve</p></div>
-        </a>""" if waits else '<p class="text-ink-muted">Nothing waits for you.</p>'
+        </a>""" if waits else ""
+    rows += "".join(f"""
+        <a class="rows__row" href="/{account}/bots/{number}">
+          <div class="rows__body"><h3>{esc(bot["name"])}</h3><p class="micro">A reply to approve</p></div>
+        </a>""" for number, bot in BOTS.items() if bot["waiting"])
+    rows = rows or '<p class="text-ink-muted">Nothing waits for you.</p>'
     body = f"""
     <div class="page">
       <header class="page__header native-hidden"><div class="page__heading"><h1>Decisions</h1></div></header>
@@ -1083,6 +1088,10 @@ def sidebar_json(handler, account, query):
     waiting = [] if handler.session.get("approval", "waiting") != "waiting" else [
         {"title": CHATS[42]["title"], "url": f"/{account}/chats/42", "kind": "approval", "project": CHATS[42]["project"],
          "summary": "A change to approve", "asker": {"kind": "chat", "name": CHATS[42]["title"], "project": CHATS[42]["project"]}}] if 42 in CHATS else []
+    # Each bot waiting for the person brings its decisions, as Decision#asker names the bot.
+    waiting += [{"title": bot["name"], "url": f"/{account}/bots/{number}", "kind": "bot", "project": bot["project"],
+                 "summary": "A reply to approve", "asker": {"kind": "bot", "name": bot["name"], "project": bot["project"]}}
+                for number, bot in BOTS.items() for _ in range(bot["waiting"])]
     initials = lambda name: "".join(word[0] for word in name.split()[:2]).upper()
     return {
         "organization": {"id": account, "name": ACCOUNTS[account], "initials": initials(ACCOUNTS[account])},

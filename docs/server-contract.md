@@ -1273,8 +1273,11 @@ path of the following page. A signed-out request gets `401`.
   "links": {"new_chat": "/482139075/chats/new", "bots": "/482139075/bots", "settings": "/482139075/settings",
             "projects": "/482139075/projects", "new_project": "/482139075/projects/new",
             "organizations": "/accounts", "new_organization": "/accounts/new"},
-  "waiting": {"count": 2, "items": [{"title": "Launch date in #launch", "url": "/482139075/chats/42", "kind": "approval", "project": "Website relaunch"},
-                                    {"title": "Refund for order 1182", "url": "/482139075/chats/57", "kind": "bot", "project": "Website relaunch"}]},
+  "waiting": {"count": 2, "url": "/482139075/decisions", "items": [
+    {"title": "Launch date in #launch", "url": "/482139075/chats/42", "kind": "approval", "project": "Website relaunch",
+     "summary": "Post the launch date in #launch", "asker": {"kind": "chat", "name": "Launch date in #launch", "project": "Website relaunch"}},
+    {"title": "Refund for order 1182", "url": "/482139075/chats/57", "kind": "bot", "project": "Website relaunch",
+     "summary": "Refund order 1182 in full", "asker": {"kind": "bot", "name": "Front desk", "project": "Website relaunch"}}]},
   "bots": {"count": 1, "attention": true, "next_run": null,
            "url": "/482139075/bots", "new_url": "/482139075/bots/new", "items": [BOT]},
   "pins": [CHAT],
@@ -1406,8 +1409,8 @@ is open and one of its chats is working, and when a page says so: every
 signed-in page in these builds carries one hidden
 `<div data-controller="bridge--sidebar">`, subscribed to the person's own
 sidebar streams, which sends `changed` (debounced) when a stream message for
-the web's sidebar arrives. The app marks the list stale and refetches if the
-sidebar is open.
+the web's sidebar arrives. The app marks the list stale and refetches, open
+or not, so the Decisions pill's count in the bar follows what waits.
 
 ## 12. The composer
 

@@ -55,7 +55,7 @@ final class PlaygroundTests: XCTestCase {
         // Decisions in the bar beside the sidebar button, with what waits.
         let decisions = app.buttons["shell.decisions"]
         XCTAssertTrue(decisions.waitForExistence(timeout: 10), "Decisions should sit in the bar")
-        XCTAssertEqual(decisions.value as? String, "1 waiting")
+        XCTAssertEqual(decisions.value as? String, "2 waiting")
 
         // The sidebar: the switch first, then the chats.
         app.buttons["shell.sidebar"].tap()
