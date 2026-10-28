@@ -176,6 +176,13 @@ struct ComposerTests {
         #expect(sent == [.webSearch(on: true)])
         #expect(globe.accessibilityTraits.contains(.notEnabled))
 
+        // Nor while the composer is locked, though the model could search.
+        let locked = Self.state.replacingOccurrences(of: #""locked":false"#, with: #""locked":true"#)
+        view.update(try #require(message("state", locked).data()))
+        globe.sendActions(for: .primaryActionTriggered)
+        #expect(sent == [.webSearch(on: true)])
+        #expect(globe.accessibilityTraits.contains(.notEnabled))
+
         // Neither is drawn where the composer doesn't offer it, nor while dictating.
         let without = Self.state
             .replacingOccurrences(of: #""webSearch":{"on":false,"disabled":false,"note":"Searches leave the EU."}"#, with: #""webSearch":null"#)

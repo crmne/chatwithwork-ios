@@ -355,9 +355,10 @@ final class ComposerView: UIView, UITextViewDelegate {
     }
 
     /// The globe switches web search like the sheet's switch. Where the
-    /// model can't search it stays, faint, and says why.
+    /// model can't search it stays, faint, and says why. A locked composer
+    /// changes nothing, as its other buttons.
     private func webSearchTapped() {
-        guard mode == .typing, let webSearch = state?.webSearch else { return }
+        guard mode == .typing, state?.locked != true, let webSearch = state?.webSearch else { return }
         if webSearch.disabled {
             if let note = webSearch.note, !note.isEmpty { flash(note) }
             return
@@ -373,13 +374,14 @@ final class ComposerView: UIView, UITextViewDelegate {
     private func styleWebSearch() {
         let webSearch = state?.webSearch
         let on = webSearch?.on == true
+        let inert = webSearch?.disabled == true || state?.locked == true
         webSearchButton.tintColor = on ? Palette.liveInk : Palette.ink
         webSearchButton.backgroundColor = on ? Palette.live.withAlphaComponent(0.12) : .clear
         webSearchButton.layer.borderColor = (on ? Palette.live.withAlphaComponent(0.4) : Palette.line).cgColor
-        webSearchButton.alpha = webSearch?.disabled == true ? 0.35 : 1
+        webSearchButton.alpha = inert ? 0.35 : 1
         webSearchButton.accessibilityValue = on ? String(localized: "On") : String(localized: "Off")
         webSearchButton.accessibilityHint = webSearch?.disabled == true ? webSearch?.note : nil
-        webSearchButton.accessibilityTraits = webSearch?.disabled == true ? [.button, .notEnabled] : on ? [.button, .selected] : .button
+        webSearchButton.accessibilityTraits = inert ? (on ? [.button, .selected, .notEnabled] : [.button, .notEnabled]) : on ? [.button, .selected] : .button
     }
 
     private func stopTapped() {
