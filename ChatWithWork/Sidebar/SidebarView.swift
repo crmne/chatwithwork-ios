@@ -15,11 +15,10 @@ struct SidebarActions {
 
 /// The sidebar: the same things in the same order as the web's
 /// (chats/_sidebar_chats, application/_me_menu), drawn natively from
-/// `/native/sidebar`. The Chats | Bots switch at the top, which list it's
-/// about, search, New chat, pins, the person's own sections, the chats in
-/// none of them by latest question, and the person at the foot. Decisions
-/// sit in the chat screen's bar (DecisionsPill), as in the web's top bar. A long press on a chat opens its menu, as the web
-/// row's does.
+/// `/native/sidebar`. Decisions at the top, then the Chats | Bots switch,
+/// which list it's about, search, New chat, pins, the person's own sections,
+/// the chats in none of them by latest question, and the person at the
+/// foot. A long press on a chat opens its menu, as the web row's does.
 ///
 /// Its Bots half keeps the same skeleton, as the web's Bots view does
 /// (bots/_sidebar_list): a card opening the Bots page where the list switcher
@@ -43,8 +42,11 @@ struct SidebarView: View {
         VStack(spacing: 0) {
             if let data = store.data {
                 VStack(spacing: 10) {
-                    // The switch comes first, as on the web, where Decisions
-                    // moved to the top bar (the shell's Decisions pill).
+                    // Decisions first, just before the switch (or at the top
+                    // where there's none), as the web's decisions/_sidebar_button.
+                    if let decisions = data.waiting.url ?? data.links.decisions {
+                        decisionsButton(count: data.waiting.count, path: decisions)
+                    }
                     if store.offersBots, let bots = data.bots {
                         halfSwitch(attention: bots.attention)
                     }
@@ -182,9 +184,9 @@ struct SidebarView: View {
             placeRow("New chat", systemImage: "square.and.pencil", identifier: "sidebar.newChat", action: actions.newChat)
         }
 
-        // Decisions sit in the chat screen's bar (DecisionsPill) once the
-        // server names its page. A server without one keeps them here, a row
-        // listing what waits.
+        // Decisions is a button at the sidebar's top once the server names
+        // its page. A server without one keeps it here, a row listing what
+        // waits.
         if data.waiting.url == nil && data.links.decisions == nil {
             decisionsRow(data)
         }
@@ -206,6 +208,64 @@ struct SidebarView: View {
             }) {
                 actions.open(bots)
             }
+        }
+    }
+
+    /// Decisions, the one place what waits for the person gathers: a button
+    /// of its own, outlined like the list switcher since it's the one thing
+    /// here that asks for the person. The list-checks icon, "Decisions"
+    /// spelled out, and at its end how many wait on the attention wash, or a
+    /// quiet "None". While something waits its outline takes the attention
+    /// edge, as the web's `.decisions-button` does.
+    private func decisionsButton(count: Int, path: String) -> some View {
+        let current = currentPath.map { AppRoute(path: $0).path.hasPrefix(AppRoute(path: path).path) } ?? false
+        let waits = count > 0
+        return Button { actions.open(path) } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "checklist")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color(Palette.inkMuted))
+                    .frame(width: 20)
+                Text("Decisions")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color(Palette.ink))
+                Spacer(minLength: 0)
+                if waits {
+                    Text("\(count)")
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(Color(Palette.attentionInk))
+                        .padding(.horizontal, 7)
+                        .frame(minWidth: 24, minHeight: 24)
+                        .background(Capsule().fill(Color(Palette.attention).opacity(0.16)))
+                        .overlay(Capsule().stroke(Color(Palette.attention).opacity(0.45), lineWidth: 1))
+                } else {
+                    Text("None")
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(Color(Palette.inkFaint))
+                        .padding(.trailing, 4)
+                }
+            }
+            .padding(.leading, 10)
+            .padding(.trailing, 6)
+            .frame(minHeight: 40)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color(current ? Palette.surfaceRaised : Palette.surface)))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(waits ? Color(Palette.attention).opacity(0.45) : Color(current ? Palette.lineStrong : Palette.line), lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Decisions")
+        .accessibilityValue(Self.decisionsValue(count))
+        .accessibilityIdentifier("sidebar.decisions")
+        .accessibilityAddTraits(current ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// What VoiceOver says of Decisions' count.
+    static func decisionsValue(_ count: Int) -> String {
+        switch count {
+        case 0: String(localized: "None waiting")
+        case 1: String(localized: "1 waiting")
+        default: String(localized: "\(count) waiting")
         }
     }
 
@@ -264,7 +324,7 @@ struct SidebarView: View {
         }
     }
 
-    /// Chats | Bots, the sidebar's first control: two equal halves, each its icon and
+    /// Chats | Bots, just under Decisions at the sidebar's top: two equal halves, each its icon and
     /// label centred together. The Bots half carries a dot, never a number,
     /// while a bot needs the person: Decisions holds the one count.
     private func halfSwitch(attention: Bool) -> some View {

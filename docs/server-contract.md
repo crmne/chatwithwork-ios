@@ -1234,14 +1234,14 @@ is the server's switch for anything that differs.
   web view, shared by every screen, never reloads the app. Bots, projects and
   other pages are pushed over the chat; Settings and every form are sheets.
 - **The bar.** The sidebar button on the leading side of the root
-  (`sidebar.left`) and Decisions beside it (below), New chat on the trailing side of every main screen
+  (`sidebar.left`), New chat on the trailing side of every main screen
   (`square.and.pencil`), and the page's own `button`, `menu`, `form` and
   `share` beside them. A page's `button` with `nativeAction: "new-chat"` is
   left out.
 - **The sidebar** slides in from the left and pushes the chat aside, opened by
   the bar's button or a swipe from the screen's left edge (on a root screen
   with nothing over it), closed by a tap or a swipe on the chat, or by picking
-  something. Top to bottom: the Chats | Bots switch (below), the list switcher (`list`, "Project" or
+  something. Top to bottom: Decisions (below), the Chats | Bots switch (below), the list switcher (`list`, "Project" or
   "Showing"; its menu lists `lists`, then All projects… and New project), a
   search field (titles, natively; the first search loads `all=1`), New chat,
   from a server with neither `waiting.url` nor `links.decisions` the Decisions row (the list of
@@ -1300,16 +1300,21 @@ apply are `null` (a guest's `new_chat`, `bots`, `projects` and
 `new_project`), and so is `bots` for a guest. Every URL is a path on this
 server.
 
-**Decisions in the bar (2026-10-27).** As the web moved Decisions out of
-its sidebar into a pill in its top bar, the app draws Decisions in the root
-screen's bar, beside the sidebar button (`shell.decisions`): the list-checks
-symbol (`checklist`) and `waiting.count` on the attention wash, or the symbol
-alone when the count is 0. It opens `waiting.url` (or `links.decisions`).
-The same data as before, no new keys. Since the count shows while the
-sidebar is closed, the app fetches the JSON on launch, on each `changed` and
-on returning to the foreground, open or not. A server with neither
-`waiting.url` nor `links.decisions` gets no pill and keeps the Decisions row
-in the sidebar, so Decisions shows in one place or the other, never both.
+**Decisions at the sidebar's top (2026-10-28).** As the web's sidebar does
+(`decisions/_sidebar_button`), the app draws Decisions as a button of its
+own at the top of the sidebar, just before the Chats | Bots switch, or at
+the top where there's no switch (guests, older servers)
+(`sidebar.decisions`). It's outlined like the list switcher, since it's the
+one thing there that asks for the person: the list-checks symbol
+(`checklist`), "Decisions" spelled out, and at its end `waiting.count` as a
+small badge on the attention wash, its outline taking the attention edge,
+or a quiet "None" at 0. VoiceOver reads "Decisions" and "N waiting" or
+"None waiting". It opens `waiting.url` (or `links.decisions`). The same
+data as before, no new keys. A server with neither `waiting.url` nor
+`links.decisions` keeps the Decisions row lower in the sidebar instead. Builds from 2026-10-27 to
+2026-10-28 drew it as a pill in the root screen's bar beside the sidebar
+button (`shell.decisions`); that pill is gone, and the app fetches the JSON
+only while the sidebar is open again.
 
 **Decisions (server, 2026-10-26).** `waiting` now lists decisions, not chats:
 everything waiting for the person across their chats, agents, bots' runs
@@ -1350,8 +1355,8 @@ and its `tone` (`attention`, `negative`, `live`, `positive`, or null);
 `waiting` how many decisions wait for the person in it; `working` whether one
 of its chats is answering now; `next_run` its next timed run, if any.
 
-With `items`, the sidebar draws a segmented Chats | Bots switch as its first
-control, above the list switcher, in place of the Bots row
+With `items`, the sidebar draws a segmented Chats | Bots switch just under
+Decisions, above the list switcher, in place of the Bots row
 (`sidebar.switch.chats`, `sidebar.switch.bots`): two equal halves, each its
 icon and label centred together, the Bots half's dot hanging past its label. Its Bots half shows an attention dot, never a number,
 while `bots.attention`: Decisions carries the one count. Chats shows the
@@ -1413,8 +1418,8 @@ is open and one of its chats is working, and when a page says so: every
 signed-in page in these builds carries one hidden
 `<div data-controller="bridge--sidebar">`, subscribed to the person's own
 sidebar streams, which sends `changed` (debounced) when a stream message for
-the web's sidebar arrives. The app marks the list stale and refetches, open
-or not, so the Decisions pill's count in the bar follows what waits.
+the web's sidebar arrives. The app marks the list stale and refetches if the
+sidebar is open.
 
 ## 12. The composer
 

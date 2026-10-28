@@ -88,7 +88,7 @@ final class StoreScreenshotTests: XCTestCase {
 
         // 4. Decisions, from the sidebar: the first in focus, a question with options.
         openSidebar(app)
-        app.buttons["sidebar.waiting"].tap()
+        app.buttons["sidebar.decisions"].tap()
         XCTAssertTrue(text(app, "Where should this week's Acme digest go?").waitForExistence(timeout: 30), "Decisions should open on the digest's question")
         quiet(app)
         keep("4-decisions", app)
@@ -181,7 +181,7 @@ final class StoreScreenshotTests: XCTestCase {
     @MainActor
     private func openSidebar(_ app: XCUIApplication) {
         app.buttons["shell.sidebar"].tap()
-        let waiting = app.buttons["sidebar.waiting"]
+        let waiting = app.buttons["sidebar.decisions"]
         XCTAssertTrue(waiting.waitForExistence(timeout: 20), "The sidebar should open with its list")
         let deadline = Date().addingTimeInterval(5)
         while !waiting.isHittable, Date() < deadline { settle(0.3) }
