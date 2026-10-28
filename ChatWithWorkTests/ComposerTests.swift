@@ -123,6 +123,53 @@ struct ComposerTests {
         #expect(files?.first?["data"] == Data("%PDF".utf8).base64EncodedString())
         #expect(files?.first?["type"] == "application/pdf")
     }
+
+    @Test("dictation takes the field's place while it listens and transcribes, and gives the words back")
+    @MainActor
+    func dictationTakesTheComposer() throws {
+        let view = ComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 120))
+        view.update(try #require(message("connect", Self.state).data()))
+        let line = try #require(view.descendant("composer.dictation") as? DictationLine)
+        #expect(!view.textView.isHidden && line.isHidden)
+
+        view.setMode(.recording)
+        #expect(view.textView.isHidden && !line.isHidden)
+        #expect(line.accessibilityLabel == "Listening")
+        #expect(line.accessibilityValue == "0 seconds")
+        #expect(view.descendant("composer.cancelDictation")?.isHidden == false)
+        #expect(view.descendant("composer.send")?.accessibilityLabel == "Stop recording")
+
+        view.setMode(.transcribing)
+        #expect(view.textView.isHidden && !line.isHidden)
+        #expect(line.accessibilityLabel == "Transcribing")
+
+        view.append("Draft the recap")
+        view.setMode(.typing)
+        #expect(!view.textView.isHidden && line.isHidden)
+        #expect(view.textView.text == "Draft the recap")
+        #expect(view.descendant("composer.cancelDictation")?.isHidden == true)
+    }
+
+    @Test("dictation's clock reads as the web's, and in words for VoiceOver")
+    func dictationClock() {
+        #expect(DictationLine.clock(0) == "0:00")
+        #expect(DictationLine.clock(7) == "0:07")
+        #expect(DictationLine.clock(83) == "1:23")
+        #expect(DictationLine.spokenDuration(7) == "7 seconds")
+        #expect(DictationLine.spokenDuration(83) == "1 minute, 23 seconds")
+    }
+}
+
+@MainActor
+extension UIView {
+    /// The first view under this one with that accessibility identifier.
+    func descendant(_ identifier: String) -> UIView? {
+        for subview in subviews {
+            if subview.accessibilityIdentifier == identifier { return subview }
+            if let found = subview.descendant(identifier) { return found }
+        }
+        return nil
+    }
 }
 
 /// The composer's controls as UIKit lays them out at a phone's width.

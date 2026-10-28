@@ -1502,9 +1502,16 @@ App to web, as replies to `connect`, `{action, ...}`:
 ### Dictation
 
 The app records itself, AAC in an `.m4a` (`audio/mp4`), at most five
-minutes, with a level meter, a stop button (Send's place) and a cancel
-button, then posts it as the multipart field `audio` to
-`{base}{dictation.url}` with the web view's cookies, `X-CSRF-Token:
+minutes. While it listens and while it transcribes, dictation takes the
+field's place, as the web composer's `[data-dictating]` line does, since
+nobody types meanwhile: a live dot and "Listening", the microphone's level
+as bars across the composer, newest on the right (still bars lit to the
+level under Reduce Motion), and the time listened (`0:12`); then
+"Transcribing…" alone (`composer.dictation`, read by VoiceOver as one
+element with the time in words). A stop button sits in Send's place and a
+cancel button on the left; the rest of the bar steps aside. The field
+comes back, with the words, once they're transcribed. It posts the
+recording as the multipart field `audio` to `{base}{dictation.url}` with the web view's cookies, `X-CSRF-Token:
 csrfToken` and `Accept: application/json`. `200 {text}` puts the words in
 the field and sends `text`; `{error}` (403 without credits, 413, 415, 429,
 502) shows the server's words above the composer. Never the system's speech
