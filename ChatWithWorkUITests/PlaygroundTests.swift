@@ -52,20 +52,20 @@ final class PlaygroundTests: XCTestCase {
         settle()
         keep("new-chat")
 
-        // Decisions in the bar beside the sidebar button, with what waits.
-        let decisions = app.buttons["shell.decisions"]
-        XCTAssertTrue(decisions.waitForExistence(timeout: 10), "Decisions should sit in the bar")
-        XCTAssertEqual(decisions.value as? String, "2 waiting")
+        XCTAssertFalse(app.buttons["shell.decisions"].exists, "Decisions is in the sidebar, not the bar")
 
-        // The sidebar: the switch first, then the chats.
+        // The sidebar: Decisions with what waits, above the switch, then the chats.
         app.buttons["shell.sidebar"].tap()
-        XCTAssertTrue(app.buttons["sidebar.switch.chats"].waitForExistence(timeout: 10), "The sidebar should open with its switch")
-        XCTAssertFalse(app.buttons["sidebar.waiting"].exists, "Decisions moved to the bar")
+        let decisions = app.buttons["sidebar.decisions"]
+        XCTAssertTrue(decisions.waitForExistence(timeout: 10), "Decisions should lead the sidebar")
+        XCTAssertEqual(decisions.value as? String, "2 waiting")
+        let switchChats = app.buttons["sidebar.switch.chats"]
+        XCTAssertTrue(switchChats.waitForExistence(timeout: 5), "The sidebar should open with its switch")
+        XCTAssertLessThan(decisions.frame.minY, switchChats.frame.minY, "Decisions sits just before the switch")
+        XCTAssertFalse(app.buttons["sidebar.waiting"].exists, "Decisions is a button, not the old row")
         XCTAssertTrue(app.buttons["Q3 launch commitments for Acme"].waitForExistence(timeout: 5))
         settle(0.8)
         keep("sidebar")
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
-        settle(0.5)
 
         // Decisions opens its page, and a decision its chat.
         decisions.tap()
