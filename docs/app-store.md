@@ -176,19 +176,47 @@ tracking, and nothing is shared with data brokers or advertisers.
 
 | Data type | Collected | Linked to the person | Purpose | What it is |
 |---|---|---|---|---|
-| Contact Info > Email Address | Yes | Yes | App Functionality | The login |
+| Contact Info > Email Address | Yes | Yes | App Functionality; Developer's Advertising or Marketing | Login, account notices, and release emails controlled in Notifications |
 | Contact Info > Name | Yes | Yes | App Functionality | The name shown to teammates |
-| Identifiers > User ID | Yes | Yes | App Functionality | The account's ID; error reports name only this |
+| Contact Info > Physical Address | Yes | Yes | App Functionality | Billing details entered through the native web view |
+| Location > Coarse Location | Yes | Yes | Analytics | Country derived from the request IP by self-hosted Plausible |
+| Contacts | Yes | Yes | App Functionality | Connected workspace directories and CRM contacts |
+| Financial Info > Other Financial Info | Yes | Yes | App Functionality | Connected accounting balances and reconciliation amounts |
+| User Content > Emails or Text Messages | Yes | Yes | App Functionality | Connected mail and chat records retained with tool results |
 | User Content > Photos or Videos | Yes | Yes | App Functionality | Photos and videos attached to a chat |
 | User Content > Audio Data | Yes | Yes | App Functionality | Dictation: sent to our servers and transcribed in the EU; the recording isn't kept, the words become the message |
-| User Content > Other User Content | Yes | Yes | App Functionality | Questions, answers, chats, files, instructions, memories |
-| Diagnostics > Other Diagnostic Data | Yes | Yes | App Functionality | Server error reports, with the user ID only |
-| Everything else (location, contacts, health, financial info, browsing history, search history, purchases, usage data, advertising data, crash data from the device) | No | | | |
+| User Content > Customer Support | Yes | Yes | App Functionality | In-app support conversations and requests |
+| User Content > Other User Content | Yes | Yes | App Functionality; Product Personalization | Questions, answers, files, instructions, and personal memories used in later answers |
+| Search History | Yes | Yes | App Functionality | Search queries retained with chats and tool calls |
+| Identifiers > User ID | Yes | Yes | App Functionality; Analytics; Product Personalization | Account identity, answer feedback statistics, and retrieval of personal memories |
+| Identifiers > Device ID | Yes | Yes | App Functionality; Analytics | Device/app push tokens stored against the identity, and Plausible's daily visitor identifiers |
+| Purchases > Purchase History | Yes | Yes | App Functionality | Plan, seats and credit balances sent from the native support widget to support |
+| Usage Data > Product Interaction | Yes | Yes | App Functionality; Analytics | Native webview pageviews and account-linked answer feedback and feature counts |
+| Diagnostics > Performance Data | Yes | Yes | App Functionality | Request and answer latency traces associated with identity and chat IDs |
+| Diagnostics > Other Diagnostic Data | Yes | Yes | App Functionality | Server request, error and security diagnostics |
 
-Purchases are left out because the app sells nothing: plans and credits are
-bought on the web, never in the app. Push tokens are not a "Device ID" in
-Apple's sense (that category is for advertising and vendor identifiers).
-`ChatWithWork/Resources/PrivacyInfo.xcprivacy` declares the same types.
+These 18 types were audited against the Rails app on October 29, 2026.
+The native web view loads the production analytics script and support
+widget; native UI does not exempt their collection. Plausible receives
+account/chat URL paths, so its rotating visitor hash does not justify
+calling the entire category unlinked. Billing has no native checkout, but
+its address form and support's plan metadata still collect data. The
+app's privacy manifest declares the same types and purposes.
+
+No precise location, payment card details, credit scores, health, fitness,
+sensitive traits, browsing history, advertising data or native crash logs
+are deliberately collected by these features. Generic free-form chat
+does not require declaring every kind of information a person might type.
+Connected CRM directories and accounting amounts are deliberate features,
+so they are disclosed separately. See Apple's
+[data types and webview/free-form guidance](https://developer.apple.com/app-store/app-privacy-details/)
+and [manifest instructions](https://developer.apple.com/documentation/technotes/tn3184-adding-data-collection-details-to-your-privacy-manifest).
+
+Evidence in Rails: `app/helpers/analytics_helper.rb`, the application
+layout, `Identity#support_profile`, `PushRegistration`, `Feedback`, the
+settings billing partial, Slack's workspace provider and Odoo's ledger
+provider. Self-hosted Plausible's country database is part of its
+[documented configuration](https://github.com/plausible/community-edition/wiki/Configuration).
 
 Two things that look like collection aren't new types:
 
