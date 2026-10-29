@@ -34,6 +34,29 @@ repository).
 
 ## Building and uploading
 
+### October 29, 2026 submission
+
+iOS 1.1.0, build 10028, was submitted to App Review on October 29, 2026.
+App Store Connect confirms **Waiting for Review**,
+with **Manually release this version** selected. Approval will not publish
+the production app by itself. The synthetic review account was refreshed
+immediately before submission, including first-question model consent.
+
+Build 10028 contains the native composer and modal fixes, consistent inline
+dictation with cancellation and silence handling, revised Live Activities,
+and the audited 18-category privacy manifest. Its Xcode Cloud archive and
+both Internal and External TestFlight post-actions succeeded. The matching
+App Privacy responses were published before submission, all linked to the
+user and none used for tracking. The preceding runtime changes passed 112
+tests and a Release build; the manifest correction passed the same CI and
+a packaged Release-manifest check.
+
+The Internal distribution fix was also verified end to end: build 10027
+reached Carmine's iPhone automatically. Newer main builds can continue to
+reach TestFlight without replacing the build already in App Review.
+
+### Workflow
+
 Pushing to main is enough: Xcode Cloud's "TestFlight" workflow archives
 Release and uploads it to App Store Connect. Its two post-actions are
 "TestFlight Internal Testing" for "Internal" and "TestFlight External
@@ -78,8 +101,9 @@ group "Public beta" (public link on, at most 1,000 testers, feedback on).
   Managers.
 - **What to Test** for a build is its `betaBuildLocalizations` (en-US).
 - The first submission, build 10004 (1.0.1), went to Beta App Review on
-  2026-10-26; until it is approved, the link says the beta isn't accepting
-  testers.
+  2026-10-26. The public beta is now approved: build 10025 was approved on
+  October 29, and build 10028 completed its automatic external distribution
+  later that day.
 
 ### Uploading with an API key
 
