@@ -33,6 +33,7 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     }
 
     let overlay: Bool
+    let visible: Bool
     let placeholder: String
     /// The words the web composer already holds (a shared link waiting, a
     /// restored draft), files left out.
@@ -54,6 +55,7 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         overlay = try values.decodeIfPresent(Bool.self, forKey: .overlay) ?? false
+        visible = try values.decodeIfPresent(Bool.self, forKey: .visible) ?? true
         placeholder = try values.decodeIfPresent(String.self, forKey: .placeholder) ?? ""
         text = try values.decodeIfPresent(String.self, forKey: .text) ?? ""
         locked = try values.decodeIfPresent(Bool.self, forKey: .locked) ?? false
@@ -69,7 +71,7 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case overlay, placeholder, text, locked, lockReason, working, stopping, models, webSearch, dictation, csrfToken, attachments, acceptsFiles
+        case overlay, visible, placeholder, text, locked, lockReason, working, stopping, models, webSearch, dictation, csrfToken, attachments, acceptsFiles
     }
 
     /// Whether Send can go now: words or files, nothing still uploading, and

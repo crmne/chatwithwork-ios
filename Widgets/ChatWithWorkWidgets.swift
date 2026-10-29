@@ -99,124 +99,170 @@ struct AskView: View {
 
 // MARK: - Live Activity
 
-/// An answer that works on after the person left it: the organization, the
-/// step it's on ("Searching Todoist") with a timer and how many steps it
-/// took, then how it ended. Nothing from the chat: the server sends steps
-/// in words that name only the kind of step and a built-in service.
+/// A compact dashboard for one running answer. State is always content-free:
+/// the current kind of work, elapsed time, steps so far and a way back to chat.
 struct ChatLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ChatActivityAttributes.self) { context in
-            LockScreenActivity(context: context)
+            ActivityCard(attributes: context.attributes, state: context.state, isStale: context.isStale)
+                .padding(16)
                 .activityBackgroundTint(Color("Canvas"))
                 .widgetURL(AppLink.open(path: context.attributes.path))
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Image("Mark").resizable().scaledToFit().frame(width: 28, height: 28)
+                    ActivityIdentity(organization: context.attributes.organization)
+                        .environment(\.colorScheme, .dark)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    if context.state.isWorking {
-                        Text(context.attributes.startedAt, style: .timer)
-                            .font(.callout.monospacedDigit())
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 56, alignment: .trailing)
-                    }
-                }
-                DynamicIslandExpandedRegion(.center) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Chat with Work · \(context.attributes.organization)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                        StepLine(state: context.state, font: .subheadline.weight(.semibold))
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    ActivityElapsed(startedAt: context.attributes.startedAt, state: context.state, isStale: context.isStale)
+                        .padding(.trailing, 8)
+                        .environment(\.colorScheme, .dark)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    if context.state.isWorking, let steps = context.state.stepsLine {
-                        Text(steps)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.leading, 36)
-                    }
+                    ActivityBody(attributes: context.attributes, state: context.state, isStale: context.isStale)
+                        .padding(.top, 8)
+                        .environment(\.colorScheme, .dark)
                 }
             } compactLeading: {
                 Image("Mark").resizable().scaledToFit().frame(width: 18, height: 18)
             } compactTrailing: {
-                if context.state.isWorking {
+                if context.state.showsElapsed(isStale: context.isStale) {
                     Text(context.attributes.startedAt, style: .timer)
-                        .monospacedDigit()
+                        .font(.caption.weight(.semibold).monospacedDigit())
                         .multilineTextAlignment(.trailing)
-                        .frame(width: 40)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .frame(width: 52)
+                        .foregroundStyle(context.state.tint)
+                        .environment(\.colorScheme, .dark)
                 } else {
-                    Image(systemName: context.state.symbol)
+                    Image(systemName: context.isStale ? "arrow.clockwise" : context.state.symbol)
+                        .foregroundStyle(context.state.tint)
+                        .environment(\.colorScheme, .dark)
                 }
             } minimal: {
-                if context.state.isWorking {
-                    Image("Mark").resizable().scaledToFit().frame(width: 16, height: 16)
-                } else {
-                    Image(systemName: context.state.symbol)
-                }
+                Image(systemName: context.isStale ? "arrow.clockwise" : context.state.symbol)
+                    .foregroundStyle(context.state.tint)
+                    .environment(\.colorScheme, .dark)
             }
             .widgetURL(AppLink.open(path: context.attributes.path))
         }
     }
 }
 
-/// The step it's on, or how it ended, after its symbol, which changes in
-/// place as the steps do.
-private struct StepLine: View {
-    let state: ChatActivityAttributes.ContentState
-    let font: Font
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: state.symbol)
-                .font(font)
-                .foregroundStyle(state.phase == "failed" ? Color("NegativeInk") : Color("Ink"))
-                .contentTransition(.symbolEffect(.replace))
-            Text(state.line)
-                .font(font)
-                .foregroundStyle(Color("Ink"))
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .contentTransition(.opacity)
+private extension ChatActivityAttributes.ContentState {
+    var tint: Color {
+        if needsAttention { return Color("AttentionInk") }
+        switch phase {
+        case "answered": return Color("PositiveInk")
+        case "failed": return Color("NegativeInk")
+        case "stopped": return Color("InkMuted")
+        default: return Color("LiveInk")
         }
     }
 }
 
-private struct LockScreenActivity: View {
-    let context: ActivityViewContext<ChatActivityAttributes>
+private struct ActivityIdentity: View {
+    let organization: String
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Image("Mark").resizable().scaledToFit().frame(width: 34, height: 34)
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Chat with Work · \(context.attributes.organization)")
+        HStack(spacing: 7) {
+            Image("Mark").resizable().scaledToFit().frame(width: 20, height: 20)
+                .accessibilityLabel("Chat with Work")
+            Text(organization)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color("InkMuted"))
+                .lineLimit(1)
+        }
+    }
+}
+
+private struct ActivityElapsed: View {
+    let startedAt: Date
+    let state: ChatActivityAttributes.ContentState
+    let isStale: Bool
+
+    var body: some View {
+        if state.showsElapsed(isStale: isStale) {
+            Text(startedAt, style: .timer)
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .foregroundStyle(Color("InkMuted"))
+                .multilineTextAlignment(.trailing)
+                .frame(width: 60, alignment: .trailing)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .accessibilityLabel("Elapsed time")
+                .accessibilityValue(Text(startedAt, style: .timer))
+        }
+    }
+}
+
+private struct ActivityCard: View {
+    let attributes: ChatActivityAttributes
+    let state: ChatActivityAttributes.ContentState
+    let isStale: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                ActivityIdentity(organization: attributes.organization)
+                Spacer(minLength: 8)
+                ActivityElapsed(startedAt: attributes.startedAt, state: state, isStale: isStale)
+            }
+            ActivityBody(attributes: attributes, state: state, isStale: isStale)
+        }
+    }
+}
+
+private struct ActivityBody: View {
+    let attributes: ChatActivityAttributes
+    let state: ChatActivityAttributes.ContentState
+    let isStale: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 10) {
+                Image(systemName: isStale ? "arrow.clockwise" : state.symbol)
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(state.tint)
+                    .frame(width: 38, height: 38)
+                    .background(state.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                    .contentTransition(.symbolEffect(.replace))
+                    .accessibilityHidden(true)
+                Text(isStale ? String(localized: "Open chat for an update") : state.headline)
+                    .font(.headline)
+                    .foregroundStyle(Color("Ink"))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .contentTransition(.opacity)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            HStack(alignment: .center, spacing: 12) {
+                Text(detail)
                     .font(.caption)
                     .foregroundStyle(Color("InkMuted"))
-                    .lineLimit(1)
-                StepLine(state: context.state, font: .headline)
-                    .opacity(context.isStale ? 0.6 : 1)
-            }
-            Spacer(minLength: 8)
-            if context.state.isWorking {
-                VStack(alignment: .trailing, spacing: 3) {
-                    Text(context.attributes.startedAt, style: .timer)
-                        .font(.callout.monospacedDigit())
-                        .foregroundStyle(Color("InkMuted"))
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 64, alignment: .trailing)
-                    if let steps = context.state.stepsLine {
-                        Text(steps)
-                            .font(.caption)
-                            .foregroundStyle(Color("InkMuted"))
-                            .lineLimit(1)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Link(destination: AppLink.open(path: attributes.path)) {
+                    HStack(spacing: 5) {
+                        Text(isStale ? String(localized: "Open chat") : state.action)
+                        Image(systemName: "chevron.right").font(.caption2.weight(.bold))
                     }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(state.tint)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 36)
+                    .background(state.tint.opacity(0.12), in: Capsule())
                 }
+                .fixedSize()
             }
         }
-        .padding(16)
+    }
+
+    private var detail: String {
+        if isStale { return String(localized: "Last update may be out of date") }
+        if state.isWorking { return state.stepsLine ?? String(localized: "Working in the background") }
+        return state.line
     }
 }

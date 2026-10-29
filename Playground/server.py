@@ -966,6 +966,7 @@ def new_chat(handler, account, project_number=None, prefill=""):
         <header class="dialog__header">
           <h3>Connect a service</h3>
           <p>The web app lists every connector here, grouped by what it is. The playground stops at this dialog.</p>
+          <input type="search" aria-label="Search services" placeholder="Search services" autocomplete="off">
         </header>
         <div class="modal-action">
           <form method="dialog"><button class="btn btn-primary">I'm done</button></form>

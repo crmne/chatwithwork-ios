@@ -15,6 +15,7 @@ nonisolated enum NotificationWords {
         let title: String
         let subtitle: String?
         let body: String
+        var suppressed: Bool? = nil
     }
 
     /// How long the extension waits before it shows the push's own words.
@@ -37,6 +38,14 @@ nonisolated enum NotificationWords {
         content.title = text.title
         content.subtitle = text.subtitle ?? ""
         content.body = text.body
+        if text.suppressed == true {
+            // Full suppression requires Apple's notification filtering entitlement.
+            // Without it, show the server's neutral current-state words quietly.
+            content.sound = nil
+            content.interruptionLevel = .passive
+            content.relevanceScore = 0
+            content.categoryIdentifier = ""
+        }
         return content
     }
 

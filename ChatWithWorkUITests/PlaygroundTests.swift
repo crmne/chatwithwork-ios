@@ -25,6 +25,32 @@ final class PlaygroundTests: XCTestCase {
     }
 
     @MainActor
+    func testConnectDialogKeepsDraftOutOfTheWay() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground, "-CWWAskForNotifications", "NO"]
+        app.launch()
+        app.buttons["welcome.signIn"].tap()
+        let signIn = app.webViews.buttons["Sign in"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 20))
+        signIn.tap()
+        let composer = app.textViews["composer.text"]
+        XCTAssertTrue(composer.waitForExistence(timeout: 20))
+        composer.tap()
+        composer.typeText("Hello.")
+        app.descendants(matching: .any)["Connect"].firstMatch.tap()
+        let search = app.webViews.searchFields["Search services"]
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        search.typeText("Google")
+        XCTAssertFalse(composer.exists, "The native composer must not cover the web dialog")
+        keep("connect-dialog-keyboard")
+        app.webViews.buttons["I'm done"].tap()
+        XCTAssertTrue(composer.waitForExistence(timeout: 10))
+        XCTAssertEqual(composer.value as? String, "Hello.")
+        keep("connect-dialog-draft-restored")
+    }
+
+    @MainActor
     func testSignedInShell() throws {
         let app = XCUIApplication()
         // Notices stay up until tapped away, so the test sees them however

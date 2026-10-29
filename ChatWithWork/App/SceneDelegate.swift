@@ -4,6 +4,18 @@ import WebKit
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
     private var shell: AppShell?
+    #if DEBUG
+        private var showedActivityPreview = false
+    #endif
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        #if DEBUG
+            if !showedActivityPreview, let scenario = UserDefaults.standard.string(forKey: "CWWLiveActivityPreview") {
+                showedActivityPreview = true
+                LiveActivities.preview(scenario)
+            }
+        #endif
+    }
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }

@@ -182,6 +182,15 @@ answer's notification shows the words the extension fetched, and, with
 previews set to Never in iOS's settings, only what happened. Without them
 it's skipped.
 
+`LocalServerLayoutTests` uses `TEST_RUNNER_CWW_UI_TEST_LOCAL_SERVER` and an
+isolated Rails test database. Load the test fixtures, finish onboarding for
+`user.one@example.com` (fixture password `password12345`), name the user
+Alex, and create a chat titled `Native layout check` with the question
+`Please summarize the workspace layout.` and an assistant answer beginning
+`Your workspace connects`. No model or push credentials are needed. It
+checks the first exchange below the navigation bar and the real Connect
+dialog while preserving a typed draft. Without the variable it skips.
+
 ## Releasing
 
 Every push to main reaches TestFlight: Xcode Cloud's "TestFlight" workflow

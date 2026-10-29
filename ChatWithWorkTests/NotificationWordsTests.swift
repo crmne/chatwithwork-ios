@@ -65,6 +65,24 @@ struct NotificationWordsTests {
         #expect(await NotificationWords.fetch("abc", with: unreachable) == nil)
     }
 
+    @Test("a resolved failure loses its alarm and failed hidden-preview category")
+    func suppressedFailure() throws {
+        let text = try JSONDecoder().decode(NotificationWords.Text.self, from: Data(#"{"suppressed":true,"title":"Northwind Studio","body":"This notification is no longer current. Open the chat for its latest status."}"#.utf8))
+        #expect(text.suppressed == true)
+        let arrived = UNMutableNotificationContent()
+        arrived.body = "The answer failed."
+        arrived.sound = .default
+        arrived.interruptionLevel = .timeSensitive
+        arrived.categoryIdentifier = "failed"
+        arrived.userInfo = ["path": "/1000001/chats/41"]
+        let shown = NotificationWords.content(arrived, saying: text)
+        #expect(shown.body == text.body)
+        #expect(shown.sound == nil)
+        #expect(shown.interruptionLevel == .passive)
+        #expect(shown.categoryIdentifier.isEmpty)
+        #expect(shown.userInfo["path"] as? String == "/1000001/chats/41")
+    }
+
     @Test("every kind the server sends hides its words behind what happened")
     func categories() {
         let categories = PushNotifications.categories

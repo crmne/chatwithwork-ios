@@ -26,7 +26,7 @@ final class NotificationService: UNNotificationServiceExtension, @unchecked Send
             return deliver(request.content)
         }
 
-        // A notification's content never changes once made.
+        // The server also checks whether an old failure has since resolved.
         nonisolated(unsafe) let content = request.content
         let fetching = Task { [weak self] in
             let text = await NotificationWords.fetch(id, with: key)

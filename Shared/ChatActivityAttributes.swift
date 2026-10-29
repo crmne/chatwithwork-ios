@@ -23,6 +23,33 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
 
         var isWorking: Bool { phase == "answering" }
 
+        /// Stale content must never suggest the answer is still progressing.
+        func showsElapsed(isStale: Bool) -> Bool { isWorking && !isStale }
+
+        /// Compact headlines fit the Island without truncating the decision.
+        var headline: String {
+            switch phase {
+            case "answering": line
+            case "answered": String(localized: "Answer ready")
+            case "approval_waiting": String(localized: "Approval needed")
+            case "input_requested": String(localized: "Your input needed")
+            case "failed": String(localized: "Couldn't finish")
+            case "stopped": String(localized: "Stopped")
+            default: String(localized: "Open chat for an update")
+            }
+        }
+
+        var action: String {
+            switch phase {
+            case "approval_waiting": String(localized: "Review change")
+            case "input_requested": String(localized: "Reply")
+            case "answered": String(localized: "Read answer")
+            default: String(localized: "Open chat")
+            }
+        }
+
+        var needsAttention: Bool { phase == "approval_waiting" || phase == "input_requested" }
+
         /// The line the Live Activity shows for this phase.
         var line: String {
             if let message, !message.isEmpty { return message }
@@ -58,12 +85,12 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
             }
         }
 
-        /// "3 steps" once the answer took any.
+        /// Includes a step still running, so never call these completed steps.
         var stepsLine: String? {
             guard let steps, steps > 0 else { return nil }
             return steps == 1
-                ? String(localized: "1 step", comment: "An answer took one step so far, under its timer")
-                : String(localized: "\(steps) steps", comment: "How many steps an answer took so far, under its timer")
+                ? String(localized: "1 step so far", comment: "Includes the step currently running")
+                : String(localized: "\(steps) steps so far", comment: "Includes the step currently running")
         }
     }
 

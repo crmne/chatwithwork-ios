@@ -141,6 +141,12 @@ If a public page ever renders differently for the apps, add
    the page would start under the bars and have to pad itself with
    `env(safe-area-inset-*)`, which can't follow a collapsing title.
 
+   Chat and new-chat screens also exclude the top navigation bar from their
+   view frame. The page scrolls to questions in document coordinates; an
+   explicit `scrollTop = 0` must start below the bar, including short chats
+   whose entire first exchange fits. Lists retain extended content for
+   their collapsing large titles. The composer still overlays the bottom.
+
    Two things the app does to every page: it scales it with the system's
    text size (page zoom, 85% to 120%), so layouts must hold down to about
    335 CSS pixels wide (a 402-point phone at 120%); and it sends
@@ -992,7 +998,8 @@ file name. The organization's name and the service's name are fine.
   `decisions_waiting`.
 - `notification_id` and `mutable-content` (2026-10-26): an id the app can't
   read, for fetching the notification's words, sent only to someone whose
-  "Show the chat and its answer" is on.
+  "Show the chat and its answer" is on, except failures always carry a
+  reference so the extension can check that they still apply.
 
 ### The words (2026-10-26)
 
@@ -1023,6 +1030,16 @@ server's request logs. The extension waits at most 8 seconds, and shows the
 push as it came when there's no key, the server answers anything but `200`,
 or nothing comes in time. iOS hides title, subtitle and body when the person
 turns previews off.
+
+An authorized old failure that has resolved answers `200` with
+`{suppressed: true, title, body}`. The words are content-free: the
+organization and "This notification is no longer current. Open the chat
+for its latest status." The extension uses them quietly, removes the
+sound and failed hidden-preview category, and sets passive interruption.
+Complete suppression requires Apple's restricted notification filtering
+entitlement, which this app does not have. Android drops these responses;
+older clients show the neutral fallback words. A failed network request
+or denied reference still follows the normal fallback above.
 
 **Decisions digest (server, 2026-10-26).** Once 3 or more decisions wait for
 someone, a new one's push becomes `decisions_waiting` instead of
@@ -1448,6 +1465,12 @@ sets `--native-composer-height`, and clears it when the composer leaves.
 The conversation has that height plus 1.5rem of bottom padding; older apps
 leave the variable unset and keep their previous clearance.
 
+An optional `visible` state flag defaults to true. While a web modal
+dialog is open, the bridge sends false: native hides the composer, releases
+its inset and reports layout height 0, while keeping the draft. Closing the
+dialog restores the composer without taking focus from the page. This
+applies to connector search, model consent and any other web modal.
+
 Builds that register `composer` draw the chat's composer themselves. The web
 composer (`#new_message`) carries `bridge--composer`
 (`web/controllers/bridge/composer_controller.js`) and stays in the page,
@@ -1464,7 +1487,7 @@ Web to app: `connect`, then `state` whenever something changes (an
 upload's progress, a lock, an answer starting or ending), both with:
 
 ```json
-{ "overlay": true, "placeholder": "Reply to Chat with Work", "text": "", "locked": false, "lockReason": null,
+{ "overlay": true, "visible": true, "placeholder": "Reply to Chat with Work", "text": "", "locked": false, "lockReason": null,
   "working": false, "stopping": false,
   "models": [{"name": "Gemini 3.8 Flash", "rate": "About 2 credits per answer", "selected": true, "searchesWeb": true}],
   "webSearch": {"on": false, "disabled": false, "note": "..."},
@@ -1552,7 +1575,11 @@ recording as the multipart field `audio` to `{base}{dictation.url}` with the web
 csrfToken` and `Accept: application/json`. `200 {text}` puts the words in
 the field and sends `text`; `{error}` (403 without credits, 413, 415, 429,
 502) shows the server's words above the composer. Never the system's speech
-recognizers.
+recognizers. Cancellation stops the upload task and invalidates its generation,
+so a late transcript cannot change the draft or end a newer recording.
+Recordings shorter than half a second or with no sustained measured signal
+above 0.02 for 300 ms stay on the phone and are deleted. The threshold matches
+the web's silence gate; missing metering leaves transcription available.
 
 ## 13. Live Activities, widgets and sharing
 
@@ -1560,7 +1587,7 @@ recognizers.
 
 While a chat's composer says `working`, the app keeps a Live Activity for
 it (ActivityKit, push type `token`), which iOS shows once the person leaves
-the app: "Chat with Work · <organization>", "Answering" and a timer since it
+the app: the organization, current work and a timer since it
 started. (ActivityKit starts activities only while the app is in front, so
 the app starts it as the answer starts, not as the person leaves.) Never the chat's title or anything from it. It registers the
 activity's push token with the server:
@@ -1592,9 +1619,25 @@ phase. A tap opens the chat (`chatwithwork://open?path=/482139075/chats/42`).
 The app also ends it itself when that chat's composer says it's done while
 the person is in the app; in the background it leaves the end to the
 server's push. The activity's attributes are `ChatActivityAttributes` in
-`Shared/`, which the widget extension draws: the mark, "Chat with Work ·
-<organization>", the step's symbol and words, and the timer with how many
-steps.
+`Shared/`. The widget draws a compact status card: organization and elapsed
+time in the header, a meaningful step icon and headline, then steps so far
+and Open chat. The count includes a running step, not just completed work.
+The expanded Island uses the same hierarchy; compact and minimal variants
+keep the icon or timer. Working is blue, decisions amber, and ready green,
+using Live Wire's accessible ink colors. Ended states stop the timer and
+offer Read answer, Review change or Reply, opening the authenticated chat
+without approving anything. Stale activities stop claiming live elapsed
+time and ask the person to open the chat for an update. No percentage or
+ETA is inferred from the step count.
+
+The system UI test covers active, approval, completed and failed cards. The
+elapsed-state unit test also covers stale content. The iOS 27 simulator did
+not advance ActivityKit to stale after its configured date during visual
+QA, so the stale scenario remains a physical-device check.
+
+Debug builds support `-CWWLiveActivityPreview search|run|approval_waiting|answered|failed|stale`
+for synthetic system-surface previews without push credentials.
+`LiveActivityPresentationTests` captures the Island and Lock Screen.
 
 ### Widgets and the app's links
 

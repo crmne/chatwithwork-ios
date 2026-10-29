@@ -24,6 +24,15 @@ enum WebScreen {
             controller.navigationItem.largeTitleDisplayMode = .never
         }
 
+        switch AppRoute(url: url).kind {
+        case .newChat, .chat:
+            // The page scrolls to questions and answers in document coordinates.
+            // Put that viewport below the bar so scrollTop = 0 cannot hide its first line.
+            controller.edgesForExtendedLayout.remove(.top)
+        default:
+            break
+        }
+
         KeyboardAvoidance.install(on: controller)
         return controller
     }

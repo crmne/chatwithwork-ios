@@ -7,7 +7,7 @@ import { BridgeComponent } from "@hotwired/hotwire-native-bridge"
 // one connects again with what it is now.
 //
 // Web to app: connect {state}, then state {state} whenever it changes (an upload's progress, a lock):
-//   state = { overlay, placeholder, text, locked, lockReason, working, stopping, models: [{name, rate, selected, searchesWeb}],
+//   state = { overlay, visible, placeholder, text, locked, lockReason, working, stopping, models: [{name, rate, selected, searchesWeb}],
 //             webSearch: {on, disabled, note} | null, dictation: {url} | null, csrfToken,
 //             attachments: [{id, name, size, contentType, uploading, progress}], acceptsFiles }
 // +text+ is the words the web composer holds (a shared link, a restored draft), files left out, for the app's empty field.
@@ -32,6 +32,15 @@ export default class extends BridgeComponent {
     super.connect()
     this.observer = new MutationObserver(() => this.#changed())
     this.observer.observe(this.element, { childList: true, subtree: true, attributes: true, characterData: true })
+    // Native views sit above the web view, including its modal top layer.
+    // Hide the native composer while a page dialog owns the screen, keeping
+    // its draft. Watch removal too: Turbo can replace an open dialog.
+    this.dialogs = new MutationObserver(records => {
+      if (records.some(record => record.target instanceof HTMLDialogElement ||
+        [ ...record.addedNodes, ...record.removedNodes ].some(node => node.nodeType === Node.ELEMENT_NODE &&
+          (node.matches("dialog") || node.querySelector("dialog"))))) this.#changed()
+    })
+    this.dialogs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: [ "open" ] })
     this.element.addEventListener("lexxy:upload-progress", this.progressed = () => this.#changed())
     window.addEventListener("model-consent:given", this.consented = () => this.#changed())
     window.addEventListener("model-consent:declined", this.declined = () => this.#connectToApp())
@@ -41,6 +50,7 @@ export default class extends BridgeComponent {
 
   disconnect() {
     this.observer?.disconnect()
+    this.dialogs?.disconnect()
     this.element.removeEventListener("lexxy:upload-progress", this.progressed)
     window.removeEventListener("model-consent:given", this.consented)
     window.removeEventListener("model-consent:declined", this.declined)
@@ -141,6 +151,7 @@ export default class extends BridgeComponent {
 
     return {
       overlay: true,
+      visible: !document.querySelector("dialog:modal"),
       placeholder: editor?.getAttribute("placeholder") || "",
       text: this.#controller("chat")?.promptText || "",
       locked: element.classList.contains("composer--locked"),

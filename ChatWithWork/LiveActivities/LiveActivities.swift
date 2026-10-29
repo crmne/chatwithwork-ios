@@ -16,6 +16,36 @@ import UIKit
 final class LiveActivities {
     static let shared = LiveActivities()
 
+    #if DEBUG
+        /// Synthetic system-surface previews, with no token or server registration.
+        /// `-CWWLiveActivityPreview search|approval_waiting|answered|failed|stale`.
+        static func preview(_ scenario: String) {
+            Task {
+                for activity in Activity<ChatActivityAttributes>.activities {
+                    await activity.end(nil, dismissalPolicy: .immediate)
+                }
+                let working = ["search", "run", "stale"].contains(scenario)
+                let state = ChatActivityAttributes.ContentState(
+                    phase: working ? "answering" : scenario,
+                    message: scenario == "search" ? "Searching your work tools" : scenario == "run" ? "Running an agent" : nil,
+                    step: working ? scenario : nil,
+                    steps: working ? 3 : nil
+                )
+                let attributes = ChatActivityAttributes(organization: "Northwind Studio", path: "/1000001/chats/99999", startedAt: Date().addingTimeInterval(-83))
+                let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(scenario == "stale" ? 10 : 3600))
+                do {
+                    let activity = try Activity.request(attributes: attributes, content: content, pushType: nil)
+                    if !working { await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(900))) }
+                    for await phase in activity.activityStateUpdates {
+                        NSLog("Live Activity preview %@: %@", scenario, String(describing: phase))
+                    }
+                } catch {
+                    NSLog("Live Activity preview failed: %@", String(describing: error))
+                }
+            }
+        }
+    #endif
+
     private let environment = AppEnvironment.current
 
     /// The organization's name, for the activity (the sidebar knows it).

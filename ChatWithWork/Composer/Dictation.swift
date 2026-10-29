@@ -23,7 +23,7 @@ final class DictationRecorder: NSObject, AVAudioRecorderDelegate {
     }
 
     private var recorder: AVAudioRecorder?
-    private var stopTimer: Timer?
+    private var speech = SpeechActivity()
     private(set) var file: URL?
     /// Called when the five minutes run out.
     var onLimit: (() -> Void)?
@@ -35,11 +35,13 @@ final class DictationRecorder: NSObject, AVAudioRecorderDelegate {
         guard let recorder, recorder.isRecording else { return 0 }
         recorder.updateMeters()
         let power = recorder.averagePower(forChannel: 0)
+        speech.observe(level: pow(10, power / 20), at: recorder.currentTime)
         return max(0, min(1, (power + 50) / 50))
     }
 
     func start() async throws {
         guard await AVAudioApplication.requestRecordPermission() else { throw Failure.microphoneRefused }
+        try Task.checkCancellation()
 
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .allowBluetoothHFP])
@@ -57,6 +59,7 @@ final class DictationRecorder: NSObject, AVAudioRecorderDelegate {
         recorder.delegate = self
         guard recorder.record(forDuration: Self.longest) else { throw Failure.couldNotRecord }
 
+        speech = SpeechActivity()
         self.recorder = recorder
         file = url
     }
@@ -68,8 +71,14 @@ final class DictationRecorder: NSObject, AVAudioRecorderDelegate {
         recorder.stop()
         self.recorder = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        // Under half a second is a tap, not words.
-        return duration >= 0.5 ? file : nil
+        let file = self.file
+        self.file = nil
+        // A tap or measured silence must not be sent to a speech model.
+        guard duration >= 0.5, speech.canTranscribe else {
+            if let file { try? FileManager.default.removeItem(at: file) }
+            return nil
+        }
+        return file
     }
 
     func cancel() {
@@ -106,7 +115,9 @@ final class DictationRecorder: NSObject, AVAudioRecorderDelegate {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let csrfToken { request.setValue(csrfToken, forHTTPHeaderField: "X-CSRF-Token") }
+        try Task.checkCancellation()
         await WebSession.authorize(&request)
+        try Task.checkCancellation()
 
         let session = URLSession(configuration: .ephemeral)
         defer { session.finishTasksAndInvalidate() }
@@ -138,5 +149,24 @@ enum WebSession {
     @MainActor
     static var userAgent: String {
         "Mozilla/5.0 (iPhone; CPU iPhone OS like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) \(Hotwire.config.userAgent)"
+    }
+}
+
+/// Matches the web's conservative silence gate: sustained signal above 0.02
+/// for 300 ms. If metering never ran, leave the decision to transcription.
+struct SpeechActivity {
+    private var started: TimeInterval?
+    private var measured = false
+    private var heard = false
+    var canTranscribe: Bool { !measured || heard }
+
+    mutating func observe(level: Float, at time: TimeInterval) {
+        measured = true
+        if level > 0.02 {
+            if started == nil { started = time }
+            if time - (started ?? time) >= 0.3 { heard = true }
+        } else {
+            started = nil
+        }
     }
 }

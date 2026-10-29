@@ -7,6 +7,15 @@ import Testing
 /// shared files' inbox.
 @Suite("Live Activities and app links")
 struct LiveActivityTests {
+    @Test func elapsedTimeOnlyAppearsForCurrentWork() {
+        #expect(ChatActivityAttributes.ContentState.answering.showsElapsed(isStale: false))
+        #expect(!ChatActivityAttributes.ContentState.answering.showsElapsed(isStale: true))
+        for phase in ["answered", "approval_waiting", "input_requested", "failed", "stopped", "future_state"] {
+            #expect(!ChatActivityAttributes.ContentState(phase: phase).showsElapsed(isStale: false))
+            #expect(!ChatActivityAttributes.ContentState(phase: phase).showsElapsed(isStale: true))
+        }
+    }
+
     @Test("decodes the server's end push content state")
     func contentState() throws {
         let state = try JSONDecoder().decode(ChatActivityAttributes.ContentState.self, from: Data(#"{"phase":"approval_waiting","message":"A change is waiting for your approval in Slack."}"#.utf8))
@@ -30,10 +39,10 @@ struct LiveActivityTests {
         #expect(state.isWorking)
         #expect(state.line == "Searching Todoist")
         #expect(state.symbol == "magnifyingglass")
-        #expect(state.stepsLine == "3 steps")
+        #expect(state.stepsLine == "3 steps so far")
 
         let first = ChatActivityAttributes.ContentState(phase: "answering", message: "Writing the answer", step: "write", steps: 1)
-        #expect(first.stepsLine == "1 step")
+        #expect(first.stepsLine == "1 step so far")
         #expect(ChatActivityAttributes.ContentState.answering.stepsLine == nil)
         #expect(ChatActivityAttributes.ContentState.answering.line == "Answering")
         #expect(ChatActivityAttributes.ContentState(phase: "answering", step: "something new").symbol == "ellipsis")
@@ -48,6 +57,23 @@ struct LiveActivityTests {
         #expect(items.first { $0.name == "url" }?.value == "https://example.com/a?b=1")
         #expect(items.first { $0.name == "title" }?.value == "Plan")
         #expect(AppLink.open(path: "/482139075/chats/42").absoluteString == "chatwithwork://open?path=/482139075/chats/42")
+    }
+
+    @Test("finished and waiting states have short headlines and safe navigation actions")
+    func presentation() {
+        let approval = ChatActivityAttributes.ContentState(phase: "approval_waiting")
+        #expect(approval.headline == "Approval needed")
+        #expect(approval.action == "Review change")
+        #expect(approval.needsAttention)
+        #expect(!approval.isWorking)
+        let answered = ChatActivityAttributes.ContentState(phase: "answered")
+        #expect(answered.headline == "Answer ready")
+        #expect(answered.action == "Read answer")
+        #expect(!answered.isWorking)
+        let unknown = ChatActivityAttributes.ContentState(phase: "future_state")
+        #expect(unknown.headline == "Open chat for an update")
+        #expect(unknown.action == "Open chat")
+        #expect(ChatActivityAttributes.ContentState(phase: "answering", steps: -1).stepsLine == nil)
     }
 
     @Test("takes nothing for a folder that isn't a share's")

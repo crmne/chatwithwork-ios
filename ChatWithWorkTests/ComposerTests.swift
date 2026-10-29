@@ -43,6 +43,7 @@ struct ComposerTests {
         let state: ComposerState? = message("state", #"{"placeholder":"Ask anything","locked":true,"lockReason":"Out of credits"}"#).data()
         #expect(state?.locked == true)
         #expect(state?.overlay == false)
+        #expect(state?.visible == true)
         #expect(state?.models.isEmpty == true)
         #expect(state?.webSearch == nil)
         #expect(state?.acceptsFiles == false)

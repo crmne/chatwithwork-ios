@@ -30,6 +30,11 @@ final class ComposerController: NSObject {
     private weak var screen: VisitableViewController?
     private let recorder = DictationRecorder()
     private var startingDictation = false
+    private var dictationTask: Task<Void, Never>?
+    private var dictationGeneration = 0
+    var transcribeRecording: (URL, String, String?, AppEnvironment) async throws -> String = {
+        try await DictationRecorder.transcribe($0, at: $1, csrfToken: $2, environment: $3)
+    }
     private var lastLayout: CGSize?
     private let environment: AppEnvironment
 
@@ -62,8 +67,11 @@ final class ComposerController: NSObject {
     }
 
     func update(_ state: ComposerState, connected: Bool) {
-        if let screen { KeyboardAvoidance.setOverlay(state.overlay, on: screen) }
+        if let screen { KeyboardAvoidance.setOverlay(state.overlay || !state.visible, on: screen) }
         view.update(state)
+        view.isHidden = !state.visible
+        if !state.visible { view.textView.resignFirstResponder() }
+        reportLayout()
         onState?(state)
         guard connected else { return }
         lastLayout = nil
@@ -73,7 +81,7 @@ final class ComposerController: NSObject {
 
     private func reportLayout() {
         guard view.state?.overlay == true, let screen, view.bounds.height > 0, screen.visitableView.bounds.width > 0 else { return }
-        let size = CGSize(width: screen.visitableView.bounds.width, height: view.bounds.height)
+        let size = CGSize(width: screen.visitableView.bounds.width, height: view.isHidden ? 0 : view.bounds.height)
         guard size != lastLayout else { return }
         lastLayout = size
         send?(.layout(height: Double(size.height), width: Double(size.width)))
@@ -191,47 +199,86 @@ final class ComposerController: NSObject {
     func startDictating() {
         guard view.mode == .typing, !startingDictation, view.state?.dictation != nil else { return }
         startingDictation = true
+        dictationGeneration += 1
+        let generation = dictationGeneration
         view.textView.resignFirstResponder()
-        Task {
-            defer { startingDictation = false }
+        dictationTask = Task {
+            defer {
+                if generation == dictationGeneration { startingDictation = false }
+            }
             do {
                 try await recorder.start()
+                guard !Task.isCancelled, generation == dictationGeneration else { return }
                 view.setMode(.recording)
-            } catch DictationRecorder.Failure.microphoneRefused {
-                view.flash(String(localized: "Chat with Work needs the microphone to dictate. Turn it on in Settings."))
             } catch {
-                view.flash(String(localized: "Dictation couldn't start. Try again."))
+                guard !Task.isCancelled, generation == dictationGeneration else { return }
+                if (error as? DictationRecorder.Failure) == .microphoneRefused {
+                    view.flash(String(localized: "Chat with Work needs the microphone to dictate. Turn it on in Settings."))
+                } else {
+                    view.flash(String(localized: "Dictation couldn't start. Try again."))
+                }
             }
         }
     }
 
     private func finishDictating() {
         guard view.mode == .recording else { return }
-        guard let file = recorder.stop(), let state = view.state, let dictation = state.dictation else {
+        guard let file = recorder.stop() else {
+            view.setMode(.typing)
+            view.flash(String(localized: "Nothing was heard. Try again a little closer."))
+            return
+        }
+        guard let state = view.state, let dictation = state.dictation else {
+            try? FileManager.default.removeItem(at: file)
             view.setMode(.typing)
             return
         }
+        transcribe(file, at: dictation.url, state: state)
+    }
+
+    /// Kept separate from recording so a late server result can never own a newer session.
+    @discardableResult
+    func transcribe(_ file: URL, at path: String, state: ComposerState) -> Task<Void, Never> {
+        dictationTask?.cancel()
+        dictationGeneration += 1
+        let generation = dictationGeneration
         view.setMode(.transcribing)
-        Task {
+        let task = Task {
+            defer {
+                if generation == dictationGeneration {
+                    view.setMode(.typing)
+                    dictationTask = nil
+                }
+            }
             do {
-                let words = try await DictationRecorder.transcribe(file, at: dictation.url, csrfToken: state.csrfToken, environment: environment)
+                let words = try await transcribeRecording(file, path, state.csrfToken, environment)
+                guard !Task.isCancelled, generation == dictationGeneration else { return }
                 if !words.isEmpty {
                     view.append(words)
                     send?(.text(words))
                 }
-            } catch DictationRecorder.Failure.refused(let reason) {
-                view.flash(reason)
             } catch {
-                view.flash(String(localized: "That didn't transcribe. Try again."))
+                guard !Task.isCancelled, generation == dictationGeneration else { return }
+                if case DictationRecorder.Failure.refused(let reason) = error {
+                    view.flash(reason)
+                } else {
+                    view.flash(String(localized: "That didn't transcribe. Try again."))
+                }
             }
-            view.setMode(.typing)
         }
+        dictationTask = task
+        return task
     }
 
     private func cancelDictating() {
+        dictationGeneration += 1
+        dictationTask?.cancel()
+        dictationTask = nil
+        startingDictation = false
         recorder.cancel()
         view.setMode(.typing)
     }
+
 }
 
 // MARK: - Pickers
