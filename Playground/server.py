@@ -1582,7 +1582,7 @@ class Handler(BaseHTTPRequestHandler):
             # Stands in for the EU transcription: whatever was said, these words.
             return self.send(200, json.dumps({"text": "Draft the recap for Priya"}), "application/json")
         if rest == "/messages":
-            number = max(CHATS) + 1
+            number = max([*CHATS, *BOT_CHATS]) + 1
             project = PROJECTS.get(int(form.get("project_id") or 0))
             CHATS[number] = {"title": (form.get("message[content]") or "New chat")[:60], "project": project and project["name"],
                              "when": "Today", "processing": False}
