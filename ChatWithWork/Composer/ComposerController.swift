@@ -29,6 +29,7 @@ final class ComposerController: NSObject {
 
     private weak var screen: VisitableViewController?
     private let recorder = DictationRecorder()
+    private var startingDictation = false
     private let environment: AppEnvironment
 
     /// The composer on `screen`, made and docked the first time it's asked for.
@@ -175,9 +176,11 @@ final class ComposerController: NSObject {
     // MARK: Dictation
 
     func startDictating() {
-        guard view.mode == .typing, view.state?.dictation != nil else { return }
+        guard view.mode == .typing, !startingDictation, view.state?.dictation != nil else { return }
+        startingDictation = true
         view.textView.resignFirstResponder()
         Task {
+            defer { startingDictation = false }
             do {
                 try await recorder.start()
                 view.setMode(.recording)
