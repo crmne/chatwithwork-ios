@@ -211,13 +211,47 @@ struct ComposerTests {
         #expect(!line.isHidden && line.text == "Out of credits")
     }
 
+    @Test("an earlier expiry cannot dismiss a later flash with the same words")
+    @MainActor
+    func repeatedFlash() throws {
+        let view = ComposerView(frame: .zero)
+        var expirations: [@MainActor @Sendable () -> Void] = []
+        view.scheduleFlashExpiration = { expirations.append($0) }
+        view.flash("Searches leave the EU.")
+        view.flash("Searches leave the EU.")
+        let line = try #require(view.descendant("composer.lock") as? UILabel)
+        expirations[0]()
+        #expect(!line.isHidden && line.text == "Searches leave the EU.")
+        expirations[1]()
+        #expect(line.isHidden)
+    }
+
+    @Test("the globe waits for the page's state before accepting another tap")
+    @MainActor
+    func webSearchWaitsForState() throws {
+        let view = ComposerView(frame: .zero)
+        var actions: [ComposerAction] = []
+        view.onAction = { actions.append($0) }
+        view.update(try #require(message("connect", Self.state).data()))
+        let globe = try #require(view.descendant("composer.webSearch") as? UIButton)
+        globe.sendActions(for: .primaryActionTriggered)
+        globe.sendActions(for: .primaryActionTriggered)
+        #expect(actions == [.webSearch(on: true)])
+        #expect(!globe.isEnabled)
+        let on = Self.state.replacingOccurrences(of: #""on":false"#, with: #""on":true"#)
+        view.update(try #require(message("state", on).data()))
+        #expect(globe.isEnabled && globe.accessibilityValue == "On")
+        globe.sendActions(for: .primaryActionTriggered)
+        #expect(actions == [.webSearch(on: true), .webSearch(on: false)])
+    }
+
     @Test("dictation's clock reads as the web's, and in words for VoiceOver")
     func dictationClock() {
         #expect(DictationLine.clock(0) == "0:00")
         #expect(DictationLine.clock(7) == "0:07")
         #expect(DictationLine.clock(83) == "1:23")
-        #expect(DictationLine.spokenDuration(7) == "7 seconds")
-        #expect(DictationLine.spokenDuration(83) == "1 minute, 23 seconds")
+        #expect(DictationLine.spokenDuration(7, locale: Locale(identifier: "en_US")) == "7 seconds")
+        #expect(DictationLine.spokenDuration(83, locale: Locale(identifier: "en_US")) == "1 minute, 23 seconds")
     }
 }
 

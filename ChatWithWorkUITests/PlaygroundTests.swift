@@ -159,7 +159,7 @@ final class PlaygroundTests: XCTestCase {
         if allow.waitForExistence(timeout: 3) { allow.tap() }
         let line = app.descendants(matching: .any)["composer.dictation"]
         let refused = app.staticTexts["composer.lock"]
-        let listening = NSPredicate { _, _ in line.exists || (refused.exists && refused.label.contains("Dictation couldn't start")) }
+        let listening = NSPredicate { _, _ in line.exists || (refused.exists && (refused.label.contains("Dictation couldn't start") || refused.label.contains("needs the microphone"))) }
         expectation(for: listening, evaluatedWith: NSNull())
         waitForExpectations(timeout: 10)
         // A Mac without a microphone (the Mac mini) gives its simulators none: there the app says so

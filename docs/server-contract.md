@@ -1489,7 +1489,8 @@ App to web, as replies to `connect`, `{action, ...}`:
   (`composer.dictate`, while `dictation` isn't `null`; disabled while
   locked), the web search globe (`composer.webSearch`, while `webSearch`
   isn't `null`: "Search the web", On or Off, sends `webSearch` with the
-  opposite of `on`; on shows the live wash; faint where `disabled`, and a
+  opposite of `on`, waiting for the page's next state before accepting
+  another tap; on shows the live wash; faint where `disabled`, and a
   tap then shows `note`; turning it on shows `note` above the composer for
   a moment, since it says where searches go), the model (a menu of
   `models`, hidden while locked or working), and Send. At 390 points the

@@ -29,6 +29,11 @@ final class ComposerView: UIView, UITextViewDelegate {
     private let lockLabel = UILabel()
     // A line shown for a moment in the lock's place (flash), until it times out.
     private var flashing: String?
+    private var flashGeneration = 0
+    var scheduleFlashExpiration: (@escaping @MainActor @Sendable () -> Void) -> Void = { expire in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { expire() }
+    }
+    private var webSearchPending = false
     private let chipsScroll = UIScrollView()
     private let chips = UIStackView()
     let textView = UITextView()
@@ -211,6 +216,7 @@ final class ComposerView: UIView, UITextViewDelegate {
     // MARK: State
 
     func update(_ state: ComposerState) {
+        webSearchPending = false
         self.state = state
         placeholder.text = state.placeholder.isEmpty ? String(localized: "Ask anything") : state.placeholder
         showLockOrFlash()
@@ -277,11 +283,13 @@ final class ComposerView: UIView, UITextViewDelegate {
     /// The page's next state, which often follows at once (web search
     /// turning on), leaves it up for its moment; only a lock replaces it.
     func flash(_ message: String) {
+        flashGeneration += 1
+        let generation = flashGeneration
         flashing = message
         showLockOrFlash()
         UIAccessibility.post(notification: .announcement, argument: message)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
-            guard let self, self.flashing == message else { return }
+        scheduleFlashExpiration { [weak self] in
+            guard let self, self.flashGeneration == generation else { return }
             self.flashing = nil
             self.showLockOrFlash()
         }
@@ -371,11 +379,13 @@ final class ComposerView: UIView, UITextViewDelegate {
     /// model can't search it stays, faint, and says why. A locked composer
     /// changes nothing, as its other buttons.
     private func webSearchTapped() {
-        guard mode == .typing, state?.locked != true, let webSearch = state?.webSearch else { return }
+        guard mode == .typing, !webSearchPending, state?.locked != true, let webSearch = state?.webSearch else { return }
         if webSearch.disabled {
             if let note = webSearch.note, !note.isEmpty { flash(note) }
             return
         }
+        webSearchPending = true
+        styleWebSearch()
         UISelectionFeedbackGenerator().selectionChanged()
         onAction?(.webSearch(on: !webSearch.on))
         // Turning it on says where searches go, as the web's switch does beside it.
@@ -387,7 +397,8 @@ final class ComposerView: UIView, UITextViewDelegate {
     private func styleWebSearch() {
         let webSearch = state?.webSearch
         let on = webSearch?.on == true
-        let inert = webSearch?.disabled == true || state?.locked == true
+        let inert = webSearch?.disabled == true || state?.locked == true || webSearchPending
+        webSearchButton.isEnabled = !webSearchPending
         webSearchButton.tintColor = on ? Palette.liveInk : Palette.ink
         webSearchButton.backgroundColor = on ? Palette.live.withAlphaComponent(0.12) : .clear
         webSearchButton.layer.borderColor = (on ? Palette.live.withAlphaComponent(0.4) : Palette.line).cgColor
@@ -644,8 +655,11 @@ final class DictationLine: UIView {
     }
 
     /// "7 seconds", "1 minute, 23 seconds", for VoiceOver.
-    static func spokenDuration(_ seconds: Int) -> String {
+    static func spokenDuration(_ seconds: Int, locale: Locale = .current) -> String {
         let formatter = DateComponentsFormatter()
+        var calendar = Calendar.current
+        calendar.locale = locale
+        formatter.calendar = calendar
         formatter.unitsStyle = .full
         formatter.allowedUnits = seconds >= 60 ? [.minute, .second] : [.second]
         return formatter.string(from: TimeInterval(seconds)) ?? ""
