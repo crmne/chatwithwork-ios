@@ -1415,13 +1415,14 @@ chats too. Without `sections` (an older server) the list is as before.
 ### Keeping it current
 
 The app fetches the JSON when the sidebar opens (if anything changed since),
-when the app returns to the foreground, every five seconds while the sidebar
-is open and one of its chats is working, and when a page says so: every
-signed-in page in these builds carries one hidden
+every five seconds while the sidebar is open and one of its chats is
+working, and when the list goes stale while it's open. Two things mark it
+stale: returning to the foreground, and a page saying so: every signed-in
+page in these builds carries one hidden
 `<div data-controller="bridge--sidebar">`, subscribed to the person's own
 sidebar streams, which sends `changed` (debounced) when a stream message for
-the web's sidebar arrives. The app marks the list stale and refetches if the
-sidebar is open.
+the web's sidebar arrives. Either refetches at once if the sidebar is open;
+a closed sidebar refetches when it next opens.
 
 ## 12. The composer
 
