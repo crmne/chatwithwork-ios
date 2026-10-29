@@ -194,6 +194,23 @@ struct ComposerTests {
         #expect(dictate.isHidden && globe.isHidden)
     }
 
+    @Test("a flashed line stays through the page's next state, and a lock replaces it")
+    @MainActor
+    func flashOutlastsState() throws {
+        let view = ComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 120))
+        view.update(try #require(message("connect", Self.state).data()))
+        let line = try #require(view.descendant("composer.lock") as? UILabel)
+        view.flash("Searches leave the EU.")
+        view.update(try #require(message("state", Self.state).data()))
+        #expect(!line.isHidden && line.text == "Searches leave the EU.")
+
+        let locked = Self.state
+            .replacingOccurrences(of: #""locked":false"#, with: #""locked":true"#)
+            .replacingOccurrences(of: #""lockReason":null"#, with: #""lockReason":"Out of credits""#)
+        view.update(try #require(message("state", locked).data()))
+        #expect(!line.isHidden && line.text == "Out of credits")
+    }
+
     @Test("dictation's clock reads as the web's, and in words for VoiceOver")
     func dictationClock() {
         #expect(DictationLine.clock(0) == "0:00")

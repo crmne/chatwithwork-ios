@@ -27,6 +27,8 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     private let box = RainbowBox()
     private let lockLabel = UILabel()
+    // A line shown for a moment in the lock's place (flash), until it times out.
+    private var flashing: String?
     private let chipsScroll = UIScrollView()
     private let chips = UIStackView()
     let textView = UITextView()
@@ -211,8 +213,7 @@ final class ComposerView: UIView, UITextViewDelegate {
     func update(_ state: ComposerState) {
         self.state = state
         placeholder.text = state.placeholder.isEmpty ? String(localized: "Ask anything") : state.placeholder
-        lockLabel.text = state.lockReason
-        lockLabel.isHidden = !(state.locked && state.lockReason?.isEmpty == false)
+        showLockOrFlash()
         textView.isEditable = !state.locked
         if state.locked { textView.resignFirstResponder() }
 
@@ -273,15 +274,27 @@ final class ComposerView: UIView, UITextViewDelegate {
     }
 
     /// Shows a line in place of the words for a moment, like a refusal.
+    /// The page's next state, which often follows at once (web search
+    /// turning on), leaves it up for its moment; only a lock replaces it.
     func flash(_ message: String) {
-        lockLabel.text = message
-        lockLabel.isHidden = false
+        flashing = message
+        showLockOrFlash()
         UIAccessibility.post(notification: .announcement, argument: message)
         DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
-            guard let self, self.lockLabel.text == message else { return }
-            self.lockLabel.isHidden = !(self.state?.locked == true && self.state?.lockReason?.isEmpty == false)
-            self.lockLabel.text = self.state?.lockReason
+            guard let self, self.flashing == message else { return }
+            self.flashing = nil
+            self.showLockOrFlash()
         }
+    }
+
+    /// Why the composer is locked, else the line flashing, else nothing.
+    private func showLockOrFlash() {
+        if state?.locked == true, let reason = state?.lockReason, !reason.isEmpty {
+            lockLabel.text = reason
+        } else {
+            lockLabel.text = flashing
+        }
+        lockLabel.isHidden = lockLabel.text?.isEmpty != false
     }
 
     private func refreshControls() {
