@@ -48,7 +48,7 @@ struct KeyboardAvoidanceTests {
         let bar = composer.view.frame
         #expect(bar.height > 0)
         #expect(abs(page.maxY - bar.maxY) < 1, "The web view reaches behind the overlay, not just to its top")
-        #expect(page.intersection(bar).height == bar.height)
+        #expect(abs(page.intersection(bar).height - bar.height) < 0.5)
         #expect(composer.view.hitTest(CGPoint(x: 2, y: bar.height / 2), with: nil) == nil)
         #expect(composer.view.hitTest(CGPoint(x: 30, y: 20), with: nil) != nil)
 

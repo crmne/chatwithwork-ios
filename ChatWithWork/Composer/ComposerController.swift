@@ -348,7 +348,7 @@ extension ComposerController: PHPickerViewControllerDelegate, UIImagePickerContr
 
 /// Photos as the picker hands them over, from its own queues, kept in the
 /// order they were picked.
-private final class PickedImages: @unchecked Sendable {
+nonisolated final class PickedImages: @unchecked Sendable {
     private let lock = NSLock()
     private var images: [Int: UIImage] = [:]
 

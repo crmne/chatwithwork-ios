@@ -8,6 +8,23 @@ import UIKit
 /// sends back (docs/server-contract.md, "The composer").
 @Suite("Composer")
 struct ComposerTests {
+    @Test("accepts concurrent photo callbacks off the main actor in selection order")
+    func pickedImagesFromBackgroundQueues() async {
+        let ordered = (0..<64).map { _ in UIImage() }
+        let picked = PickedImages()
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global().async {
+                DispatchQueue.concurrentPerform(iterations: ordered.count) { offset in
+                    let index = ordered.count - offset - 1
+                    picked.set(ordered[index], at: index)
+                }
+                continuation.resume()
+            }
+        }
+        #expect(picked.inOrder.count == ordered.count)
+        #expect(zip(picked.inOrder, ordered).allSatisfy { $0 === $1 })
+    }
+
     static let state = """
     {"overlay":true,"placeholder":"Reply to Chat with Work","text":"Shared: https://example.com","locked":false,"lockReason":null,
      "working":true,"stopping":false,
@@ -297,6 +314,7 @@ struct ComposerLayoutTests {
     @Test("shows the model's name again once an answer ends")
     func modelNameAfterAnswer() throws {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+        window.traitOverrides.preferredContentSizeCategory = .large
         let composer = ComposerView()
         composer.translatesAutoresizingMaskIntoConstraints = false
         window.addSubview(composer)
