@@ -1,4 +1,5 @@
 import HotwireNative
+import Observation
 import SwiftUI
 import UIKit
 
@@ -132,11 +133,14 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         }
         foregroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
+                // Decisions' count shows in the bar, so check even while closed.
                 self?.store.markStale()
-                if self?.isOpen == true { self?.refreshSidebar() }
+                self?.refreshSidebar()
             }
         }
         apply(progress: 0)
+        followDecisions()
+        if store.data == nil { refreshSidebar() }
     }
 
     override func viewDidLayoutSubviews() {
@@ -174,20 +178,57 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
 
     // MARK: What the screens put in their bars
 
-    /// The sidebar button on the leading side of a root screen, and New
-    /// chat on the trailing side of every main-stack screen.
+    /// The sidebar button and the Decisions pill on the leading side of a
+    /// root screen, and New chat on the trailing side of every main-stack
+    /// screen.
     func decorate(_ viewController: UIViewController, isRoot: Bool) {
         if isRoot {
             let sidebar = UIBarButtonItem(image: UIImage(systemName: "sidebar.left"), primaryAction: UIAction { [weak self] _ in self?.toggle() })
             sidebar.accessibilityLabel = String(localized: "Open sidebar")
             sidebar.accessibilityIdentifier = "shell.sidebar"
             NavigationBarItems.set(sidebar, slot: .shell, side: .leading, on: viewController)
+            NavigationBarItems.set(decisionsItem(), slot: .decisions, side: .leading, on: viewController)
         }
         if store.data?.links.newChat != nil || store.data == nil {
             let newChat = UIBarButtonItem(image: UIImage(systemName: "square.and.pencil"), primaryAction: UIAction { [weak self] _ in self?.startNewChat() })
             newChat.accessibilityLabel = String(localized: "New chat")
             newChat.accessibilityIdentifier = "shell.newChat"
             NavigationBarItems.set(newChat, slot: .shell, side: .trailing, on: viewController)
+        }
+    }
+
+    /// The Decisions page, once the sidebar's JSON names it; a server
+    /// without one keeps Decisions as a row in the sidebar instead.
+    private var decisionsPath: String? {
+        store.data.flatMap { $0.waiting.url ?? $0.links.decisions }
+    }
+
+    private func decisionsItem() -> UIBarButtonItem? {
+        guard let path = decisionsPath else { return nil }
+        let pill = DecisionsPill { [weak self] in self?.open(path: path) }
+        pill.update(count: store.data?.waiting.count ?? 0)
+        let item = UIBarButtonItem(customView: pill)
+        // The bar may expose the item rather than its view: both say the same.
+        item.accessibilityIdentifier = pill.accessibilityIdentifier
+        item.accessibilityLabel = pill.accessibilityLabel
+        item.accessibilityValue = pill.accessibilityValue
+        return item
+    }
+
+    /// Draws the root screen's Decisions pill again whenever the sidebar's
+    /// JSON changes, so its count follows what waits.
+    private func followDecisions() {
+        withObservationTracking {
+            _ = store.data?.waiting.count
+            _ = decisionsPath
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let root = self.navigator.rootViewController.viewControllers.first {
+                    NavigationBarItems.set(self.decisionsItem(), slot: .decisions, side: .leading, on: root)
+                }
+                self.followDecisions()
+            }
         }
     }
 
@@ -265,25 +306,26 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
 
     // MARK: The sidebar's list
 
+    /// A page says the list changed: fetch it again, open or not, since
+    /// Decisions' count in the bar comes from it too.
     func sidebarChanged() {
         store.markStale()
-        if isOpen { refreshSidebar() }
+        refreshSidebar()
     }
 
     private func refreshSidebar() {
         Task { await store.refresh() }
     }
 
-    /// While the sidebar is open and a chat in it works, check again every
-    /// few seconds, so its dot goes out when the answer ends.
+    /// While the sidebar is open and a chat or bot in it works, check again
+    /// every few seconds, so its dot goes out when the work ends.
     private func pollWhileOpen() {
         pollTask?.cancel()
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(5))
                 guard let self, self.isOpen, !Task.isCancelled else { return }
-                let working = (self.store.data?.everyChatShown ?? []).contains { $0.isWorking }
-                if working { await self.store.refresh() }
+                if self.store.data?.isAnythingWorking == true { await self.store.refresh() }
             }
         }
     }

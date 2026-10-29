@@ -49,8 +49,20 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
             let url: String
             let kind: String
             let project: String?
+            /// Who asks: a bot, an agent or a chat, by name (servers from
+            /// 2026-10-27), which the row leads with as the web's does.
+            let asker: Asker?
+            /// One line saying what's to decide (servers from 2026-10-26).
+            let summary: String?
 
             var id: String { url + kind }
+        }
+
+        struct Asker: Decodable, Equatable, Sendable {
+            /// `bot`, `agent` or `chat`.
+            let kind: String
+            let name: String
+            let project: String?
         }
 
         let count: Int
@@ -60,9 +72,51 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
     }
 
     struct Bots: Decodable, Equatable, Sendable {
+        /// One of the person's bots, as the web's Bots view rows it
+        /// (servers from 2026-10-27).
+        struct Item: Decodable, Equatable, Sendable, Identifiable {
+            let id: Int
+            let name: String
+            let url: String
+            /// `needs_you` or `quiet`, the web's two headings, in that order.
+            let group: String
+            /// The project a shared bot is in; nil for a personal one.
+            let project: String?
+            /// `waiting`, `failed`, `working`, `paused`, `next`, `listening` or `idle`.
+            let state: String
+            /// The state in the web's words ("Waiting for you", "Next 08:30").
+            let stateLabel: String
+            /// `attention`, `negative`, `live`, `positive`, or nil for none.
+            let tone: String?
+            /// How many decisions wait for the person in it.
+            let waiting: Int
+            let working: Bool
+            let nextRun: String?
+
+            var needsYou: Bool { group == "needs_you" }
+        }
+
+        /// How many decisions wait for the person in their bots.
         let count: Int
+        /// That, or a bot of theirs failed or paused itself: the switch's dot.
         let attention: Bool
         let nextRun: String?
+        /// The Bots page and New bot (servers from 2026-10-27).
+        let url: String?
+        let newUrl: String?
+        /// The person's bots, those that need them first; nil from an older
+        /// server, which keeps the Bots row instead of the switch.
+        let items: [Item]?
+
+        /// The bots under their headings: "Needs you" and "Quiet" only when
+        /// both have bots, else one list without a heading.
+        var groups: [(label: String?, items: [Item])] {
+            let items = items ?? []
+            let needs = items.filter(\.needsYou)
+            let quiet = items.filter { !$0.needsYou }
+            if needs.isEmpty || quiet.isEmpty { return items.isEmpty ? [] : [(nil, items)] }
+            return [(String(localized: "Needs you"), needs), (String(localized: "Quiet"), quiet)]
+        }
     }
 
     struct Chat: Decodable, Equatable, Sendable, Identifiable {
@@ -145,6 +199,12 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
 
     /// Every chat it names: pins, the sections' chats and the list's.
     var everyChatShown: [Chat] { pins + (sections ?? []).flatMap(\.chats) + chats }
+
+    /// Whether a chat it shows is answering or one of the bots is working,
+    /// so it's worth checking again soon.
+    var isAnythingWorking: Bool {
+        everyChatShown.contains(where: \.isWorking) || (bots?.items ?? []).contains(where: \.working)
+    }
 
     static func decode(_ data: Data) throws -> SidebarData {
         let decoder = JSONDecoder()

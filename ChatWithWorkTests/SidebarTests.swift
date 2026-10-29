@@ -104,6 +104,80 @@ struct SidebarTests {
         #expect(data.bots == nil)
     }
 
+    static let botsJSON = #""bots": {"count": 1, "attention": true, "next_run": null, "url": "/482139075/bots", "new_url": "/482139075/bots/new", "items": [{"id": 5, "name": "Front desk", "url": "/482139075/bots/5", "group": "needs_you", "project": "Launch", "state": "waiting", "state_label": "Waiting for you", "tone": "attention", "waiting": 1, "working": false, "next_run": null}, {"id": 3, "name": "Morning plan", "url": "/482139075/bots/3", "group": "quiet", "project": null, "state": "next", "state_label": "Next 08:30", "tone": "positive", "waiting": 0, "working": false, "next_run": "08:30"}, {"id": 2, "name": "Inbox triage", "url": "/482139075/bots/2", "group": "quiet", "project": null, "state": "paused", "state_label": "Paused", "tone": null, "waiting": 0, "working": true, "next_run": null}]}"#
+
+    static func withBots(_ bots: String) -> String {
+        json.replacingOccurrences(of: #""bots": {"count": 0, "attention": false, "next_run": "08:30"}"#, with: bots)
+    }
+
+    @Test("reads the person's bots for the Chats | Bots switch, which older servers leave out")
+    func bots() throws {
+        let data = try SidebarData.decode(Data(Self.withBots(Self.botsJSON).utf8))
+        let bots = try #require(data.bots)
+        #expect(bots.url == "/482139075/bots" && bots.newUrl == "/482139075/bots/new")
+        let items = try #require(bots.items)
+        #expect(items.map(\.name) == ["Front desk", "Morning plan", "Inbox triage"])
+        #expect(items[0].needsYou && items[0].waiting == 1 && items[0].project == "Launch")
+        #expect(items[1].stateLabel == "Next 08:30" && items[1].tone == "positive" && items[1].nextRun == "08:30")
+        #expect(items[2].tone == nil && items[2].working)
+
+        // Both headings only when both groups have bots.
+        #expect(bots.groups.map(\.label) == ["Needs you", "Quiet"])
+        #expect(bots.groups.map { $0.items.map(\.id) } == [[5], [3, 2]])
+        // A working bot keeps the sidebar checking, like an answering chat.
+        #expect(data.isAnythingWorking)
+
+        let old = try SidebarData.decode(Data(Self.json.utf8))
+        #expect(old.bots?.items == nil && old.bots?.url == nil)
+    }
+
+    @Test("lists bots under one heading-less list when only one group has any, and none when there are none")
+    func botGroups() throws {
+        let quietOnly = Self.botsJSON.replacingOccurrences(of: #""group": "needs_you""#, with: #""group": "quiet""#)
+        let quiet = try #require(try SidebarData.decode(Data(Self.withBots(quietOnly).utf8)).bots)
+        #expect(quiet.groups.count == 1 && quiet.groups[0].label == nil && quiet.groups[0].items.count == 3)
+
+        let none = #""bots": {"count": 0, "attention": false, "next_run": null, "url": "/482139075/bots", "new_url": "/482139075/bots/new", "items": []}"#
+        let empty = try #require(try SidebarData.decode(Data(Self.withBots(none).utf8)).bots)
+        #expect(empty.items == [] && empty.groups.isEmpty)
+    }
+
+    @Test("reads who asks for each decision, which older servers leave out")
+    func asker() throws {
+        let json = Self.json.replacingOccurrences(of: #""kind": "approval", "project": "Website relaunch"}"#,
+                                                  with: #""kind": "approval", "project": "Website relaunch", "summary": "Post the launch date", "asker": {"kind": "bot", "name": "Front desk", "project": "Launch"}}"#)
+        let item = try #require(try SidebarData.decode(Data(json.utf8)).waiting.items.first)
+        #expect(item.asker == SidebarData.Waiting.Asker(kind: "bot", name: "Front desk", project: "Launch"))
+        #expect(item.summary == "Post the launch date")
+        #expect(try SidebarData.decode(Data(Self.json.utf8)).waiting.items.first?.asker == nil)
+    }
+
+    @Test("remembers the chosen half on this install, and offers Bots only once the JSON lists them")
+    @MainActor
+    func half() {
+        let memory = SessionMemory(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let environment = AppEnvironment.load(info: ["CWWBaseURL": "https://chatwithwork.com"], arguments: UserDefaults(suiteName: UUID().uuidString)!, variables: [:])
+        let store = SidebarStore(environment: environment, account: AccountSlug("482139075"), memory: memory)
+        #expect(store.view == .chats)
+        store.view = .bots
+        #expect(memory.sidebarView == "bots")
+        #expect(SidebarStore(environment: environment, account: AccountSlug("731000042"), memory: memory).view == .bots)
+        // Nothing loaded yet: no switch, so the chats show.
+        #expect(!store.offersBots && !store.showsBots)
+    }
+
+    @Test("Decisions' pill says how many wait, or shows its icon alone")
+    @MainActor
+    func decisionsPill() {
+        let pill = DecisionsPill {}
+        #expect(pill.configuration?.attributedTitle == nil && pill.accessibilityValue == "None waiting")
+        pill.update(count: 3)
+        #expect(pill.configuration?.attributedTitle.map { String($0.characters) } == "3")
+        #expect(pill.accessibilityValue == "3 waiting")
+        pill.update(count: 1)
+        #expect(pill.accessibilityValue == "1 waiting")
+    }
+
     @Test("keeps the server's groups in order")
     func groups() throws {
         let data = try SidebarData.decode(Data(Self.json.utf8))
@@ -119,7 +193,7 @@ struct SidebarTests {
         #expect(more.chats.count == data.chats.count)
     }
 
-    @Test("remembers the list and new chat per organization, and the chat left last")
+    @Test("remembers the list and new chat per organization, the sidebar's half, and the chat left last")
     func memory() {
         let memory = SessionMemory(defaults: UserDefaults(suiteName: UUID().uuidString)!)
         let acme = AccountSlug("482139075")!
@@ -128,8 +202,11 @@ struct SidebarTests {
         #expect(memory.listKey(in: acme) == "3")
         memory.lastChat = ("/482139075/chats/42", Date())
         #expect(memory.lastChat?.path == "/482139075/chats/42")
+        memory.sidebarView = "bots"
+        #expect(memory.sidebarView == "bots")
         memory.reset()
         #expect(memory.listKey(in: acme) == nil)
+        #expect(memory.sidebarView == nil)
         #expect(memory.lastChat == nil)
     }
 }

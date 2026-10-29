@@ -99,6 +99,19 @@ PROJECTS = {
     2: {"name": "Acme launch", "hq": False, "all_access": False, "summary": "Invite-only · 4 people", "audience": "4 people", "chats": 7},
     3: {"name": "Onboarding", "hq": False, "all_access": True, "summary": "All-Access · 3 people", "audience": "3 people", "chats": 3},
 }
+# The person's bots, as the apps' Bots list gets them (NativeSidebarHelper#native_sidebar_bot):
+# those that need them first, each with its state in the web's words and tone.
+BOTS = {
+    5: {"name": "Front desk", "summary": "Answers the website's chat, hands refunds to you.", "group": "needs_you", "project": "Acme launch",
+        "state": "waiting", "state_label": "Waiting for you", "tone": "attention", "waiting": 1, "working": False, "next_run": None},
+    3: {"name": "Monday Drive digest", "summary": "Every Monday at 8:30, tells you what changed in Drive.", "group": "quiet", "project": None,
+        "state": "next", "state_label": "Next 08:30", "tone": "positive", "waiting": 0, "working": False, "next_run": "08:30"},
+    2: {"name": "Inbox triage", "summary": "Sorts new mail in Demo requests.", "group": "quiet", "project": None,
+        "state": "working", "state_label": "Working now", "tone": "live", "waiting": 0, "working": True, "next_run": None},
+}
+# Bots' own chats, where a run waits for the person: not in the person's
+# sidebar, as on the server, but where a bot's decision opens.
+BOT_CHATS = {57: {"bot": 5, "title": "Refund for order 1182", "reply": "Refunded order 1182 in full: the parcel never arrived."}}
 ASSETS = {"css": [], "cache": {}, "providers": {}}
 
 
@@ -964,19 +977,103 @@ def new_chat(handler, account, project_number=None, prefill=""):
 
 
 def bots_index(handler, account):
-    """bots/index, as a person with one bot sees it."""
+    """bots/index, cut to All bots: the same bots the sidebar's Bots half lists."""
+    rows = "".join(f"""
+          <li class="rows__row"><div class="rows__body"><h3><a class="hover:underline" href="/{account}/bots/{number}">{esc(bot["name"])}</a></h3>
+            <p class="text-ink-muted">{esc(bot["summary"])}</p></div></li>""" for number, bot in BOTS.items())
     body = f"""
     <div class="page">
-      <header class="page__header native-hidden"><div class="page__heading"><h1>Bots</h1></div></header>
-      <section class="page__section">
-        <header><h2>Yours</h2></header>
-        <ul class="rows">
-          <li class="rows__row"><div class="rows__body"><h3>Monday Drive digest</h3>
-            <p class="text-ink-muted">Every Monday at 8:30, tells you what changed in Drive.</p></div></li>
+      <header class="page__header"><div class="page__heading"><h1 class="native-hidden">Bots</h1></div></header>
+      <section class="page__section" id="bots">
+        <header><h2>All bots</h2></header>
+        <ul class="rows">{rows}
         </ul>
       </section>
     </div>"""
     return Page("Bots", body, account=account)
+
+
+def new_bot(handler, account):
+    """bots/new, cut to its heading and lede: the playground stops before describing a bot."""
+    body = """
+    <div class="page">
+      <header class="page__header">
+        <div class="page__heading">
+          <h1 class="native-hidden">New bot</h1>
+          <p class="page__lede">Say what it should do, or start from a recipe. The playground stops here.</p>
+        </div>
+      </header>
+    </div>"""
+    return Page("New bot", body, account=account)
+
+
+def waiting_decisions(handler, account):
+    """What waits for the person, as NativeSidebarHelper#native_sidebar_waiting
+    lists it: the change in the first chat, then each waiting bot's run."""
+    waiting = [{"key": "chat-42", "title": CHATS[42]["title"], "url": f"/{account}/decisions?decision=chat-42", "kind": "approval",
+                "decision": "approval", "summary": "A change to approve", "chat_url": f"/{account}/chats/42", "project": CHATS[42]["project"],
+                "asker": {"kind": "chat", "name": CHATS[42]["title"], "project": CHATS[42]["project"]}}] \
+        if handler.session.get("approval", "waiting") == "waiting" and 42 in CHATS else []
+    for number, chat in BOT_CHATS.items():
+        bot = BOTS[chat["bot"]]
+        waiting.append({"key": f"bot_chat-{number}", "title": chat["title"], "url": f"/{account}/decisions?decision=bot_chat-{number}",
+                        "kind": "bot", "decision": "approval", "summary": "A reply to approve", "chat_url": f"/{account}/chats/{number}",
+                        "project": bot["project"], "asker": {"kind": "bot", "name": bot["name"], "project": bot["project"]}})
+    return waiting
+
+
+def decisions_page(handler, account, selected=None):
+    """decisions/index, cut to the list of what waits, each leading to its
+    chat; opened on one (?decision=<key>), that one alone."""
+    waiting = waiting_decisions(handler, account)
+    chosen = next((decision for decision in waiting if decision["key"] == selected), None)
+    if chosen:
+        rows = f"""
+        <a class="rows__row" href="{chosen["chat_url"]}">
+          <div class="rows__body"><h3>{esc(chosen["asker"]["name"])}</h3><p>{esc(chosen["summary"])}</p><p class="micro">{esc(chosen["title"])}</p></div>
+        </a>"""
+    else:
+        rows = "".join(f"""
+        <a class="rows__row" href="{decision["chat_url"]}">
+          <div class="rows__body"><h3>{esc(decision["asker"]["name"])}</h3><p class="micro">{esc(decision["summary"])}</p></div>
+        </a>""" for decision in waiting) or '<p class="text-ink-muted">Nothing waits for you.</p>'
+    body = f"""
+    <div class="page">
+      <header class="page__header native-hidden"><div class="page__heading"><h1>Decisions</h1></div></header>
+      <section class="page__section"><div class="rows">{rows}</div></section>
+    </div>"""
+    return Page("Decisions", body, account=account)
+
+
+def bot_chat_page(handler, account, number):
+    """A bot's run chat, cut to its reply waiting for approval."""
+    chat = BOT_CHATS[number]
+    body = f"""
+    <div class="page">
+      <header class="page__header native-hidden"><div class="page__heading"><h1>{esc(chat["title"])}</h1></div></header>
+      <section class="page__section">
+        <p class="micro">{esc(BOTS[chat["bot"]]["name"])}</p>
+        <p>{esc(chat["reply"])}</p>
+        <p class="micro">Waiting for your approval</p>
+      </section>
+    </div>"""
+    return Page(chat["title"], body, account=account)
+
+
+def bot_page(handler, account, number):
+    """bots/show, cut to its heading and what it does."""
+    bot = BOTS.get(number)
+    if bot is None:
+        return None
+    body = f"""
+    <div class="page">
+      <header class="page__header native-hidden"><div class="page__heading"><h1>{esc(bot["name"])}</h1></div></header>
+      <section class="page__section">
+        <p class="text-ink-muted">{esc(bot["summary"])}</p>
+        <p class="micro">{esc(bot["state_label"])}</p>
+      </section>
+    </div>"""
+    return Page(bot["name"], body, account=account)
 
 
 def sidebar_json(handler, account, query):
@@ -1033,8 +1130,7 @@ def sidebar_json(handler, account, query):
                 for number, section in SECTIONS.items()]
     sectioned = {n for section in SECTIONS.values() for n in section["chats"]}
 
-    waiting = [] if handler.session.get("approval", "waiting") != "waiting" else [
-        {"title": CHATS[42]["title"], "url": f"/{account}/chats/42", "kind": "approval", "project": CHATS[42]["project"]}] if 42 in CHATS else []
+    waiting = waiting_decisions(handler, account)
     initials = lambda name: "".join(word[0] for word in name.split()[:2]).upper()
     return {
         "organization": {"id": account, "name": ACCOUNTS[account], "initials": initials(ACCOUNTS[account])},
@@ -1046,8 +1142,11 @@ def sidebar_json(handler, account, query):
         "links": {"new_chat": f"/{account}/chats/new" + (f"?project_id={key}" if project else ""), "bots": f"/{account}/bots",
                   "settings": f"/{account}/settings", "projects": f"/{account}/projects", "new_project": f"/{account}/projects/new",
                   "organizations": "/accounts", "new_organization": "/accounts/new"},
-        "waiting": {"count": len(waiting), "items": waiting},
-        "bots": {"count": 0, "attention": False, "next_run": "08:30"},
+        "waiting": {"count": len(waiting), "items": waiting, "url": f"/{account}/decisions"},
+        "bots": {"count": sum(bot["waiting"] for bot in BOTS.values()), "attention": True, "next_run": None,
+                 "url": f"/{account}/bots", "new_url": f"/{account}/bots/new",
+                 "items": [dict({key: value for key, value in bot.items() if key != "summary"}, id=number, url=f"/{account}/bots/{number}")
+                           for number, bot in BOTS.items()]},
         "pins": [chat_json(n, CHATS[n], group=False) for n in sorted(handler.session["pinned"]) if n in CHATS],
         "sections": sections,
         "chats": [chat_json(n, c) for n, c in chats if n not in sectioned],
@@ -1421,12 +1520,20 @@ class Handler(BaseHTTPRequestHandler):
         page = None
         if rest == "/bots":
             page = bots_index(self, account)
+        elif rest == "/bots/new":
+            page = new_bot(self, account)
+        elif rest == "/decisions":
+            page = decisions_page(self, account, (query.get("decision") or [None])[0])
+        elif m := re.fullmatch(r"/bots/(\d+)", rest):
+            page = bot_page(self, account, int(m.group(1)))
         elif rest == "/chats":
             page = chats_index(self, account)
         elif rest == "/chats/new":
             # What a share or a link puts in the composer, as ChatsHelper#shared_prompt does.
             shared = [(query.get(key) or [""])[0] for key in ("title", "text", "url")]
             page = new_chat(self, account, (query.get("project_id") or [None])[0], "\n".join(part for part in shared if part))
+        elif (m := re.fullmatch(r"/chats/(\d+)", rest)) and int(m.group(1)) in BOT_CHATS:
+            page = bot_chat_page(self, account, int(m.group(1)))
         elif m := re.fullmatch(r"/chats/(\d+)", rest):
             page = conversation(self, account, int(m.group(1)))
         elif m := re.fullmatch(r"/chats/(\d+)/edit", rest):
@@ -1484,7 +1591,7 @@ class Handler(BaseHTTPRequestHandler):
             # Stands in for the EU transcription: whatever was said, these words.
             return self.send(200, json.dumps({"text": "Draft the recap for Priya"}), "application/json")
         if rest == "/messages":
-            number = max(CHATS) + 1
+            number = max([*CHATS, *BOT_CHATS]) + 1
             project = PROJECTS.get(int(form.get("project_id") or 0))
             CHATS[number] = {"title": (form.get("message[content]") or "New chat")[:60], "project": project and project["name"],
                              "when": "Today", "processing": False}
