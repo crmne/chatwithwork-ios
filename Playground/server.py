@@ -75,6 +75,13 @@ NOTIFICATION_KEY = "playground-notification-key"
 NOTIFICATION_TEXT = {"title": "Acme launch", "subtitle": "Waiting for your approval in Slack",
                      "body": "Post the launch recap to #acme-launch"}
 SESSIONS = {}  # cookie value -> {"flash": [(type, message)], "pinned": set(), "asked": {}, "paused": set()}
+
+
+def processing(handler, number):
+    """Whether a chat's answer is working for this session: Stop ends it for
+    the session only, so signing in again starts the seeded one over."""
+    stopped = handler.session.setdefault("stopped", set())
+    return CHATS.get(number, {}).get("processing", False) and number not in stopped
 CHATS = {
     42: {"title": "Q3 launch commitments for Acme", "project": None, "when": "Today", "processing": False},
     41: {"title": "Summarize the security review thread", "project": "Acme launch", "when": "Today", "processing": True},
@@ -198,7 +205,7 @@ def chats_index(handler, account):
         rows = "\n".join(f"""
           <li class="chat-history__row" data-search-target="item" id="history_item_chat_{number}">
             <a class="chat-history__link" data-turbo-prefetch="false" href="/{account}/chats/{number}">
-              {'<span class="dot dot--small dot--live dot--pulse" title="Working"></span>' if chat["processing"] else ''}
+              {'<span class="dot dot--small dot--live dot--pulse" title="Working"></span>' if processing(handler, number) else ''}
               <span class="chat-history__title">{esc(chat["title"])}</span>
               <time class="micro" datetime="2026-10-02T09:41:00Z">{ago.get(label, "4 days ago")}</time>
             </a>
@@ -530,6 +537,9 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
                     <span class="micro">{esc(m_rate)}</span>
                   </button>
                 </li>""" for m_id, m_provider, m_name, m_logo, m_description, m_rate in MODELS)
+    # chats/_model_picker leaves its options out while an answer works.
+    menu = "" if working else f"""<ul tabindex="-1" class="dropdown-content menu model-picker__menu z-50" role="listbox" aria-label="Models">{options}
+              </ul>"""
     project_field = f'\n      <input type="hidden" name="project_id" value="{project}">' if project else ""
     return f"""
     <div id="new_message" class="composer rainbow-glow{' composer--working' if working else ''}"
@@ -565,15 +575,14 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
             <input type="hidden" name="provider" value="{provider_key}" data-model-select-target="provider">
 
             <div class="dropdown dropdown-top dropdown-end">
-              <div tabindex="0" role="button" class="model-picker__trigger" data-model-select-target="trigger"
+              <div tabindex="{-1 if working else 0}" role="button" class="model-picker__trigger" data-model-select-target="trigger"
                    aria-label="Model: {esc(name)}" aria-haspopup="listbox">
                 {provider(logo).replace('<img ', '<img data-model-select-target="icon" ', 1)}
                 <span data-model-select-target="label">{esc(name)}</span>
                 {icon("caret-up-down")}
               </div>
 
-              <ul tabindex="-1" class="dropdown-content menu model-picker__menu z-50" role="listbox" aria-label="Models">{options}
-              </ul>
+              {menu}
             </div>
           </div>
           {send}
@@ -734,7 +743,7 @@ def conversation(handler, account, number):
           <div class="conversation__dock-inner">
             <button type="button" class="scroll-button" data-scroll-target="scrollButton" data-action="click->scroll#scrollToBottom"
                     aria-label="Scroll to the latest message" inert>{icon("arrow-down")}</button>
-            <turbo-frame id="chat_form">{composer(handler, account, number, working=CHATS.get(number, {}).get("processing", False))}
+            <turbo-frame id="chat_form">{composer(handler, account, number, working=processing(handler, number))}
             </turbo-frame>
           </div>
         </div>
@@ -979,7 +988,7 @@ def sidebar_json(handler, account, query):
 
     def chat_json(number, chat, group=True):
         data = {"number": number, "title": chat["title"], "url": f"/{account}/chats/{number}",
-                "state": "processing" if chat["processing"] else "idle", "waiting": number == 42 and handler.session.get("approval", "waiting") == "waiting",
+                "state": "processing" if processing(handler, number) else "idle", "waiting": number == 42 and handler.session.get("approval", "waiting") == "waiting",
                 "project": chat["project"], "asked_at": "2026-10-25T08:12:00Z"}
         if group:
             data["group"] = chat["when"]
@@ -1481,6 +1490,15 @@ class Handler(BaseHTTPRequestHandler):
                              "when": "Today", "processing": False}
             self.session["asked"][number] = [form.get("message[content]") or ""]
             return self.redirect(f"/{account}/chats/{number}")
+        if m := re.fullmatch(r"/chats/(\d+)/cancellation", rest):
+            # Stop ends the answer, for this session, and the server draws the
+            # composer again (Chat#broadcast_composer); here, as a Turbo Stream.
+            number = int(m.group(1))
+            self.session.setdefault("stopped", set()).add(number)
+            if "text/vnd.turbo-stream.html" not in self.headers.get("Accept", ""):
+                return self.redirect(f"/{account}/chats/{number}")
+            return self.send(200, turbo_stream("update", "chat_form", composer(self, account, number)),
+                             "text/vnd.turbo-stream.html; charset=utf-8")
         if m := re.fullmatch(r"/chats/(\d+)/messages", rest):
             # The server answers a reply with 200 and broadcasts the messages;
             # the playground has no cable, so it sends them as Turbo Streams.
