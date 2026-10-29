@@ -139,7 +139,8 @@ docs/             the server contract and design notes
 - **Web screens** are plain `HotwireWebViewController`s configured from
   outside (`WebScreen`), never subclassed: a subclass recreating the bridge
   delegate is what crashed Cluster Headache Tracker's app. The web view
-  shrinks above the keyboard, so the composer rides on it, its page zoom
+  shrinks above the keyboard, with the native composer floating over the
+  conversation and its clear gutters showing the chat behind it, its page zoom
   follows the system text size, and its title follows the page's `<title>`
   whenever it changes. Files open in Quick Look.
 - **Bridge components**: Joe Masilotti's `alert`, `review-prompt` and `theme`
@@ -186,8 +187,9 @@ it's skipped.
 Every push to main reaches TestFlight: Xcode Cloud's "TestFlight" workflow
 (product ChatWithWork, started by changes to `main`) archives the
 ChatWithWork scheme (Release, production) and uploads it to App Store
-Connect, where the Internal group, which has every build, gets it after
-processing. The workflow's "TestFlight External Testing" post-action also
+Connect. The workflow's "TestFlight Internal Testing" post-action assigns
+each build to Internal after processing (added October 29, 2026). Its
+"TestFlight External Testing" post-action also
 gives each build to the "Public beta" group, the public TestFlight link
 (see [docs/app-store.md](docs/app-store.md), "Public TestFlight beta"). `ci_scripts/ci_post_clone.sh` gives the build Xcode Cloud's team
 and build number (`CI_TEAM_ID`, `CI_BUILD_NUMBER`), since

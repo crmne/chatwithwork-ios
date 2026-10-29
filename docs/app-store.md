@@ -35,8 +35,11 @@ repository).
 ## Building and uploading
 
 Pushing to main is enough: Xcode Cloud's "TestFlight" workflow archives
-Release and uploads it to App Store Connect, where it goes to the Internal
-Testing group (see the README's Releasing). To archive and upload by hand,
+Release and uploads it to App Store Connect. Its two post-actions are
+"TestFlight Internal Testing" for "Internal" and "TestFlight External
+Testing" for "Public beta". The internal post-action was missing and was
+added on October 29, 2026, so every main build now goes to both groups
+after processing and any required beta review. To archive and upload by hand,
 on the Mac mini or any Mac set up as below:
 
 ```sh
@@ -49,8 +52,9 @@ script/upload build/ChatWithWork-1.0.0.xcarchive   # or upload an archive you ha
 `script/upload` exports with `xcodebuild -exportArchive` (`method`
 `app-store-connect`, `destination` `upload`) and signs in with an App Store
 Connect API key, so it works over SSH and never needs Xcode's Accounts. The
-Internal group has access to every build, so the build reaches TestFlight
-on its own after processing, about 15 minutes.
+workflow explicitly assigns its builds to Internal. A manual upload needs
+the group assigned in TestFlight too; do not assume an uploaded build
+automatically reaches internal testers.
 
 ### Public TestFlight beta
 
