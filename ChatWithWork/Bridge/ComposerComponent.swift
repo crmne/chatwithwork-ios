@@ -9,7 +9,7 @@ import UIKit
 /// it changes. Each new web composer (a chat draws it again as an answer
 /// starts and ends) connects again. Native → web: a reply to the latest
 /// `connect`, `{action, ...}`: `send`, `stop`, `model`, `webSearch`,
-/// `attach`, `remove` or `text`.
+/// `attach`, `remove`, `text` or `layout` (the overlay's size).
 final class ComposerComponent: BridgeComponent {
     override nonisolated class var name: String { "composer" }
 

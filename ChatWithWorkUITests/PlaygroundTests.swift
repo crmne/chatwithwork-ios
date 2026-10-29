@@ -62,6 +62,10 @@ final class PlaygroundTests: XCTestCase {
         let switchChats = app.buttons["sidebar.switch.chats"]
         XCTAssertTrue(switchChats.waitForExistence(timeout: 5), "The sidebar should open with its switch")
         XCTAssertLessThan(decisions.frame.minY, switchChats.frame.minY, "Decisions sits just before the switch")
+        let instructions = app.buttons["sidebar.instructions"]
+        XCTAssertTrue(instructions.exists, "Instructions belongs in the native sidebar as on the web")
+        XCTAssertLessThan(app.buttons["sidebar.newChat"].frame.minY, instructions.frame.minY)
+        XCTAssertLessThan(instructions.frame.minY, app.textFields["sidebar.search"].frame.minY)
         XCTAssertFalse(app.buttons["sidebar.waiting"].exists, "Decisions is a button, not the old row")
         XCTAssertTrue(app.buttons["Q3 launch commitments for Acme"].waitForExistence(timeout: 5))
         settle(0.8)
@@ -79,6 +83,10 @@ final class PlaygroundTests: XCTestCase {
         XCTAssertTrue(app.webViews.staticTexts["What did we promise Acme for the Q3 launch?"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.buttons["bridge.menu"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["shell.sidebar"].exists, "A chat is the root, with the sidebar button")
+        let overlayComposer = app.descendants(matching: .any)["composer"].firstMatch
+        XCTAssertTrue(overlayComposer.waitForExistence(timeout: 10))
+        XCTAssertGreaterThan(app.webViews.firstMatch.frame.maxY, overlayComposer.frame.minY + 50,
+                             "The page must draw behind the native composer, including its clear gutters")
         XCTAssertEqual(app.buttons.matching(identifier: "bridge.button").count, 0, "The page's own New chat is left out")
         settle()
         keep("chat")

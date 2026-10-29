@@ -16,7 +16,7 @@ struct SidebarActions {
 /// The sidebar: the same things in the same order as the web's
 /// (chats/_sidebar_chats, application/_me_menu), drawn natively from
 /// `/native/sidebar`. Decisions at the top, then the Chats | Bots switch,
-/// which list it's about, search, New chat, pins, the person's own sections,
+/// which list it's about, New chat, Instructions, pins, search, the person's own sections,
 /// the chats in none of them by latest question, and the person at the
 /// foot. A long press on a chat opens its menu, as the web row's does.
 ///
@@ -54,7 +54,6 @@ struct SidebarView: View {
                         botsCard(data, bots)
                     } else {
                         listSwitcher(data)
-                        searchField
                     }
                 }
                 .padding(.horizontal, 12)
@@ -66,11 +65,17 @@ struct SidebarView: View {
                         if store.showsBots, let bots = data.bots {
                             places(data)
                             botsList(bots)
-                        } else if query.isEmpty {
-                            places(data)
-                            chatsList(data)
                         } else {
-                            searchResults(data)
+                            if query.isEmpty {
+                                places(data)
+                                pinnedChats(data)
+                            }
+                            searchField.padding(.horizontal, 4).padding(.vertical, 6)
+                            if query.isEmpty {
+                                chatsList(data)
+                            } else {
+                                searchResults(data)
+                            }
                         }
                     }
                     .padding(.horizontal, 8)
@@ -118,8 +123,14 @@ struct SidebarView: View {
             }
         } label: {
             HStack(spacing: 10) {
-                Text(initials(data.list.name))
-                    .font(.caption2.weight(.bold))
+                Group {
+                    if data.list.isProject {
+                        Text(initials(data.list.name)).font(.caption2.weight(.bold))
+                    } else {
+                        Image(systemName: data.list.kind == "all" ? "bubble.left.and.bubble.right" : "lock")
+                            .font(.subheadline)
+                    }
+                }
                     .foregroundStyle(Color(Palette.inkInverted))
                     .frame(width: 30, height: 30)
                     .background(RoundedRectangle(cornerRadius: 8).fill(Color(Palette.ink)))
@@ -182,6 +193,10 @@ struct SidebarView: View {
             }
         } else if data.links.newChat != nil {
             placeRow("New chat", systemImage: "square.and.pencil", identifier: "sidebar.newChat", action: actions.newChat)
+        }
+
+        if !store.showsBots, let instructions = data.links.instructions {
+            placeRow("Instructions", systemImage: "book.closed", identifier: "sidebar.instructions") { actions.open(instructions) }
         }
 
         // Decisions is a button at the sidebar's top once the server names
@@ -405,14 +420,17 @@ struct SidebarView: View {
     // MARK: Chats
 
     @ViewBuilder
-    private func chatsList(_ data: SidebarData) -> some View {
+    private func pinnedChats(_ data: SidebarData) -> some View {
         if !data.pins.isEmpty {
             sectionLabel("Pinned")
             // A pinned chat is also in its day's list: the rows need ids of
             // their own, or the lazy stack leaves a gap where one should be.
             ForEach(data.pins, id: \.pinID) { chat in chatRow(chat, pinned: true) }
         }
+    }
 
+    @ViewBuilder
+    private func chatsList(_ data: SidebarData) -> some View {
         let sections = data.sections ?? []
         ForEach(sections, id: \.rowID) { section in
             sectionHeader(section)

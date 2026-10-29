@@ -22,7 +22,7 @@ struct SidebarTests {
       ],
       "links": {"new_chat": "/482139075/chats/new?project_id=3", "bots": "/482139075/bots", "settings": "/482139075/settings",
                 "projects": "/482139075/projects", "new_project": "/482139075/projects/new",
-                "organizations": "/accounts", "new_organization": "/accounts/new"},
+                "organizations": "/accounts", "new_organization": "/accounts/new", "instructions": "/482139075/projects/3/instructions"},
       "waiting": {"count": 1, "items": [{"title": "Launch date in #launch", "url": "/482139075/chats/42", "kind": "approval", "project": "Website relaunch"}]},
       "bots": {"count": 0, "attention": false, "next_run": "08:30"},
       "pins": [{"number": 40, "title": "Q3 launch plan", "url": "/482139075/chats/40", "state": "idle", "waiting": false, "project": null, "asked_at": "2026-10-20T08:12:00Z", "group": "Previous 7 days"}],
@@ -43,6 +43,7 @@ struct SidebarTests {
         #expect(data.person.avatarUrl == nil)
         #expect(data.list.isProject)
         #expect(data.links.newChat == "/482139075/chats/new?project_id=3")
+        #expect(data.links.instructions == "/482139075/projects/3/instructions")
         #expect(data.waiting.items.first?.kind == "approval")
         #expect(data.bots?.nextRun == "08:30")
         #expect(data.chats[0].isWaiting && !data.chats[0].isWorking)

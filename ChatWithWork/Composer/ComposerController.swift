@@ -30,6 +30,7 @@ final class ComposerController: NSObject {
     private weak var screen: VisitableViewController?
     private let recorder = DictationRecorder()
     private var startingDictation = false
+    private var lastLayout: CGSize?
     private let environment: AppEnvironment
 
     /// The composer on `screen`, made and docked the first time it's asked for.
@@ -55,15 +56,27 @@ final class ComposerController: NSObject {
         view.onDictate = { [weak self] in self?.startDictating() }
         view.onStopDictating = { [weak self] in self?.finishDictating() }
         view.onCancelDictating = { [weak self] in self?.cancelDictating() }
+        view.onLayout = { [weak self] in self?.reportLayout() }
         view.levelSource = { [weak self] in self?.recorder.level ?? 0 }
         recorder.onLimit = { [weak self] in self?.finishDictating() }
     }
 
     func update(_ state: ComposerState, connected: Bool) {
+        if let screen { KeyboardAvoidance.setOverlay(state.overlay, on: screen) }
         view.update(state)
         onState?(state)
         guard connected else { return }
+        lastLayout = nil
+        view.setNeedsLayout()
         takePending()
+    }
+
+    private func reportLayout() {
+        guard view.state?.overlay == true, let screen, view.bounds.height > 0, screen.visitableView.bounds.width > 0 else { return }
+        let size = CGSize(width: screen.visitableView.bounds.width, height: view.bounds.height)
+        guard size != lastLayout else { return }
+        lastLayout = size
+        send?(.layout(height: Double(size.height), width: Double(size.width)))
     }
 
     /// What a share, a widget or a Live Activity left for the next composer:

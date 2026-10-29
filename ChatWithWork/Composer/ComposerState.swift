@@ -32,6 +32,7 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
         let progress: Double?
     }
 
+    let overlay: Bool
     let placeholder: String
     /// The words the web composer already holds (a shared link waiting, a
     /// restored draft), files left out.
@@ -52,6 +53,7 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
+        overlay = try values.decodeIfPresent(Bool.self, forKey: .overlay) ?? false
         placeholder = try values.decodeIfPresent(String.self, forKey: .placeholder) ?? ""
         text = try values.decodeIfPresent(String.self, forKey: .text) ?? ""
         locked = try values.decodeIfPresent(Bool.self, forKey: .locked) ?? false
@@ -67,7 +69,7 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case placeholder, text, locked, lockReason, working, stopping, models, webSearch, dictation, csrfToken, attachments, acceptsFiles
+        case overlay, placeholder, text, locked, lockReason, working, stopping, models, webSearch, dictation, csrfToken, attachments, acceptsFiles
     }
 
     /// Whether Send can go now: words or files, nothing still uploading, and
@@ -107,6 +109,7 @@ nonisolated enum ComposerAction: Encodable, Equatable, Sendable {
     case attach(files: [ComposerFile])
     case remove(id: String)
     case text(String)
+    case layout(height: Double, width: Double)
 
     func encode(to encoder: Encoder) throws {
         var values = encoder.container(keyedBy: Key.self)
@@ -131,11 +134,15 @@ nonisolated enum ComposerAction: Encodable, Equatable, Sendable {
         case .text(let text):
             try values.encode("text", forKey: .action)
             try values.encode(text, forKey: .text)
+        case .layout(let height, let width):
+            try values.encode("layout", forKey: .action)
+            try values.encode(height, forKey: .height)
+            try values.encode(width, forKey: .width)
         }
     }
 
     private enum Key: String, CodingKey {
-        case action, text, index, on, files, id
+        case action, text, index, on, files, id, height, width
     }
 }
 

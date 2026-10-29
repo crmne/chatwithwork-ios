@@ -9,6 +9,15 @@ import UserNotifications
 /// message's data, so every payload here carries it too.
 @Suite("Bridge contract")
 struct BridgeContractTests {
+    @Test("the composer overlay reports native dimensions in one coordinate space")
+    func composerLayout() throws {
+        let data = try JSONEncoder().encode(ComposerAction.layout(height: 136, width: 1024))
+        let payload = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(payload["action"] as? String == "layout")
+        #expect(payload["width"] as? Double == 1024)
+        #expect(payload["height"] as? Double == 136)
+    }
+
     private func message(_ component: String, _ event: String, _ json: String) -> Message {
         Message(
             id: "1",

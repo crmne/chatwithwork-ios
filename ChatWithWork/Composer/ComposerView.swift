@@ -6,7 +6,7 @@ import UIKit
 /// Send. While an answer works, Stop, with Send beside it once there are
 /// words to steer with. While dictation listens or transcribes, its line
 /// takes the field's place (DictationLine), since nobody types meanwhile.
-/// Docked above the keyboard; the web view ends above it.
+/// Floats over the conversation, above the keyboard.
 /// It only shows what the web composer's state says and reports what the
 /// person did (ComposerComponent); every rule stays the server's.
 final class ComposerView: UIView, UITextViewDelegate {
@@ -21,6 +21,7 @@ final class ComposerView: UIView, UITextViewDelegate {
     var onDictate: (() -> Void)?
     var onStopDictating: (() -> Void)?
     var onCancelDictating: (() -> Void)?
+    var onLayout: (() -> Void)?
 
     private(set) var state: ComposerState?
     private(set) var mode: Mode = .typing
@@ -58,6 +59,17 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?()
+    }
+
+    // The conversation is still interactive in the clear gutters around
+    // the box, including on an iPad where the composer is a narrow column.
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        box.convert(box.bounds, to: self).contains(point) || (!lockLabel.isHidden && lockLabel.convert(lockLabel.bounds, to: self).contains(point))
+    }
 
     // MARK: Building
 
@@ -98,6 +110,8 @@ final class ComposerView: UIView, UITextViewDelegate {
         plusButton.addAction(UIAction { [weak self] _ in self?.onPlus?() }, for: .primaryActionTriggered)
 
         configure(dictateButton, symbol: "mic", label: String(localized: "Dictate"), identifier: "composer.dictate")
+        dictateButton.layer.borderWidth = 0
+        dictateButton.tintColor = Palette.inkMuted
         dictateButton.addAction(UIAction { [weak self] _ in self?.onDictate?() }, for: .primaryActionTriggered)
         dictateButton.isHidden = true
 
@@ -392,16 +406,17 @@ final class ComposerView: UIView, UITextViewDelegate {
         if !webSearch.on, let note = webSearch.note, !note.isEmpty { flash(note) }
     }
 
-    /// On: the live wash and edge, as the web's pressed globe. Off: an
-    /// outline like "+". Faint where the model can't search.
+    /// On: the live wash and edge, as the web's pressed globe. Off: a
+    /// quiet icon, as on Android and the web. Faint where the model can't search.
     private func styleWebSearch() {
         let webSearch = state?.webSearch
         let on = webSearch?.on == true
         let inert = webSearch?.disabled == true || state?.locked == true || webSearchPending
         webSearchButton.isEnabled = !webSearchPending
-        webSearchButton.tintColor = on ? Palette.liveInk : Palette.ink
+        webSearchButton.tintColor = on ? Palette.liveInk : Palette.inkMuted
         webSearchButton.backgroundColor = on ? Palette.live.withAlphaComponent(0.12) : .clear
         webSearchButton.layer.borderColor = (on ? Palette.live.withAlphaComponent(0.4) : Palette.line).cgColor
+        webSearchButton.layer.borderWidth = on ? 1 : 0
         webSearchButton.alpha = inert ? 0.35 : 1
         webSearchButton.accessibilityValue = on ? String(localized: "On") : String(localized: "Off")
         webSearchButton.accessibilityHint = webSearch?.disabled == true ? webSearch?.note : nil
@@ -627,13 +642,15 @@ final class DictationLine: UIView {
             time.text = Self.clock(seconds)
             dot.isHidden = false
             waveform.isHidden = false
+            waveform.alpha = 1
             time.isHidden = false
             accessibilityLabel = String(localized: "Listening")
             accessibilityValue = Self.spokenDuration(seconds)
         case .transcribing:
             label.text = String(localized: "Transcribing…")
             dot.isHidden = true
-            waveform.isHidden = true
+            waveform.isHidden = false
+            waveform.alpha = 0.35
             time.isHidden = true
             accessibilityLabel = String(localized: "Transcribing")
             accessibilityValue = nil

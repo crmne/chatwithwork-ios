@@ -41,6 +41,7 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
         let organizations: String?
         let newOrganization: String?
         let decisions: String?
+        let instructions: String?
     }
 
     struct Waiting: Decodable, Equatable, Sendable {

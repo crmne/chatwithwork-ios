@@ -7,7 +7,7 @@ import { BridgeComponent } from "@hotwired/hotwire-native-bridge"
 // one connects again with what it is now.
 //
 // Web to app: connect {state}, then state {state} whenever it changes (an upload's progress, a lock):
-//   state = { placeholder, text, locked, lockReason, working, stopping, models: [{name, rate, selected, searchesWeb}],
+//   state = { overlay, placeholder, text, locked, lockReason, working, stopping, models: [{name, rate, selected, searchesWeb}],
 //             webSearch: {on, disabled, note} | null, dictation: {url} | null, csrfToken,
 //             attachments: [{id, name, size, contentType, uploading, progress}], acceptsFiles }
 // +text+ is the words the web composer holds (a shared link, a restored draft), files left out, for the app's empty field.
@@ -24,6 +24,7 @@ import { BridgeComponent } from "@hotwired/hotwire-native-bridge"
 //                      any file the composer takes
 //   remove {id}        takes a file out again
 //   text {text}        dictated words (the app records, and posts the audio to dictation.url itself)
+//   layout {height, width}  the composer's overlay height and web viewport width in native units
 export default class extends BridgeComponent {
   static component = "composer"
 
@@ -34,6 +35,7 @@ export default class extends BridgeComponent {
     this.element.addEventListener("lexxy:upload-progress", this.progressed = () => this.#changed())
     window.addEventListener("model-consent:given", this.consented = () => this.#changed())
     window.addEventListener("model-consent:declined", this.declined = () => this.#connectToApp())
+    window.addEventListener("resize", this.resized = () => this.#layout(this.layout))
     this.#connectToApp()
   }
 
@@ -42,6 +44,8 @@ export default class extends BridgeComponent {
     this.element.removeEventListener("lexxy:upload-progress", this.progressed)
     window.removeEventListener("model-consent:given", this.consented)
     window.removeEventListener("model-consent:declined", this.declined)
+    window.removeEventListener("resize", this.resized)
+    document.documentElement.style.removeProperty("--native-composer-height")
     clearTimeout(this.timer)
     super.disconnect()
   }
@@ -70,7 +74,16 @@ export default class extends BridgeComponent {
       case "attach": return (data.files || []).forEach(file => this.#attach(file))
       case "remove": return this.#remove(data.id)
       case "text": return this.element.dispatchEvent(new CustomEvent("dictation:text", { detail: { text: data.text || "", final: true } }))
+      case "layout": return this.#layout(data)
     }
+  }
+
+  #layout(data) {
+    if (!data || !Number.isFinite(data.height) || !Number.isFinite(data.width) || data.height < 0 || data.width <= 0) return
+
+    this.layout = data
+    const height = Math.min(window.innerHeight, data.height * window.innerWidth / data.width)
+    document.documentElement.style.setProperty("--native-composer-height", `${height}px`)
   }
 
   #sendText(text) {
@@ -127,6 +140,7 @@ export default class extends BridgeComponent {
     const dictation = element.dataset.dictationUrlValue && element.querySelector("[data-dictation-target=button]") && !consentNeeded
 
     return {
+      overlay: true,
       placeholder: editor?.getAttribute("placeholder") || "",
       text: this.#controller("chat")?.promptText || "",
       locked: element.classList.contains("composer--locked"),

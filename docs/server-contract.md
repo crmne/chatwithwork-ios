@@ -1219,6 +1219,12 @@ Android.
 
 ## 11. The sidebar
 
+**Instructions and order (2026-10-29).** Optional `links.instructions`
+opens the same notes as the chosen web chat list, including its project
+when applicable. The Chats view follows the web: list chooser, New chat,
+Instructions, pins, search, sections and chats. Decisions and the Chats |
+Bots switch stay above both views. Older servers can omit the link.
+
 Builds that register the `sidebar` bridge component (so the user agent's
 `bridge-components` lists it) drop the tab bar. `native_app.supports?(:sidebar)`
 is the server's switch for anything that differs.
@@ -1242,12 +1248,14 @@ is the server's switch for anything that differs.
   the bar's button or a swipe from the screen's left edge (on a root screen
   with nothing over it), closed by a tap or a swipe on the chat, or by picking
   something. Top to bottom: Decisions (below), the Chats | Bots switch (below), the list switcher (`list`, "Project" or
-  "Showing"; its menu lists `lists`, then All projects… and New project), a
-  search field (titles, natively; the first search loads `all=1`), New chat,
+  "Showing"; its menu lists `lists`, then All projects… and New project),
+  New chat, Instructions (`links.instructions`),
   from a server with neither `waiting.url` nor `links.decisions` the Decisions row (the list of
   `waiting.items`; earlier builds called it "Waiting for you"), from a server
   without `bots.items` the Bots row instead of the switch (`links.bots`, with
-  `bots`' count, dot, or next run), Pinned (`pins`), the person's own sections (`sections`, below),
+  `bots`' count, dot, or next run), Pinned (`pins`), the search field
+  (titles, natively; the first search loads `all=1`), then the person's
+  own sections (`sections`, below),
   then the chats under their `group` headings (under one "Other chats"
   heading instead when there are sections, as on the web)
   with a live dot while `state` is `processing` and an attention dot while
@@ -1426,13 +1434,29 @@ a closed sidebar refetches when it next opens.
 
 ## 12. The composer
 
+**Overlay layout (2026-10-29).** The server advertises `overlay: true` in
+composer state when it supports scroll clearance. Only then does the app
+float the composer over the page and reply `layout {height, width}` after
+every `connect` and whenever its size changes. If the flag is absent or
+false, the app keeps the page above the composer for older servers. `height` is the
+whole native composer, including its own padding and lock or notice line,
+but excluding the keyboard and system safe area. `width` is the full web
+viewport width, not the narrower composer column on a tablet. Both use
+the same native units (points on iOS, pixels on Android). The bridge
+converts the height to CSS pixels with `height * innerWidth / width`,
+sets `--native-composer-height`, and clears it when the composer leaves.
+The conversation has that height plus 1.5rem of bottom padding; older apps
+leave the variable unset and keep their previous clearance.
+
 Builds that register `composer` draw the chat's composer themselves. The web
 composer (`#new_message`) carries `bridge--composer`
 (`web/controllers/bridge/composer_controller.js`) and stays in the page,
 hidden by native.css, so every rule it carries still holds: locks, who may
 steer, the queue, files waiting for their scan, the model and web search.
-The conversation then ends just above the page's bottom, and the app lays
-its web view out above its own composer, which rides on the keyboard.
+The native composer floats over the conversation. The web view and the
+composer both end above the keyboard, or the home indicator while it is
+down. Only the rounded composer box has a surface; the conversation stays
+visible and interactive through its clear margins.
 
 ### Messages
 
@@ -1440,7 +1464,7 @@ Web to app: `connect`, then `state` whenever something changes (an
 upload's progress, a lock, an answer starting or ending), both with:
 
 ```json
-{ "placeholder": "Reply to Chat with Work", "text": "", "locked": false, "lockReason": null,
+{ "overlay": true, "placeholder": "Reply to Chat with Work", "text": "", "locked": false, "lockReason": null,
   "working": false, "stopping": false,
   "models": [{"name": "Gemini 3.8 Flash", "rate": "About 2 credits per answer", "selected": true, "searchesWeb": true}],
   "webSearch": {"on": false, "disabled": false, "note": "..."},
@@ -1479,6 +1503,7 @@ App to web, as replies to `connect`, `{action, ...}`:
 | `attach` | `{files: [{name, type, data}]}` | uploads files the app picked, photographed or scanned (`data` base64) like any file the composer takes |
 | `remove` | `{id}` | takes a file out |
 | `text` | `{text}` | dictated words, for the web composer too |
+| `layout` | `{height, width}` | native overlay height and full web viewport width in the same units; leaves scroll clearance below the conversation |
 
 ### What the app draws
 
@@ -1519,7 +1544,7 @@ field's place, as the web composer's `[data-dictating]` line does, since
 nobody types meanwhile: a live dot and "Listening", the microphone's level
 as bars across the composer, newest on the right (still bars lit to the
 level under Reduce Motion), and the time listened (`0:12`); then
-"Transcribing…" alone (`composer.dictation`, read by VoiceOver as one
+"Transcribing…" with the waveform faded (`composer.dictation`, read by VoiceOver as one
 element with the time in words). A stop button sits in Send's place and a
 cancel button on the left; the rest of the bar steps aside. The field
 comes back, with the words, once they're transcribed. It posts the

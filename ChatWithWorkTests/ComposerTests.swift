@@ -9,7 +9,7 @@ import UIKit
 @Suite("Composer")
 struct ComposerTests {
     static let state = """
-    {"placeholder":"Reply to Chat with Work","text":"Shared: https://example.com","locked":false,"lockReason":null,
+    {"overlay":true,"placeholder":"Reply to Chat with Work","text":"Shared: https://example.com","locked":false,"lockReason":null,
      "working":true,"stopping":false,
      "models":[{"name":"Gemini 3.8 Flash","rate":"About 2 credits per answer","selected":true,"searchesWeb":true},
                {"name":"Qwen3.8-27B","rate":"Free","selected":false,"searchesWeb":false}],
@@ -30,6 +30,7 @@ struct ComposerTests {
         let decoded = try #require(state)
         #expect(decoded.text == "Shared: https://example.com")
         #expect(decoded.working)
+        #expect(decoded.overlay)
         #expect(decoded.selectedModel?.name == "Gemini 3.8 Flash")
         #expect(decoded.webSearch?.note == "Searches leave the EU.")
         #expect(decoded.dictation?.url == "/482139075/dictations")
@@ -41,6 +42,7 @@ struct ComposerTests {
     func minimal() {
         let state: ComposerState? = message("state", #"{"placeholder":"Ask anything","locked":true,"lockReason":"Out of credits"}"#).data()
         #expect(state?.locked == true)
+        #expect(state?.overlay == false)
         #expect(state?.models.isEmpty == true)
         #expect(state?.webSearch == nil)
         #expect(state?.acceptsFiles == false)
@@ -103,7 +105,8 @@ struct ComposerTests {
         (.model(index: 1), #"{"action":"model","index":1}"#),
         (.webSearch(on: true), #"{"action":"webSearch","on":true}"#),
         (.remove(id: "7"), #"{"action":"remove","id":"7"}"#),
-        (.text("words"), #"{"action":"text","text":"words"}"#)
+        (.text("words"), #"{"action":"text","text":"words"}"#),
+        (.layout(height: 122, width: 402), #"{"action":"layout","height":122,"width":402}"#)
     ])
     func actions(action: ComposerAction, json: String) throws {
         let encoder = JSONEncoder()
