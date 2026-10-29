@@ -2,9 +2,9 @@
 
 The iPhone and iPad app for [Chat with Work](https://chatwithwork.com): AI bots in
 Europe. They work. You just decide. Your team's bots do their chores across
-the tools you connect, and every change or question that needs you waits in
-one queue you work through from your phone. It runs on our servers in Germany
-with every model in the EU, or on your own servers.
+the tools you connect, and every change or question that needs you waits on
+the Decisions page for you to work through from your phone. It runs on our
+servers in Germany with every model in the EU, or on your own servers.
 
 The app is built with [Hotwire Native](https://native.hotwired.dev). Its
 screens are the web app's own pages, so every feature the web app gains
