@@ -1313,8 +1313,10 @@ or a quiet "None" at 0. VoiceOver reads "Decisions" and "N waiting" or
 data as before, no new keys. A server with neither `waiting.url` nor
 `links.decisions` keeps the Decisions row lower in the sidebar instead. Builds from 2026-10-27 to
 2026-10-28 drew it as a pill in the root screen's bar beside the sidebar
-button (`shell.decisions`); that pill is gone, and the app fetches the JSON
-only while the sidebar is open again.
+button (`shell.decisions`); that pill is gone, and returning to the
+foreground or a `changed` refetches the JSON only while the sidebar is open
+again (launch still fetches it once when deciding whether to reopen a
+recent chat).
 
 **Decisions (server, 2026-10-26).** `waiting` now lists decisions, not chats:
 everything waiting for the person across their chats, agents, bots' runs

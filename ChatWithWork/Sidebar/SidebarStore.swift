@@ -66,7 +66,12 @@ final class SidebarStore {
 
     // MARK: Loading
 
+    // How many times the list was marked stale, so a fetch that began before
+    // the latest change can't call the list fresh when it lands.
+    private var staleMarks = 0
+
     func markStale() {
+        staleMarks += 1
         stale = true
         everyChat = nil
     }
@@ -79,6 +84,7 @@ final class SidebarStore {
         guard let url = sidebarURL(all: false) else { return }
         generation += 1
         let mine = generation
+        let marks = staleMarks
         isLoading = true
         defer { if mine == generation { isLoading = false } }
 
@@ -87,7 +93,7 @@ final class SidebarStore {
             guard mine == generation else { return }
             data = fresh
             failure = nil
-            stale = false
+            stale = staleMarks != marks
             if let newChat = fresh.links.newChat, let account { memory.setNewChatPath(newChat, in: account) }
         case .failure(let failure):
             guard mine == generation else { return }
