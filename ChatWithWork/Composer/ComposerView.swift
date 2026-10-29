@@ -1,9 +1,12 @@
 import UIKit
 
 /// The composer the app draws over a chat: the words, the files on their
-/// way, and the web's controls, "+" (the attach sheet), the model, and
+/// way, and the web's controls, each one tap away as in the web's bar: "+"
+/// (the attach sheet), the microphone, the web search globe, the model, and
 /// Send. While an answer works, Stop, with Send beside it once there are
-/// words to steer with. Docked above the keyboard; the web view ends above it.
+/// words to steer with. While dictation listens or transcribes, its line
+/// takes the field's place (DictationLine), since nobody types meanwhile.
+/// Docked above the keyboard; the web view ends above it.
 /// It only shows what the web composer's state says and reports what the
 /// person did (ComposerComponent); every rule stays the server's.
 final class ComposerView: UIView, UITextViewDelegate {
@@ -24,19 +27,28 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     private let box = RainbowBox()
     private let lockLabel = UILabel()
+    // A line shown for a moment in the lock's place (flash), until it times out.
+    private var flashing: String?
+    private var flashGeneration = 0
+    var scheduleFlashExpiration: (@escaping @MainActor @Sendable () -> Void) -> Void = { expire in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { expire() }
+    }
+    private var webSearchPending = false
     private let chipsScroll = UIScrollView()
     private let chips = UIStackView()
     let textView = UITextView()
     private let placeholder = UILabel()
     private let plusButton = UIButton(type: .system)
+    private let dictateButton = UIButton(type: .system)
+    private let webSearchButton = UIButton(type: .system)
     private let modelButton = UIButton(type: .system)
     private let stopButton = UIButton(type: .system)
     private let sendButton = UIButton(type: .system)
-    private let meter = LevelMeter()
-    private let status = UILabel()
+    private let dictationLine = DictationLine()
     private let cancelButton = UIButton(type: .system)
     private var textHeight: NSLayoutConstraint!
     private var meterTimer: Timer?
+    private var recordingStarted: Date?
     var levelSource: (() -> Float)?
 
     override init(frame: CGRect) {
@@ -85,6 +97,14 @@ final class ComposerView: UIView, UITextViewDelegate {
         configure(plusButton, symbol: "plus", label: String(localized: "Add"), identifier: "composer.plus")
         plusButton.addAction(UIAction { [weak self] _ in self?.onPlus?() }, for: .primaryActionTriggered)
 
+        configure(dictateButton, symbol: "mic", label: String(localized: "Dictate"), identifier: "composer.dictate")
+        dictateButton.addAction(UIAction { [weak self] _ in self?.onDictate?() }, for: .primaryActionTriggered)
+        dictateButton.isHidden = true
+
+        configure(webSearchButton, symbol: "globe", label: String(localized: "Search the web"), identifier: "composer.webSearch")
+        webSearchButton.addAction(UIAction { [weak self] _ in self?.webSearchTapped() }, for: .primaryActionTriggered)
+        webSearchButton.isHidden = true
+
         modelButton.showsMenuAsPrimaryAction = true
         modelButton.accessibilityIdentifier = "composer.model"
         var modelConfiguration = UIButton.Configuration.plain()
@@ -113,19 +133,16 @@ final class ComposerView: UIView, UITextViewDelegate {
         cancelButton.addAction(UIAction { [weak self] _ in self?.onCancelDictating?() }, for: .primaryActionTriggered)
         cancelButton.isHidden = true
 
-        status.font = .preferredFont(forTextStyle: .subheadline)
-        status.textColor = Palette.inkMuted
-        status.isHidden = true
-        meter.isHidden = true
+        dictationLine.isHidden = true
 
         let spacer = UIView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let controls = UIStackView(arrangedSubviews: [plusButton, cancelButton, meter, status, spacer, modelButton, stopButton, sendButton])
+        let controls = UIStackView(arrangedSubviews: [plusButton, dictateButton, webSearchButton, cancelButton, spacer, modelButton, stopButton, sendButton])
         controls.axis = .horizontal
         controls.alignment = .center
         controls.spacing = 6
 
-        let inner = UIStackView(arrangedSubviews: [chipsScroll, textView, controls])
+        let inner = UIStackView(arrangedSubviews: [chipsScroll, textView, dictationLine, controls])
         inner.axis = .vertical
         inner.spacing = 2
         inner.translatesAutoresizingMaskIntoConstraints = false
@@ -165,9 +182,14 @@ final class ComposerView: UIView, UITextViewDelegate {
             sendButton.heightAnchor.constraint(equalToConstant: 34),
             plusButton.widthAnchor.constraint(equalToConstant: 34),
             plusButton.heightAnchor.constraint(equalToConstant: 34),
+            dictateButton.widthAnchor.constraint(equalToConstant: 34),
+            dictateButton.heightAnchor.constraint(equalToConstant: 34),
+            webSearchButton.widthAnchor.constraint(equalToConstant: 34),
+            webSearchButton.heightAnchor.constraint(equalToConstant: 34),
             cancelButton.widthAnchor.constraint(equalToConstant: 34),
-            meter.widthAnchor.constraint(equalToConstant: 120),
-            meter.heightAnchor.constraint(equalToConstant: 24)
+            cancelButton.heightAnchor.constraint(equalToConstant: 34),
+            // As tall as the field at rest, so the box doesn't jump.
+            dictationLine.heightAnchor.constraint(equalToConstant: 40)
         ])
         modelButton.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         refreshControls()
@@ -185,7 +207,8 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
-        [plusButton, cancelButton].forEach { $0.layer.borderColor = Palette.line.cgColor }
+        [plusButton, dictateButton, cancelButton].forEach { $0.layer.borderColor = Palette.line.cgColor }
+        styleWebSearch()
         sendButton.backgroundColor = Palette.ink
         styleStop()
     }
@@ -193,10 +216,10 @@ final class ComposerView: UIView, UITextViewDelegate {
     // MARK: State
 
     func update(_ state: ComposerState) {
+        webSearchPending = false
         self.state = state
         placeholder.text = state.placeholder.isEmpty ? String(localized: "Ask anything") : state.placeholder
-        lockLabel.text = state.lockReason
-        lockLabel.isHidden = !(state.locked && state.lockReason?.isEmpty == false)
+        showLockOrFlash()
         textView.isEditable = !state.locked
         if state.locked { textView.resignFirstResponder() }
 
@@ -231,32 +254,55 @@ final class ComposerView: UIView, UITextViewDelegate {
         meterTimer = nil
         switch mode {
         case .typing:
-            status.text = nil
+            recordingStarted = nil
+            dictationLine.reset()
         case .recording:
-            status.text = nil
+            let started = Date()
+            recordingStarted = started
+            dictationLine.show(.listening(seconds: 0))
             meterTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self else { return }
-                    self.meter.push(self.levelSource?() ?? 0)
+                    self.dictationLine.push(self.levelSource?() ?? 0)
+                    self.dictationLine.show(.listening(seconds: Int(Date().timeIntervalSince(started))))
                 }
             }
-            UIAccessibility.post(notification: .announcement, argument: String(localized: "Recording. Tap stop when you're done."))
+            UIAccessibility.post(notification: .announcement, argument: String(localized: "Listening. Tap stop when you're done."))
         case .transcribing:
-            status.text = String(localized: "Transcribing…")
+            dictationLine.show(.transcribing)
+            UIAccessibility.post(notification: .announcement, argument: String(localized: "Transcribing"))
         }
         refreshControls()
+        if mode == .typing, !textView.text.isEmpty {
+            // The words are back in the field: VoiceOver goes there.
+            UIAccessibility.post(notification: .layoutChanged, argument: textView)
+        }
     }
 
     /// Shows a line in place of the words for a moment, like a refusal.
+    /// The page's next state, which often follows at once (web search
+    /// turning on), leaves it up for its moment; only a lock replaces it.
     func flash(_ message: String) {
-        lockLabel.text = message
-        lockLabel.isHidden = false
+        flashGeneration += 1
+        let generation = flashGeneration
+        flashing = message
+        showLockOrFlash()
         UIAccessibility.post(notification: .announcement, argument: message)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
-            guard let self, self.lockLabel.text == message else { return }
-            self.lockLabel.isHidden = !(self.state?.locked == true && self.state?.lockReason?.isEmpty == false)
-            self.lockLabel.text = self.state?.lockReason
+        scheduleFlashExpiration { [weak self] in
+            guard let self, self.flashGeneration == generation else { return }
+            self.flashing = nil
+            self.showLockOrFlash()
         }
+    }
+
+    /// Why the composer is locked, else the line flashing, else nothing.
+    private func showLockOrFlash() {
+        if state?.locked == true, let reason = state?.lockReason, !reason.isEmpty {
+            lockLabel.text = reason
+        } else {
+            lockLabel.text = flashing
+        }
+        lockLabel.isHidden = lockLabel.text?.isEmpty != false
     }
 
     private func refreshControls() {
@@ -266,12 +312,16 @@ final class ComposerView: UIView, UITextViewDelegate {
         let busy = recording || transcribing
 
         textView.isHidden = busy
+        dictationLine.isHidden = !busy
         placeholder.isHidden = !textView.text.isEmpty
-        meter.isHidden = !recording
-        status.isHidden = !transcribing
         cancelButton.isHidden = !busy
         plusButton.isHidden = busy
-        plusButton.isEnabled = state?.locked != true
+        plusButton.isEnabled = state?.locked != true && state?.acceptsFiles != false
+        dictateButton.isHidden = busy || state?.dictation == nil
+        dictateButton.isEnabled = state?.locked != true
+        dictateButton.alpha = dictateButton.isEnabled ? 1 : 0.35
+        webSearchButton.isHidden = busy || state?.webSearch == nil
+        styleWebSearch()
         modelButton.isHidden = busy || state == nil || state?.locked == true || state?.working == true || (state?.models.isEmpty ?? true)
 
         let text = textView.text ?? ""
@@ -323,6 +373,39 @@ final class ComposerView: UIView, UITextViewDelegate {
         onAction?(.send(text: text))
         textView.text = ""
         refreshControls()
+    }
+
+    /// The globe switches web search like the sheet's switch. Where the
+    /// model can't search it stays, faint, and says why. A locked composer
+    /// changes nothing, as its other buttons.
+    private func webSearchTapped() {
+        guard mode == .typing, !webSearchPending, state?.locked != true, let webSearch = state?.webSearch else { return }
+        if webSearch.disabled {
+            if let note = webSearch.note, !note.isEmpty { flash(note) }
+            return
+        }
+        webSearchPending = true
+        styleWebSearch()
+        UISelectionFeedbackGenerator().selectionChanged()
+        onAction?(.webSearch(on: !webSearch.on))
+        // Turning it on says where searches go, as the web's switch does beside it.
+        if !webSearch.on, let note = webSearch.note, !note.isEmpty { flash(note) }
+    }
+
+    /// On: the live wash and edge, as the web's pressed globe. Off: an
+    /// outline like "+". Faint where the model can't search.
+    private func styleWebSearch() {
+        let webSearch = state?.webSearch
+        let on = webSearch?.on == true
+        let inert = webSearch?.disabled == true || state?.locked == true || webSearchPending
+        webSearchButton.isEnabled = !webSearchPending
+        webSearchButton.tintColor = on ? Palette.liveInk : Palette.ink
+        webSearchButton.backgroundColor = on ? Palette.live.withAlphaComponent(0.12) : .clear
+        webSearchButton.layer.borderColor = (on ? Palette.live.withAlphaComponent(0.4) : Palette.line).cgColor
+        webSearchButton.alpha = inert ? 0.35 : 1
+        webSearchButton.accessibilityValue = on ? String(localized: "On") : String(localized: "Off")
+        webSearchButton.accessibilityHint = webSearch?.disabled == true ? webSearch?.note : nil
+        webSearchButton.accessibilityTraits = inert ? (on ? [.button, .selected, .notEnabled] : [.button, .notEnabled]) : on ? [.button, .selected] : .button
     }
 
     private func stopTapped() {
@@ -479,33 +562,162 @@ private final class AttachmentChip: UIView {
     }
 }
 
-/// The microphone's level, as a row of bars that scroll in from the right.
-private final class LevelMeter: UIView {
-    private var levels = [Float](repeating: 0, count: 24)
+/// Dictation's line, in the field's place while it listens or transcribes,
+/// as the web composer's `[data-dictating]` line: a live dot and
+/// "Listening", the microphone's level across the composer, and how long
+/// it has listened; or "Transcribing" alone. VoiceOver reads it as one
+/// element: what it's doing, and the time.
+final class DictationLine: UIView {
+    enum Phase: Equatable {
+        case listening(seconds: Int)
+        case transcribing
+    }
+
+    private let dot = UIView()
+    private let label = UILabel()
+    private let waveform = Waveform()
+    private let time = UILabel()
+    private(set) var phase: Phase?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        accessibilityIdentifier = "composer.dictation"
+        isAccessibilityElement = true
+        accessibilityTraits = .updatesFrequently
+
+        dot.backgroundColor = Palette.live
+        dot.layer.cornerRadius = 3.5
+        label.font = .preferredFont(forTextStyle: .subheadline)
+        label.adjustsFontForContentSizeCategory = true
+        label.textColor = Palette.inkMuted
+        label.setContentHuggingPriority(.required, for: .horizontal)
+        label.setContentCompressionResistancePriority(.required, for: .horizontal)
+        time.font = .monospacedDigitSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .footnote).pointSize, weight: .regular)
+        time.textColor = Palette.inkMuted
+        time.setContentHuggingPriority(.required, for: .horizontal)
+        time.setContentCompressionResistancePriority(.required, for: .horizontal)
+        waveform.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+        let stack = UIStackView(arrangedSubviews: [dot, label, waveform, time])
+        stack.axis = .horizontal
+        stack.alignment = .center
+        stack.spacing = 10
+        stack.setCustomSpacing(6, after: dot)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            stack.centerYAnchor.constraint(equalTo: centerYAnchor),
+            dot.widthAnchor.constraint(equalToConstant: 7),
+            dot.heightAnchor.constraint(equalToConstant: 7),
+            waveform.heightAnchor.constraint(equalToConstant: 28)
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func show(_ phase: Phase) {
+        guard phase != self.phase else { return }
+        self.phase = phase
+        switch phase {
+        case .listening(let seconds):
+            label.text = String(localized: "Listening")
+            time.text = Self.clock(seconds)
+            dot.isHidden = false
+            waveform.isHidden = false
+            time.isHidden = false
+            accessibilityLabel = String(localized: "Listening")
+            accessibilityValue = Self.spokenDuration(seconds)
+        case .transcribing:
+            label.text = String(localized: "Transcribing…")
+            dot.isHidden = true
+            waveform.isHidden = true
+            time.isHidden = true
+            accessibilityLabel = String(localized: "Transcribing")
+            accessibilityValue = nil
+        }
+    }
+
+    func push(_ level: Float) {
+        waveform.push(level)
+    }
+
+    func reset() {
+        phase = nil
+        waveform.clear()
+    }
+
+    /// "0:07", "1:23", as the web's dictation clock.
+    static func clock(_ seconds: Int) -> String {
+        "\(seconds / 60):" + String(format: "%02d", seconds % 60)
+    }
+
+    /// "7 seconds", "1 minute, 23 seconds", for VoiceOver.
+    static func spokenDuration(_ seconds: Int, locale: Locale = .current) -> String {
+        let formatter = DateComponentsFormatter()
+        var calendar = Calendar.current
+        calendar.locale = locale
+        formatter.calendar = calendar
+        formatter.unitsStyle = .full
+        formatter.allowedUnits = seconds >= 60 ? [.minute, .second] : [.second]
+        return formatter.string(from: TimeInterval(seconds)) ?? ""
+    }
+}
+
+/// The microphone's level as neutral bars across the composer, newest on
+/// the right, each as tall as the level (as the web's
+/// `.chat-prompt__waveform`). Under Reduce Motion the bars stand still,
+/// half height, lit up to the level.
+private final class Waveform: UIView {
+    private static let barWidth: CGFloat = 3
+    private static let gap: CGFloat = 2
+    private var levels: [Float] = []
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .clear
-        isAccessibilityElement = true
-        accessibilityLabel = String(localized: "Recording")
-        accessibilityTraits = .updatesFrequently
+        isOpaque = false
+        contentMode = .redraw
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func push(_ level: Float) {
-        levels.removeFirst()
-        levels.append(UIAccessibility.isReduceMotionEnabled ? 0.5 : level)
+        levels.append(max(0, min(1, level)))
+        if levels.count > 200 { levels.removeFirst(levels.count - 200) }
+        setNeedsDisplay()
+    }
+
+    func clear() {
+        levels = []
         setNeedsDisplay()
     }
 
     override func draw(_ rect: CGRect) {
-        let step = rect.width / CGFloat(levels.count)
-        Palette.inkMuted.setFill()
-        for (index, level) in levels.enumerated() {
-            let height = max(2, rect.height * CGFloat(level))
-            UIBezierPath(roundedRect: CGRect(x: CGFloat(index) * step, y: (rect.height - height) / 2, width: step * 0.55, height: height), cornerRadius: 1).fill()
+        let step = Self.barWidth + Self.gap
+        let count = max(1, Int((rect.width + Self.gap) / step))
+        let still = UIAccessibility.isReduceMotionEnabled
+        let latest = CGFloat(levels.last ?? 0)
+        let shown = Array(levels.suffix(count))
+        // Bars not yet heard sit flat on the left, so the newest is always on the right.
+        let padded = [Float](repeating: 0, count: count - shown.count) + shown
+        for (index, level) in padded.enumerated() {
+            let x = rect.maxX - CGFloat(count - index) * step + Self.gap
+            let scale: CGFloat
+            let alpha: CGFloat
+            if still {
+                scale = 0.5
+                alpha = 0.25 + 0.75 * latest
+            } else {
+                scale = 0.08 + 0.92 * CGFloat(level)
+                alpha = 1
+            }
+            let height = max(2, rect.height * scale)
+            Palette.inkMuted.withAlphaComponent(alpha).setFill()
+            UIBezierPath(roundedRect: CGRect(x: x, y: (rect.height - height) / 2, width: Self.barWidth, height: height), cornerRadius: 1).fill()
         }
     }
 }

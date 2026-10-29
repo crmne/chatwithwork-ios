@@ -29,6 +29,7 @@ final class ComposerController: NSObject {
 
     private weak var screen: VisitableViewController?
     private let recorder = DictationRecorder()
+    private var startingDictation = false
     private let environment: AppEnvironment
 
     /// The composer on `screen`, made and docked the first time it's asked for.
@@ -51,6 +52,7 @@ final class ComposerController: NSObject {
 
         view.onAction = { [weak self] action in self?.send?(action) }
         view.onPlus = { [weak self] in self?.presentAttachSheet() }
+        view.onDictate = { [weak self] in self?.startDictating() }
         view.onStopDictating = { [weak self] in self?.finishDictating() }
         view.onCancelDictating = { [weak self] in self?.cancelDictating() }
         view.levelSource = { [weak self] in self?.recorder.level ?? 0 }
@@ -106,14 +108,15 @@ final class ComposerController: NSObject {
         guard let screen, let state = view.state else { return }
         view.textView.resignFirstResponder()
 
-        let options = AttachOptions(acceptsFiles: state.acceptsFiles, canDictate: state.dictation != nil && !state.locked, webSearch: state.webSearch)
+        let options = AttachOptions(acceptsFiles: state.acceptsFiles)
         var host: UIHostingController<AttachSheet>!
         host = UIHostingController(rootView: AttachSheet(options: options) { [weak self] choice in
             host.dismiss(animated: true) { self?.handle(choice) }
         })
         host.view.backgroundColor = Palette.surface
         if let sheet = host.sheetPresentationController {
-            sheet.detents = [.custom { _ in 300 }, .medium()]
+            // The recent photos and one row of tiles.
+            sheet.detents = [.custom { _ in 240 }, .medium()]
             sheet.prefersGrabberVisible = true
             sheet.preferredCornerRadius = 28
         }
@@ -126,8 +129,6 @@ final class ComposerController: NSObject {
         case .photos: presentPhotos()
         case .files: presentFiles()
         case .scan: presentScanner()
-        case .dictate: startDictating()
-        case .webSearch(let on): send?(.webSearch(on: on))
         case .recent(let asset):
             Task {
                 if let image = await RecentPhotos.data(asset), let file = ComposerFiles.photo(image) { attach([file]) }
@@ -175,9 +176,11 @@ final class ComposerController: NSObject {
     // MARK: Dictation
 
     func startDictating() {
-        guard view.mode == .typing, view.state?.dictation != nil else { return }
+        guard view.mode == .typing, !startingDictation, view.state?.dictation != nil else { return }
+        startingDictation = true
         view.textView.resignFirstResponder()
         Task {
+            defer { startingDictation = false }
             do {
                 try await recorder.start()
                 view.setMode(.recording)
