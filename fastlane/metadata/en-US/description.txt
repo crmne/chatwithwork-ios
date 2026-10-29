@@ -8,7 +8,7 @@ In the app:
 • Read your morning briefing, ready before you start.
 • Ask anything about your work and get answers with their sources.
 • Get a notification when something waits for you.
-• Dictate instead of typing: speech is transcribed on our servers in the EU.
+• Dictate instead of typing: speech is transcribed in the EU.
 • Rate an answer, or report one as offensive or harmful, from its menu.
 
 BOTS THAT WORK WHILE YOU'RE AWAY
@@ -18,7 +18,7 @@ CHANGES ASK FIRST
 Every tool you connect starts at Read. Changes ask first, shown exactly as they'll run, unless you let a bot or a chat run them. Admins decide what the organization allows.
 
 EVERY TOOL YOU USE
-Files, mail, chat, projects, CRM, and finance tools, the vendors' own MCP servers, and your own. You connect them on chatwithwork.com, and the app uses them from then on.
+Files, mail, chat, projects, CRM, and finance tools, the vendors' own MCP servers, and your own. Connect your tools in the app or on chatwithwork.com.
 
 BUILT FOR TEAMS
 Share bots and chats in projects. Each person's connected accounts stay their own: sharing a chat shares the answers, not access to the sources.
