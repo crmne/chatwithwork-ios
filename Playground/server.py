@@ -530,6 +530,9 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
                     <span class="micro">{esc(m_rate)}</span>
                   </button>
                 </li>""" for m_id, m_provider, m_name, m_logo, m_description, m_rate in MODELS)
+    # chats/_model_picker leaves its options out while an answer works.
+    menu = "" if working else f"""<ul tabindex="-1" class="dropdown-content menu model-picker__menu z-50" role="listbox" aria-label="Models">{options}
+              </ul>"""
     project_field = f'\n      <input type="hidden" name="project_id" value="{project}">' if project else ""
     return f"""
     <div id="new_message" class="composer rainbow-glow{' composer--working' if working else ''}"
@@ -565,15 +568,14 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
             <input type="hidden" name="provider" value="{provider_key}" data-model-select-target="provider">
 
             <div class="dropdown dropdown-top dropdown-end">
-              <div tabindex="0" role="button" class="model-picker__trigger" data-model-select-target="trigger"
+              <div tabindex="{-1 if working else 0}" role="button" class="model-picker__trigger" data-model-select-target="trigger"
                    aria-label="Model: {esc(name)}" aria-haspopup="listbox">
                 {provider(logo).replace('<img ', '<img data-model-select-target="icon" ', 1)}
                 <span data-model-select-target="label">{esc(name)}</span>
                 {icon("caret-up-down")}
               </div>
 
-              <ul tabindex="-1" class="dropdown-content menu model-picker__menu z-50" role="listbox" aria-label="Models">{options}
-              </ul>
+              {menu}
             </div>
           </div>
           {send}
@@ -1481,6 +1483,15 @@ class Handler(BaseHTTPRequestHandler):
                              "when": "Today", "processing": False}
             self.session["asked"][number] = [form.get("message[content]") or ""]
             return self.redirect(f"/{account}/chats/{number}")
+        if m := re.fullmatch(r"/chats/(\d+)/cancellation", rest):
+            # Stop ends the answer, and the server draws the composer again
+            # (Chat#broadcast_composer); here, as a Turbo Stream.
+            number = int(m.group(1))
+            CHATS[number]["processing"] = False
+            if "text/vnd.turbo-stream.html" not in self.headers.get("Accept", ""):
+                return self.redirect(f"/{account}/chats/{number}")
+            return self.send(200, turbo_stream("update", "chat_form", composer(self, account, number)),
+                             "text/vnd.turbo-stream.html; charset=utf-8")
         if m := re.fullmatch(r"/chats/(\d+)/messages", rest):
             # The server answers a reply with 200 and broadcasts the messages;
             # the playground has no cable, so it sends them as Turbo Streams.

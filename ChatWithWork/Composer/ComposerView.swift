@@ -209,7 +209,13 @@ final class ComposerView: UIView, UITextViewDelegate {
         chipsScroll.isHidden = state.attachments.isEmpty
 
         let selected = state.selectedModel
-        modelButton.configuration?.title = selected?.name
+        if modelButton.configuration?.title != selected?.name {
+            modelButton.configuration?.title = selected?.name
+            // While an answer works the server's picker has no models, so the
+            // title goes and comes back while the button is hidden, and UIKit
+            // keeps the hidden button's old size: a chevron without a name.
+            modelButton.invalidateIntrinsicContentSize()
+        }
         modelButton.accessibilityLabel = selected.map { String(localized: "Model: \($0.name)") }
         modelButton.menu = UIMenu(title: String(localized: "Model"), children: state.models.enumerated().map { index, model in
             UIAction(title: model.name, subtitle: model.rate, state: model.selected ? .on : .off) { [weak self] _ in

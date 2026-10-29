@@ -1,6 +1,7 @@
 import Foundation
 import HotwireNative
 import Testing
+import UIKit
 @testable import ChatWithWork
 
 /// The composer's messages as the web sends them and the replies the app
@@ -121,5 +122,57 @@ struct ComposerTests {
         let files = json?["files"] as? [[String: String]]
         #expect(files?.first?["data"] == Data("%PDF".utf8).base64EncodedString())
         #expect(files?.first?["type"] == "application/pdf")
+    }
+}
+
+/// The composer's controls as UIKit lays them out at a phone's width.
+@MainActor
+@Suite("Composer layout")
+struct ComposerLayoutTests {
+    /// As the server draws it: while an answer works, the model picker has
+    /// no options (chats/_model_picker, locked while answering), so no models.
+    private func state(working: Bool) throws -> ComposerState {
+        let models = working ? "[]" : """
+        [{"name":"GPT-6 Luna","rate":"About 2 credits per answer","selected":true},
+         {"name":"Qwen3.8-27B","rate":"Free","selected":false}]
+        """
+        let json = #"{"placeholder":"Reply to Chat with Work","working":\#(working),"models":\#(models)}"#
+        return try JSONDecoder().decode(ComposerState.self, from: Data(json.utf8))
+    }
+
+    private func modelButton(in view: UIView) -> UIButton? {
+        if let button = view as? UIButton, button.accessibilityIdentifier == "composer.model" { return button }
+        for subview in view.subviews {
+            if let found = modelButton(in: subview) { return found }
+        }
+        return nil
+    }
+
+    @Test("shows the model's name again once an answer ends")
+    func modelNameAfterAnswer() throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+        let composer = ComposerView()
+        composer.translatesAutoresizingMaskIntoConstraints = false
+        window.addSubview(composer)
+        NSLayoutConstraint.activate([
+            composer.leadingAnchor.constraint(equalTo: window.leadingAnchor),
+            composer.trailingAnchor.constraint(equalTo: window.trailingAnchor),
+            composer.bottomAnchor.constraint(equalTo: window.bottomAnchor)
+        ])
+        window.isHidden = false
+        defer { window.isHidden = true }
+        let button = try #require(modelButton(in: composer))
+
+        for working in [false, true, false, true, false] {
+            composer.update(try state(working: working))
+            window.layoutIfNeeded()
+        }
+
+        #expect(!button.isHidden)
+        let title = try #require(button.titleLabel)
+        let needed = title.intrinsicContentSize.width
+        #expect(needed > 0)
+        #expect(title.bounds.width >= needed - 0.5, "The model's name shows in full, not as a chevron alone (\(title.bounds.width) of \(needed) pt)")
+        #expect(button.bounds.width >= button.intrinsicContentSize.width - 0.5)
     }
 }
