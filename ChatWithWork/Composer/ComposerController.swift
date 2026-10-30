@@ -129,15 +129,18 @@ final class ComposerController: NSObject {
         guard let screen, let state = view.state else { return }
         view.textView.resignFirstResponder()
 
-        let options = AttachOptions(acceptsFiles: state.acceptsFiles)
+        let options = AttachOptions(acceptsFiles: state.acceptsFiles, permissionModes: state.permissionModes)
+        let sizing = AttachSheetSizing()
         var host: UIHostingController<AttachSheet>!
-        host = UIHostingController(rootView: AttachSheet(options: options) { [weak self] choice in
+        host = UIHostingController(rootView: AttachSheet(options: options, heightChanged: sizing.update) { [weak self] choice in
             host.dismiss(animated: true) { self?.handle(choice) }
         })
         host.view.backgroundColor = Palette.surface
         if let sheet = host.sheetPresentationController {
-            // The recent photos and one row of tiles.
-            sheet.detents = [.custom { _ in 240 }, .medium()]
+            let accessible = screen.traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+            sheet.detents = [.custom { context in min(sizing.height, context.maximumDetentValue) }, .large()]
+            sizing.sheet = sheet
+            if accessible { sheet.selectedDetentIdentifier = .large }
             sheet.prefersGrabberVisible = true
             sheet.preferredCornerRadius = 28
         }
@@ -150,6 +153,9 @@ final class ComposerController: NSObject {
         case .photos: presentPhotos()
         case .files: presentFiles()
         case .scan: presentScanner()
+        case .permissionMode(let value):
+            guard view.state?.canSelectPermissionMode(value) == true else { return }
+            send?(.permissionMode(value: value))
         case .recent(let asset):
             Task {
                 if let image = await RecentPhotos.data(asset), let file = ComposerFiles.photo(image) { attach([file]) }

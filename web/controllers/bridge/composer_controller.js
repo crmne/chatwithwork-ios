@@ -7,7 +7,9 @@ import { BridgeComponent } from "@hotwired/hotwire-native-bridge"
 // one connects again with what it is now.
 //
 // Web to app: connect {state}, then state {state} whenever it changes (an upload's progress, a lock):
-//   state = { overlay, visible, placeholder, text, locked, lockReason, working, stopping, models: [{name, rate, selected, searchesWeb}],
+//   state = { overlay, visible, placeholder, text, locked, lockReason, working, stopping,
+//             models: [{name, rate, selected, searchesWeb, icon, iconName, invertIcon}],
+//             permissionModes: {selected, options: [{value, label, description, selected, disabled}]} | null,
 //             webSearch: {on, disabled, note} | null, dictation: {url} | null, csrfToken,
 //             attachments: [{id, name, size, contentType, uploading, progress}], acceptsFiles }
 // +text+ is the words the web composer holds (a shared link, a restored draft), files left out, for the app's empty field.
@@ -19,6 +21,7 @@ import { BridgeComponent } from "@hotwired/hotwire-native-bridge"
 //                      the person may not steer it)
 //   stop               the running answer's Stop
 //   model {index}      picks a model from state.models
+//   permissionMode {value} picks an enabled radio in the web's viewer-specific Changes menu
 //   webSearch {on}     switches web search
 //   attach {files: [{name, type, data}]}  files the app picked, scanned, or photographed, base64, uploaded here like
 //                      any file the composer takes
@@ -80,6 +83,7 @@ export default class extends BridgeComponent {
       case "send": return this.#sendText(data.text || "")
       case "stop": return this.element.querySelector("a.chat-prompt__stop")?.click()
       case "model": return this.element.querySelectorAll(".model-picker__option")[data.index]?.click()
+      case "permissionMode": return this.#switchPermissionMode(data.value)
       case "webSearch": return this.#switchWebSearch(Boolean(data.on))
       case "attach": return (data.files || []).forEach(file => this.#attach(file))
       case "remove": return this.#remove(data.id)
@@ -115,6 +119,27 @@ export default class extends BridgeComponent {
   #switchWebSearch(on) {
     const checkbox = this.element.querySelector(".chat-prompt__web-search input[type=checkbox]")
     if (checkbox && !checkbox.disabled && checkbox.checked !== on) checkbox.click()
+  }
+
+  #switchPermissionMode(value) {
+    if (this.element.querySelector(".chat-prompt__mode-button")?.disabled) return
+
+    const input = [ ...this.element.querySelectorAll("#permission_modes input[name=permission_mode]") ].find(input => input.value === value)
+    if (input && !input.disabled && !input.checked) input.click()
+  }
+
+  #permissionModes() {
+    const disabled = this.element.querySelector(".chat-prompt__mode-button")?.disabled || false
+    const options = [ ...this.element.querySelectorAll("#permission_modes input[name=permission_mode]") ].map(input => ({
+      value: input.value,
+      label: input.getAttribute("aria-label"),
+      description: input.getAttribute("aria-description"),
+      selected: input.checked,
+      disabled: disabled || input.disabled
+    }))
+    // A broadcast first supplies an empty viewer-specific frame, never the
+    // other person's selection. Its lazy response triggers the next state.
+    return options.length ? { selected: options.find(option => option.selected)?.value || null, options } : null
   }
 
   #attach({ name, type, data }) {
@@ -162,8 +187,12 @@ export default class extends BridgeComponent {
         name: option.dataset.modelSelectNameParam,
         rate: option.dataset.modelSelectRateParam || null,
         selected: option.getAttribute("aria-selected") === "true",
-        searchesWeb: option.dataset.modelSelectWebSearchParam === "true"
+        searchesWeb: option.dataset.modelSelectWebSearchParam === "true",
+        icon: option.querySelector("img")?.src || null,
+        iconName: option.dataset.modelSelectIconNameParam || null,
+        invertIcon: option.dataset.modelSelectInvertParam === "true"
       })),
+      permissionModes: this.#permissionModes(),
       webSearch: webSearch ? {
         on: webSearch.checked,
         disabled: webSearch.disabled,

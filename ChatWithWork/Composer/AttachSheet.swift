@@ -8,12 +8,13 @@ import VisionKit
 /// What the "+" sheet offers, from the composer's state.
 struct AttachOptions {
     var acceptsFiles: Bool
+    var permissionModes: ComposerState.PermissionModes? = nil
     var canScan: Bool = VNDocumentCameraViewController.isSupported
     var hasCamera: Bool = UIImagePickerController.isSourceTypeAvailable(.camera)
 }
 
 /// The "+" sheet: recent photos (where the person lets the app see their
-/// library), then Camera, Photos, Files and Scan. Dictation and web search
+/// library), then Camera, Photos, Files, Scan and the page’s permission modes. Dictation and web search
 /// are one tap away in the composer's bar, and tools and models live
 /// elsewhere, so "+" never becomes a drawer of everything.
 /// (On the web, "+" holds only what its bar has no room for; at phone width
@@ -21,41 +22,78 @@ struct AttachOptions {
 struct AttachSheet: View {
     enum Choice {
         case camera, photos, files, scan
+        case permissionMode(String)
         case recent(PHAsset)
     }
 
     let options: AttachOptions
+    var heightChanged: (CGFloat) -> Void = { _ in }
     let choose: (Choice) -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .body) private var permissionIconWidth = 20
     @State private var recent: [PHAsset] = []
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if options.acceptsFiles, !recent.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(recent, id: \.localIdentifier) { asset in
-                            Button { choose(.recent(asset)) } label: { RecentThumbnail(asset: asset) }
-                                .accessibilityLabel(String(localized: "Recent photo"))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if options.acceptsFiles, !recent.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(recent, id: \.localIdentifier) { asset in
+                                Button { choose(.recent(asset)) } label: { RecentThumbnail(asset: asset) }
+                                    .accessibilityLabel(String(localized: "Recent photo"))
+                            }
+                        }
+                    }
+                }
+
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 160 : 72), spacing: 8)], spacing: 8) {
+                    if options.acceptsFiles {
+                        if options.hasCamera { tile("Camera", "camera", .camera, id: "attach.camera") }
+                        tile("Photos", "photo.on.rectangle", .photos, id: "attach.photos")
+                        tile("Files", "doc", .files, id: "attach.files")
+                        if options.canScan { tile("Scan", "doc.viewfinder", .scan, id: "attach.scan") }
+                    }
+                }
+                if let modes = options.permissionModes {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Changes").font(.caption).foregroundStyle(Color(Palette.inkFaint))
+                        ForEach(modes.options) { option in
+                            Button { choose(.permissionMode(option.value)) } label: {
+                                HStack(alignment: .top, spacing: 10) {
+                                    Image(systemName: option.value == "everything" ? "exclamationmark.octagon" : option.value == "edits" ? "pencil" : "hand.raised")
+                                        .frame(width: permissionIconWidth)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(option.label).foregroundStyle(Color(Palette.ink))
+                                        if let description = option.description {
+                                            Text(description).font(.caption).foregroundStyle(Color(Palette.inkMuted))
+                                        }
+                                    }.frame(maxWidth: .infinity, alignment: .leading)
+                                    Image(systemName: "checkmark").opacity(option.selected ? 1 : 0)
+                                }
+                                .padding(.vertical, 8)
+                                .foregroundStyle(Color(option.value == "everything" && option.selected && !option.disabled ? Palette.negativeInk : Palette.inkMuted))
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(option.disabled)
+                            .accessibilityIdentifier("composer.permission." + option.value)
+                            .accessibilityAddTraits(option.selected ? [.isSelected] : [])
                         }
                     }
                 }
             }
-
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 8)], spacing: 8) {
-                if options.acceptsFiles {
-                    if options.hasCamera { tile("Camera", "camera", .camera, id: "attach.camera") }
-                    tile("Photos", "photo.on.rectangle", .photos, id: "attach.photos")
-                    tile("Files", "doc", .files, id: "attach.files")
-                    if options.canScan { tile("Scan", "doc.viewfinder", .scan, id: "attach.scan") }
-                }
-            }
+            .padding(20)
+            .padding(.top, 8)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .background(GeometryReader { geometry in
+                Color.clear.preference(key: AttachSheetHeight.self, value: geometry.size.height)
+            })
         }
-        .padding(20)
-        .padding(.top, 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .tint(Color(Palette.ink))
-        .task { recent = await RecentPhotos.load() }
+        .onPreferenceChange(AttachSheetHeight.self, perform: heightChanged)
+        .task { if options.acceptsFiles { recent = await RecentPhotos.load() } }
     }
 
     private func tile(_ title: LocalizedStringKey, _ symbol: String, _ choice: Choice, id: String) -> some View {
@@ -70,6 +108,25 @@ struct AttachSheet: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(id)
+    }
+}
+
+private nonisolated struct AttachSheetHeight: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+/// Measure only local sheet content; the web receives no native layout data here.
+final class AttachSheetSizing {
+    var height: CGFloat = 360
+    weak var sheet: UISheetPresentationController?
+
+    func update(_ height: CGFloat) {
+        guard height > 0, abs(self.height - height) > 1 else { return }
+        self.height = height
+        sheet?.invalidateDetents()
     }
 }
 
@@ -92,13 +149,13 @@ private struct RecentThumbnail: View {
     }
 }
 
-/// The library's latest photos. The app asks to see them the first time the
-/// sheet opens, when the person is adding something; Photos and the camera
-/// work without it.
+/// The library’s latest photos when access was already granted. The system
+/// photo picker and camera work without library access.
 enum RecentPhotos {
     static func load(limit: Int = 12) async -> [PHAsset] {
-        var status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
-        if status == .notDetermined { status = await PHPhotoLibrary.requestAuthorization(for: .readWrite) }
+        // Opening permissions must not request photo access. The system photo picker
+        // works without it; recent photos appear only when access was already given.
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         guard status == .authorized || status == .limited else { return [] }
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]

@@ -28,6 +28,7 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     private let box = RainbowBox()
     private let lockLabel = UILabel()
+    private let permissionNote = UILabel()
     // A line shown for a moment in the lock's place (flash), until it times out.
     private var flashing: String?
     private var flashGeneration = 0
@@ -125,7 +126,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         modelConfiguration.baseForegroundColor = Palette.inkMuted
         modelConfiguration.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 8)
         modelConfiguration.image = UIImage(systemName: "chevron.up.chevron.down", withConfiguration: UIImage.SymbolConfiguration(pointSize: 10, weight: .semibold))
-        modelConfiguration.imagePlacement = .trailing
+        modelConfiguration.imagePlacement = .leading
         modelConfiguration.imagePadding = 4
         modelConfiguration.titleLineBreakMode = .byTruncatingTail
         modelButton.configuration = modelConfiguration
@@ -156,7 +157,13 @@ final class ComposerView: UIView, UITextViewDelegate {
         controls.alignment = .center
         controls.spacing = 6
 
-        let inner = UIStackView(arrangedSubviews: [chipsScroll, textView, dictationLine, controls])
+        permissionNote.font = .preferredFont(forTextStyle: .caption1)
+        permissionNote.adjustsFontForContentSizeCategory = true
+        permissionNote.textColor = Palette.negativeInk
+        permissionNote.numberOfLines = 0
+        permissionNote.accessibilityIdentifier = "composer.permissionNote"
+        permissionNote.isHidden = true
+        let inner = UIStackView(arrangedSubviews: [chipsScroll, textView, dictationLine, permissionNote, controls])
         inner.axis = .vertical
         inner.spacing = 2
         inner.translatesAutoresizingMaskIntoConstraints = false
@@ -225,6 +232,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         styleWebSearch()
         sendButton.backgroundColor = Palette.ink
         styleStop()
+        if let state { update(state) }
     }
 
     // MARK: State
@@ -253,12 +261,25 @@ final class ComposerView: UIView, UITextViewDelegate {
             // keeps the hidden button's old size: a chevron without a name.
             modelButton.invalidateIntrinsicContentSize()
         }
+        modelButton.configuration?.image = selected.flatMap { ModelLogo.image(for: $0, traits: traitCollection, size: 16) }
         modelButton.accessibilityLabel = selected.map { String(localized: "Model: \($0.name)") }
         modelButton.menu = UIMenu(title: String(localized: "Model"), children: state.models.enumerated().map { index, model in
-            UIAction(title: model.name, subtitle: model.rate, state: model.selected ? .on : .off) { [weak self] _ in
+            UIAction(title: model.name, subtitle: model.rate, image: ModelLogo.image(for: model, traits: traitCollection), state: model.selected ? .on : .off) { [weak self] _ in
                 self?.onAction?(.model(index: index))
             }
         })
+        let unrestricted = state.permissionModes?.options.first { $0.value == "everything" && $0.selected && !$0.disabled }
+        if let unrestricted {
+            let attachment = NSTextAttachment()
+            attachment.image = UIImage(systemName: "exclamationmark.octagon", withConfiguration: UIImage.SymbolConfiguration(pointSize: 12))?.withTintColor(Palette.negativeInk, renderingMode: .alwaysOriginal)
+            let note = NSMutableAttributedString(attachment: attachment)
+            note.append(NSAttributedString(string: " " + unrestricted.label))
+            permissionNote.attributedText = note
+        } else {
+            permissionNote.attributedText = nil
+        }
+        permissionNote.isHidden = unrestricted == nil
+        plusButton.accessibilityValue = state.permissionModes?.options.first(where: \.selected)?.label
         refreshControls()
     }
 
@@ -330,7 +351,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         placeholder.isHidden = !textView.text.isEmpty
         cancelButton.isHidden = !busy
         plusButton.isHidden = busy
-        plusButton.isEnabled = state?.locked != true && state?.acceptsFiles != false
+        plusButton.isEnabled = state?.locked != true && (state?.acceptsFiles != false || state?.permissionModes != nil)
         dictateButton.isHidden = busy || state?.dictation == nil
         dictateButton.isEnabled = state?.locked != true
         dictateButton.alpha = dictateButton.isEnabled ? 1 : 0.35
@@ -365,8 +386,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         stopButton.alpha = stopButton.isEnabled ? 1 : 0.35
         styleStop()
         sendButton.alpha = sendButton.isEnabled ? 1 : 0.35
-        box.showsEdge = state?.locked != true
-        box.alpha = state?.locked == true ? 0.7 : 1
+        box.edgeOpacity = state?.locked == true ? 0.3 : textView.isFirstResponder ? 1 : 0.7
         resizeText()
     }
 
@@ -454,6 +474,9 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     // MARK: UITextViewDelegate
 
+    func textViewDidBeginEditing(_ textView: UITextView) { refreshControls() }
+    func textViewDidEndEditing(_ textView: UITextView) { refreshControls() }
+
     func textViewDidChange(_ textView: UITextView) {
         refreshControls()
     }
@@ -473,25 +496,26 @@ private final class RainbowBox: UIView {
     private let edge = CAGradientLayer()
     private let edgeMask = CAShapeLayer()
 
-    var showsEdge = true {
-        didSet { edge.isHidden = !showsEdge }
+    var edgeOpacity: Float = 0.7 {
+        didSet { edge.opacity = edgeOpacity }
     }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        layer.cornerRadius = 22
+        layer.cornerRadius = 20
         layer.cornerCurve = .continuous
         layer.shadowColor = UIColor.black.cgColor
         layer.shadowOpacity = 0.08
         layer.shadowRadius = 12
         layer.shadowOffset = CGSize(width: 0, height: 4)
         edge.colors = [0x44FF9A, 0x44B0FF, 0x8B44FF, 0xFF6644, 0xEBFF70].map { UIColor(hexValue: $0).cgColor }
-        edge.locations = [0, 0.23, 0.48, 0.73, 1]
-        edge.startPoint = CGPoint(x: 0, y: 0.5)
-        edge.endPoint = CGPoint(x: 1, y: 0.5)
+        edge.locations = [0, 0.2341 / 0.9989, 0.4891 / 0.9989, 0.7388 / 0.9989, 1].map { NSNumber(value: $0) }
+        edge.startPoint = CGPoint(x: -0.0055, y: 0.5)
+        edge.endPoint = CGPoint(x: 0.9934, y: 0.5)
+        edge.opacity = edgeOpacity
         edgeMask.fillColor = UIColor.clear.cgColor
         edgeMask.strokeColor = UIColor.black.cgColor
-        edgeMask.lineWidth = 1.5
+        edgeMask.lineWidth = 2
         edge.mask = edgeMask
         layer.addSublayer(edge)
     }
@@ -502,8 +526,8 @@ private final class RainbowBox: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         edge.frame = bounds
-        edgeMask.path = UIBezierPath(roundedRect: bounds.insetBy(dx: 0.75, dy: 0.75), cornerRadius: 21.25).cgPath
-        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: 22).cgPath
+        edgeMask.path = UIBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), cornerRadius: 19).cgPath
+        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: 20).cgPath
     }
 }
 

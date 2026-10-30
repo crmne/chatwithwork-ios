@@ -12,8 +12,8 @@ enum Palette {
 
     // Ink
     static let ink = UIColor(light: 0x0A0D14, dark: 0xE9ECF4)
-    static let inkMuted = UIColor(light: 0x5A6374, dark: 0x8D96AA)
-    static let inkFaint = UIColor(light: 0x7C8599, dark: 0x636B80)
+    static let inkMuted = UIColor(light: 0x5A6374, dark: 0xAAB2C3)
+    static let inkFaint = UIColor(light: 0x616A7E, dark: 0x979FB2)
     static let inkInverted = UIColor(light: 0xFFFFFF, dark: 0x06070B)
 
     // Hairlines

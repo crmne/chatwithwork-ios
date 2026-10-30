@@ -67,6 +67,45 @@ struct ComposerTests {
         #expect(state?.text == "")
     }
 
+    @Test("permissions come only from the current page, including disabled choices")
+    func permissions() throws {
+        let json = #"{"permissionModes":{"selected":"ask","options":[{"value":"ask","label":"Ask for changes","selected":true,"disabled":false},{"value":"edits","label":"Allow edits","selected":false,"disabled":false},{"value":"everything","label":"Allow everything","selected":false,"disabled":true}]}}"#
+        let offered = try state(json)
+        #expect(offered.canSelectPermissionMode("edits"))
+        #expect(!offered.canSelectPermissionMode("everything"))
+        #expect(!offered.canSelectPermissionMode("unknown"))
+        #expect(try !state(#"{"permissionModes":null}"#).canSelectPermissionMode("edits"))
+        let locked = try state(json.replacingOccurrences(of: #"{"permissionModes"#, with: #"{"locked":true,"permissionModes"#))
+        #expect(!locked.canSelectPermissionMode("edits"))
+        #expect(try state("{}").permissionModes == nil)
+    }
+
+    @Test("the unrestricted mode stays visible without inventing a missing selection")
+    @MainActor
+    func unrestrictedModeNotice() throws {
+        let view = ComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 140))
+        let enabled = try state(#"{"permissionModes":{"selected":"everything","options":[{"value":"everything","label":"Allow everything","selected":true,"disabled":false}]}}"#)
+        view.update(enabled)
+        let note = try #require(view.descendant("composer.permissionNote") as? UILabel)
+        #expect(!note.isHidden)
+        #expect(note.attributedText?.string.contains("Allow everything") == true)
+        view.update(try state("{}"))
+        #expect(note.isHidden)
+    }
+
+    @Test("maker logos are optional, bundled, and independent from the inference host")
+    @MainActor
+    func makerLogos() throws {
+        let models = try state(#"{"models":[{"name":"GPT","selected":true,"iconName":"openai","invertIcon":true},{"name":"Future model","selected":false,"iconName":"unknown"}]}"#).models
+        for style: UIUserInterfaceStyle in [.light, .dark] {
+            let image = try #require(ModelLogo.image(for: models[0], traits: UITraitCollection(userInterfaceStyle: style)))
+            #expect(image.size == CGSize(width: 20, height: 20))
+        }
+        #expect(ModelLogo.image(for: models[1], traits: .current) == nil)
+        let older = try state(#"{"models":[{"name":"GPT","selected":true}]}"#).models[0]
+        #expect(ModelLogo.image(for: older, traits: .current) == nil)
+    }
+
     @Test("sends only words or files, nothing uploading, and never while locked")
     func canSend() throws {
         let uploading = try #require(message("connect", Self.state).data() as ComposerState?)
@@ -120,6 +159,7 @@ struct ComposerTests {
     @Test("replies with the contract's actions", arguments: [
         (ComposerAction.send(text: "Hi"), #"{"action":"send","text":"Hi"}"#),
         (.stop, #"{"action":"stop"}"#),
+        (.permissionMode(value: "edits"), #"{"action":"permissionMode","value":"edits"}"#),
         (.model(index: 1), #"{"action":"model","index":1}"#),
         (.webSearch(on: true), #"{"action":"webSearch","on":true}"#),
         (.remove(id: "7"), #"{"action":"remove","id":"7"}"#),

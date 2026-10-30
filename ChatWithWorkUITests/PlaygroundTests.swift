@@ -25,6 +25,42 @@ final class PlaygroundTests: XCTestCase {
     }
 
     @MainActor
+    func testComposerBrandingAndPermissions() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground, "-CWWAskForNotifications", "NO"]
+        app.launch()
+        app.buttons["welcome.signIn"].tap()
+        let signIn = app.webViews.buttons["Sign in"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 20))
+        signIn.tap()
+        let model = app.buttons["composer.model"]
+        XCTAssertTrue(model.waitForExistence(timeout: 20))
+        let toast = app.descendants(matching: .any)["toast"]
+        if toast.exists { toast.tap() }
+        keep("composer-palette")
+        model.tap()
+        keep("composer-model-logos")
+        let luna = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "GPT-6 Luna")).firstMatch
+        XCTAssertTrue(luna.waitForExistence(timeout: 10))
+        luna.tap()
+        XCTAssertTrue(model.waitForExistence(timeout: 5))
+        keep("composer-selected-model")
+        app.buttons["composer.plus"].tap()
+        let edits = app.buttons["composer.permission.edits"]
+        XCTAssertTrue(edits.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["composer.permission.everything"].isEnabled)
+        keep("composer-permissions")
+        edits.tap()
+        let plus = app.buttons["composer.plus"]
+        let selected = NSPredicate(format: "value == %@", "Allow edits")
+        expectation(for: selected, evaluatedWith: plus)
+        waitForExpectations(timeout: 10)
+        plus.tap()
+        XCTAssertTrue(edits.waitForExistence(timeout: 10))
+        keep("composer-permissions-selected")
+    }
+
+    @MainActor
     func testConnectDialogKeepsDraftOutOfTheWay() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground, "-CWWAskForNotifications", "NO"]

@@ -1499,6 +1499,32 @@ upload's progress, a lock, an answer starting or ending), both with:
 `webSearch` and `dictation` are `null` where the composer doesn't offer
 them.
 
+**Composer parity (2026-10-30).** Each model may also send `iconName`
+(the model maker’s key), `icon` (the web asset’s absolute URL), and
+`invertIcon`. Both apps bundle the exact web maker artwork for `anthropic`,
+`openai`, `gemini`, `qwen`, `deepseek`, `mistral` and `xai`; unknown or absent
+keys simply omit artwork. Only the web’s monochrome logos invert in dark
+mode. An inference host never supplies the displayed brand.
+
+`permissionModes` is absent or null when the viewer cannot choose a mode,
+or while their lazy frame loads. Otherwise it is
+`{selected, options: [{value, label, description, selected, disabled}]}`.
+The native + sheet draws these labels and restrictions unchanged. Its normal
+height follows the measured content; accessibility text sizes open the
+large, scrollable sheet with wider attachment tiles and scaled icons. Its
+`permissionMode` reply `{value}` clicks the existing enabled web radio;
+new chats submit that choice with the first question. A returned choice
+is rechecked against the latest state, so closing access while a sheet is
+open cannot retain the older choice. The page and server remain the policy
+authority for defaults, organization caps, drivers, guests and bot runs.
+The selected Allow everything mode also remains visible in the composer.
+Older servers omit these optional fields and retain the existing controls.
+
+The native composer uses the web’s exact surface/ink tokens and all five
+rainbow stops, with 70% opacity at rest and full opacity while editing.
+
+
+
 **The yes before the first question (2026-10-27).** Before anything a
 person sends goes to a model, the page asks them once, in a dialog of its
 own over the chat (the server's `docs/model-consent.md`), naming the
@@ -1522,6 +1548,7 @@ App to web, as replies to `connect`, `{action, ...}`:
 | `send` | `{text}` | puts the words (and the files already attached) in the web composer and sends; while `working` that steers the answer, or waits where the person may not steer it. The app doesn't send while a file uploads. |
 | `stop` | | the running answer's Stop |
 | `model` | `{index}` | picks `models[index]` |
+| `permissionMode` | `{value}` | clicks an enabled permission-mode radio in the viewer’s web composer |
 | `webSearch` | `{on}` | switches web search |
 | `attach` | `{files: [{name, type, data}]}` | uploads files the app picked, photographed or scanned (`data` base64) like any file the composer takes |
 | `remove` | `{id}` | takes a file out |
@@ -1548,14 +1575,13 @@ App to web, as replies to `connect`, `{action, ...}`:
   there are words or files, Stop and Send show side by side, Send steering
   the answer, and an emptied field leaves Stop alone again. Stop is
   disabled while `stopping`. A light haptic on Send, a firmer one on Stop.
-- "+" opens a sheet: the latest photos in a row (the app asks for the photo
-  library the first time the sheet opens; Photos and the camera work
-  without it), Camera, Photos (`PHPickerViewController`), Files and Scan
+- "+" opens a sheet: the latest photos in a row where library access is already
+  granted (the system photo picker and camera work without it), Camera, Photos (`PHPickerViewController`), Files and Scan
   (VisionKit's document camera, the pages sent as one PDF). Dictate and Web
   search left it for the bar (2026-10-28), as the web's "+" holds only what
   its bar has no room for.
-- Not drawn yet, since the state doesn't carry them: the permission mode
-  (the web bar's "Changes" button) and attaching from a connected service. Photos go as JPEGs at
+- The permission modes follow attachments in the scrollable + sheet.
+  Attaching from a connected service is not drawn yet. Photos go as JPEGs at
   most 2560 pixels on their longest side; files over 25 MB are refused with
   a note to attach them from a computer.
 

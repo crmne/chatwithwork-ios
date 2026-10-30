@@ -11,6 +11,21 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
         let rate: String?
         let selected: Bool
         let searchesWeb: Bool?
+        let iconName: String?
+        let invertIcon: Bool?
+    }
+
+    struct PermissionModes: Decodable, Equatable, Sendable {
+        struct Option: Decodable, Equatable, Sendable, Identifiable {
+            let value: String
+            let label: String
+            let description: String?
+            let selected: Bool
+            let disabled: Bool
+            var id: String { value }
+        }
+        let selected: String?
+        let options: [Option]
     }
 
     struct WebSearch: Decodable, Equatable, Sendable {
@@ -43,11 +58,17 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     let working: Bool
     let stopping: Bool
     let models: [Model]
+    let permissionModes: PermissionModes?
     let webSearch: WebSearch?
     let dictation: Dictation?
     let csrfToken: String?
     let attachments: [Attachment]
     let acceptsFiles: Bool
+
+    /// Recheck the latest page state when a sheet opened earlier returns a choice.
+    func canSelectPermissionMode(_ value: String) -> Bool {
+        !locked && permissionModes?.options.contains { $0.value == value && !$0.disabled } == true
+    }
 
     var selectedModel: Model? { models.first(where: \.selected) }
     var isUploading: Bool { attachments.contains(where: \.uploading) }
@@ -63,6 +84,7 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
         working = try values.decodeIfPresent(Bool.self, forKey: .working) ?? false
         stopping = try values.decodeIfPresent(Bool.self, forKey: .stopping) ?? false
         models = try values.decodeIfPresent([Model].self, forKey: .models) ?? []
+        permissionModes = try values.decodeIfPresent(PermissionModes.self, forKey: .permissionModes)
         webSearch = try values.decodeIfPresent(WebSearch.self, forKey: .webSearch)
         dictation = try values.decodeIfPresent(Dictation.self, forKey: .dictation)
         csrfToken = try values.decodeIfPresent(String.self, forKey: .csrfToken)
@@ -71,7 +93,7 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case overlay, visible, placeholder, text, locked, lockReason, working, stopping, models, webSearch, dictation, csrfToken, attachments, acceptsFiles
+        case overlay, visible, placeholder, text, locked, lockReason, working, stopping, models, permissionModes, webSearch, dictation, csrfToken, attachments, acceptsFiles
     }
 
     /// Whether Send can go now: words or files, nothing still uploading, and
@@ -107,6 +129,7 @@ nonisolated enum ComposerAction: Encodable, Equatable, Sendable {
     case send(text: String)
     case stop
     case model(index: Int)
+    case permissionMode(value: String)
     case webSearch(on: Bool)
     case attach(files: [ComposerFile])
     case remove(id: String)
@@ -124,6 +147,9 @@ nonisolated enum ComposerAction: Encodable, Equatable, Sendable {
         case .model(let index):
             try values.encode("model", forKey: .action)
             try values.encode(index, forKey: .index)
+        case .permissionMode(let value):
+            try values.encode("permissionMode", forKey: .action)
+            try values.encode(value, forKey: .value)
         case .webSearch(let on):
             try values.encode("webSearch", forKey: .action)
             try values.encode(on, forKey: .on)
@@ -144,7 +170,7 @@ nonisolated enum ComposerAction: Encodable, Equatable, Sendable {
     }
 
     private enum Key: String, CodingKey {
-        case action, text, index, on, files, id, height, width
+        case action, text, index, value, on, files, id, height, width
     }
 }
 

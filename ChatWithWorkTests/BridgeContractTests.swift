@@ -18,6 +18,13 @@ struct BridgeContractTests {
         #expect(payload["height"] as? Double == 136)
     }
 
+    @Test("composer permission reply uses the web action without a local policy")
+    func composerPermission() throws {
+        let data = try JSONEncoder().encode(ComposerAction.permissionMode(value: "edits"))
+        let payload = try #require(JSONSerialization.jsonObject(with: data) as? [String: String])
+        #expect(payload == ["action": "permissionMode", "value": "edits"])
+    }
+
     private func message(_ component: String, _ event: String, _ json: String) -> Message {
         Message(
             id: "1",

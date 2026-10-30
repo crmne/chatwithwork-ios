@@ -53,6 +53,7 @@ application.register("composer", class extends Controller {
   static targets = ["input", "content", "send"]
 
   update() {
+    this.element.dataset.permissionMode = this.element.querySelector("input[name=permission_mode]:checked")?.value || ""
     this.inputTarget.style.height = "auto"
     this.inputTarget.style.height = `${Math.min(this.inputTarget.scrollHeight, 192)}px`
     if (this.hasSendTarget) this.sendTarget.disabled = this.inputTarget.value.trim() === ""

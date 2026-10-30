@@ -542,6 +542,7 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
                           data-model-select-model-id-param="{esc(m_id)}" data-model-select-provider-param="{m_provider}"
                           data-model-select-name-param="{esc(m_name)}" data-model-select-rate-param="{esc(m_rate)}"
                           data-model-select-icon-param="{provider_src(m_logo)}"
+                          data-model-select-icon-name-param="{m_logo}"
                           data-model-select-invert-param="{'true' if m_logo in MONOCHROME else 'false'}">
                     {provider(m_logo)}
                     <strong>{esc(m_name)}</strong>
@@ -573,6 +574,11 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
           </span>
         </div>
 
+        <div id="permission_modes" data-action="change->composer#update">
+          <label><input type="radio" name="permission_mode" value="ask" checked aria-label="Ask for changes" aria-description="You approve each change">Ask for changes</label>
+          <label><input type="radio" name="permission_mode" value="edits" aria-label="Allow edits" aria-description="Deleting or overwriting still asks">Allow edits</label>
+          <label><input type="radio" name="permission_mode" value="everything" disabled aria-label="Allow everything" aria-description="Off in {ACCOUNTS[account]}">Allow everything</label>
+        </div>
         <div class="chat-prompt__bar">
           <button type="button" hidden data-dictation-target="button" aria-label="Dictate"></button>
           <label class="chat-prompt__web-search" hidden><input type="checkbox" name="web_search"> Web search</label>
