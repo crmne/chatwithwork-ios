@@ -73,7 +73,7 @@ struct AttachSheet: View {
                                     Image(systemName: "checkmark").opacity(option.selected ? 1 : 0)
                                 }
                                 .padding(.vertical, 8)
-                                .foregroundStyle(Color(option.value == "everything" && option.selected && !option.disabled ? Palette.negativeInk : Palette.inkMuted))
+                                .foregroundStyle(Color(Palette.inkMuted))
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)

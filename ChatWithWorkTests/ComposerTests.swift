@@ -80,17 +80,22 @@ struct ComposerTests {
         #expect(try state("{}").permissionModes == nil)
     }
 
-    @Test("the unrestricted mode stays visible without inventing a missing selection")
+    @Test("the current permission mode stays in the existing control without increasing composer height")
     @MainActor
-    func unrestrictedModeNotice() throws {
+    func inlinePermissionMode() throws {
         let view = ComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 140))
-        let enabled = try state(#"{"permissionModes":{"selected":"everything","options":[{"value":"everything","label":"Allow everything","selected":true,"disabled":false}]}}"#)
-        view.update(enabled)
-        let note = try #require(view.descendant("composer.permissionNote") as? UILabel)
-        #expect(!note.isHidden)
-        #expect(note.attributedText?.string.contains("Allow everything") == true)
         view.update(try state("{}"))
-        #expect(note.isHidden)
+        let height = view.systemLayoutSizeFitting(CGSize(width: 390, height: 0), withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel).height
+        let button = try #require(view.descendant("composer.plus") as? UIButton)
+        for mode in ["edits", "everything"] {
+            let selected = try state("{\"permissionModes\":{\"selected\":\"\(mode)\",\"options\":[{\"value\":\"\(mode)\",\"label\":\"Selected mode\",\"selected\":true,\"disabled\":false}]}}")
+            view.update(selected)
+            #expect(button.accessibilityValue == "Selected mode")
+            #expect(view.systemLayoutSizeFitting(CGSize(width: 390, height: 0), withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel).height == height)
+            #expect(button.tintColor == Palette.ink)
+        }
+        view.update(try state("{}"))
+        #expect(button.accessibilityValue == nil)
     }
 
     @Test("maker logos are optional, bundled, and independent from the inference host")

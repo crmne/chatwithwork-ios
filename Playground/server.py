@@ -577,7 +577,7 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
         <div id="permission_modes" data-action="change->composer#update">
           <label><input type="radio" name="permission_mode" value="ask" checked aria-label="Ask for changes" aria-description="You approve each change">Ask for changes</label>
           <label><input type="radio" name="permission_mode" value="edits" aria-label="Allow edits" aria-description="Deleting or overwriting still asks">Allow edits</label>
-          <label><input type="radio" name="permission_mode" value="everything" disabled aria-label="Allow everything" aria-description="Off in {ACCOUNTS[account]}">Allow everything</label>
+          <label><input type="radio" name="permission_mode" value="everything" aria-label="Allow everything" aria-description="Nothing asks, deletes included">Allow everything</label>
         </div>
         <div class="chat-prompt__bar">
           <button type="button" hidden data-dictation-target="button" aria-label="Dictate"></button>

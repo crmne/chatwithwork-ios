@@ -28,7 +28,6 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     private let box = RainbowBox()
     private let lockLabel = UILabel()
-    private let permissionNote = UILabel()
     // A line shown for a moment in the lock's place (flash), until it times out.
     private var flashing: String?
     private var flashGeneration = 0
@@ -157,13 +156,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         controls.alignment = .center
         controls.spacing = 6
 
-        permissionNote.font = .preferredFont(forTextStyle: .caption1)
-        permissionNote.adjustsFontForContentSizeCategory = true
-        permissionNote.textColor = Palette.negativeInk
-        permissionNote.numberOfLines = 0
-        permissionNote.accessibilityIdentifier = "composer.permissionNote"
-        permissionNote.isHidden = true
-        let inner = UIStackView(arrangedSubviews: [chipsScroll, textView, dictationLine, permissionNote, controls])
+        let inner = UIStackView(arrangedSubviews: [chipsScroll, textView, dictationLine, controls])
         inner.axis = .vertical
         inner.spacing = 2
         inner.translatesAutoresizingMaskIntoConstraints = false
@@ -268,18 +261,10 @@ final class ComposerView: UIView, UITextViewDelegate {
                 self?.onAction?(.model(index: index))
             }
         })
-        let unrestricted = state.permissionModes?.options.first { $0.value == "everything" && $0.selected && !$0.disabled }
-        if let unrestricted {
-            let attachment = NSTextAttachment()
-            attachment.image = UIImage(systemName: "exclamationmark.octagon", withConfiguration: UIImage.SymbolConfiguration(pointSize: 12))?.withTintColor(Palette.negativeInk, renderingMode: .alwaysOriginal)
-            let note = NSMutableAttributedString(attachment: attachment)
-            note.append(NSAttributedString(string: " " + unrestricted.label))
-            permissionNote.attributedText = note
-        } else {
-            permissionNote.attributedText = nil
-        }
-        permissionNote.isHidden = unrestricted == nil
-        plusButton.accessibilityValue = state.permissionModes?.options.first(where: \.selected)?.label
+        let permission = state.permissionModes?.options.first(where: \.selected)
+        let symbol = permission?.value == "everything" ? "exclamationmark.octagon" : permission?.value == "edits" ? "pencil" : "plus"
+        plusButton.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold)), for: .normal)
+        plusButton.accessibilityValue = permission?.label
         refreshControls()
     }
 

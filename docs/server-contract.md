@@ -1517,7 +1517,7 @@ new chats submit that choice with the first question. A returned choice
 is rechecked against the latest state, so closing access while a sheet is
 open cannot retain the older choice. The page and server remain the policy
 authority for defaults, organization caps, drivers, guests and bot runs.
-The selected Allow everything mode also remains visible in the composer.
+The selected Allow edits or Allow everything mode uses its normal-ink icon in the existing + control, with an accessible label. It adds no warning row or color treatment. Existing chats keep the saved choice until the server returns its updated state.
 Older servers omit these optional fields and retain the existing controls.
 
 The native composer uses the web’s exact surface/ink tokens and all five

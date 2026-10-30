@@ -48,7 +48,7 @@ final class PlaygroundTests: XCTestCase {
         app.buttons["composer.plus"].tap()
         let edits = app.buttons["composer.permission.edits"]
         XCTAssertTrue(edits.waitForExistence(timeout: 10))
-        XCTAssertFalse(app.buttons["composer.permission.everything"].isEnabled)
+        XCTAssertTrue(app.buttons["composer.permission.everything"].isEnabled)
         keep("composer-permissions")
         edits.tap()
         let plus = app.buttons["composer.plus"]
@@ -58,6 +58,15 @@ final class PlaygroundTests: XCTestCase {
         plus.tap()
         XCTAssertTrue(edits.waitForExistence(timeout: 10))
         keep("composer-permissions-selected")
+        app.buttons["composer.permission.everything"].tap()
+        expectation(for: NSPredicate(format: "value == %@", "Allow everything"), evaluatedWith: plus)
+        waitForExpectations(timeout: 10)
+        XCTAssertFalse(app.staticTexts["Allow everything is on"].exists)
+        keep("composer-everything-inline")
+        plus.tap()
+        app.buttons["composer.permission.ask"].tap()
+        expectation(for: NSPredicate(format: "value == %@", "Ask for changes"), evaluatedWith: plus)
+        waitForExpectations(timeout: 10)
     }
 
     @MainActor
