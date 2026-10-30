@@ -18,12 +18,10 @@ final class LiveActivityPresentationTests: XCTestCase {
             XCUIDevice.shared.press(.home)
             let top = springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.002))
             top.press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.7)))
-            for answer in ["Always Allow", "Allow"] where springboard.buttons[answer].firstMatch.exists {
-                springboard.buttons[answer].firstMatch.tap()
-            }
             let headline = switch scenario {
             case "search": "Searching your work tools"
             case "run": "Running an agent"
+            case "legacy": "Writing the answer"
             case "long": "Reading information in your connected work tools"
             case "approval_waiting": "Approval needed"
             case "input_requested": "Your input needed"
@@ -35,13 +33,20 @@ final class LiveActivityPresentationTests: XCTestCase {
             // A cold widget-extension launch after a device appearance change
             // can take longer than the app itself. Wait for the actual surface.
             XCTAssertTrue(springboard.staticTexts[headline].waitForExistence(timeout: 30), headline)
-            if !["search", "run", "long"].contains(scenario) { XCTAssertFalse(springboard.staticTexts["Elapsed time"].exists) }
-            if scenario == "search", springboard.buttons["Allow"].firstMatch.waitForExistence(timeout: 3) {
-                springboard.buttons["Allow"].firstMatch.tap()
+            if !["search", "run", "long", "legacy"].contains(scenario) { XCTAssertFalse(springboard.staticTexts["Elapsed time"].exists) }
+            // First-use permission controls arrive with the Activity surface,
+            // not necessarily before its headline. Keep them out of evidence.
+            for answer in ["Always Allow", "Allow"] {
+                let button = springboard.buttons[answer].firstMatch
+                if button.waitForExistence(timeout: 2) {
+                    button.tap()
+                    expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: button)
+                    waitForExpectations(timeout: 10)
+                }
             }
             keep("lock-\(scenario)")
             XCUIDevice.shared.press(.home)
-            if ["search", "run", "long"].contains(scenario) {
+            if ["search", "run", "long", "legacy"].contains(scenario) {
                 XCTAssertTrue(springboard.icons["CWW Dev"].waitForExistence(timeout: 10))
                 keep("island-compact-\(scenario)")
                 springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.025)).press(forDuration: 1.2)

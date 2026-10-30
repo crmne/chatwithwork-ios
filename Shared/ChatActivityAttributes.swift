@@ -18,6 +18,45 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
         var message: String?
         var step: String?
         var steps: Int?
+        var recentSteps: [String]?
+
+        enum CodingKeys: String, CodingKey {
+            case phase, message, step, steps
+            case recentSteps = "recent_steps"
+        }
+
+        /// Observed work only. Older servers supply just the current step.
+        /// Returned tools may have failed or been declined; this is not a
+        /// completion pipeline and must never receive success checkmarks.
+        var recentActivityKinds: [String] {
+            let known = Set(["search", "list", "read", "use", "plan", "run", "ask", "write", "answer"])
+            var observed = recentSteps ?? []
+            if let step, known.contains(step) { observed.append(step) }
+            var kinds: [String] = []
+            for kind in observed where known.contains(kind) && kinds.last != kind {
+                kinds.append(kind)
+            }
+            if kinds.isEmpty { return [step.flatMap { known.contains($0) ? $0 : nil } ?? "answer"] }
+            return Array(kinds.suffix(3))
+        }
+
+        static func activitySymbol(for kind: String) -> String {
+            ContentState(phase: "answering", step: kind).symbol
+        }
+
+        static func activityLabel(for kind: String) -> String {
+            switch kind {
+            case "search": String(localized: "Search")
+            case "list": String(localized: "Browse")
+            case "read": String(localized: "Read")
+            case "use": String(localized: "Tool")
+            case "plan": String(localized: "Plan")
+            case "run": String(localized: "Run")
+            case "ask": String(localized: "Decide")
+            case "write": String(localized: "Write")
+            default: String(localized: "Think")
+            }
+        }
 
         static let answering = ContentState(phase: "answering", message: nil)
 

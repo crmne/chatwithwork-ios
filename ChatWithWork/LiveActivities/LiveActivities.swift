@@ -24,12 +24,13 @@ final class LiveActivities {
                 for activity in Activity<ChatActivityAttributes>.activities {
                     await activity.end(nil, dismissalPolicy: .immediate)
                 }
-                let working = ["search", "run", "long", "minimal", "stale"].contains(scenario)
+                let working = ["search", "run", "long", "legacy", "minimal", "stale"].contains(scenario)
                 let state = ChatActivityAttributes.ContentState(
                     phase: working ? "answering" : scenario,
-                    message: scenario == "search" || scenario == "minimal" ? "Searching your work tools" : scenario == "run" ? "Running an agent" : scenario == "long" ? "Reading information in your connected work tools" : nil,
-                    step: scenario == "long" ? "read" : scenario == "minimal" ? "search" : working ? scenario : nil,
-                    steps: scenario == "long" ? 123 : working ? 3 : nil
+                    message: scenario == "search" || scenario == "minimal" ? "Searching your work tools" : scenario == "run" ? "Running an agent" : scenario == "long" ? "Reading information in your connected work tools" : scenario == "legacy" ? "Writing the answer" : nil,
+                    step: scenario == "legacy" ? "write" : scenario == "long" ? "read" : scenario == "minimal" ? "search" : working ? scenario : nil,
+                    steps: scenario == "long" ? 123 : working ? 3 : nil,
+                    recentSteps: scenario == "run" ? ["search", "read", "run"] : scenario == "long" ? ["search", "use", "read"] : scenario == "search" ? ["plan", "search"] : nil
                 )
                 let attributes = ChatActivityAttributes(organization: scenario == "long" ? "Northwind Studio International Operations" : "Northwind Studio", path: "/1000001/chats/99999", startedAt: Date().addingTimeInterval(scenario == "long" ? -3703 : -83))
                 let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(scenario == "stale" ? 10 : 3600))

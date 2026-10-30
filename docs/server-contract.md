@@ -1627,7 +1627,7 @@ Content-Type: application/json, X-CSRF-Token: <the composer's csrfToken>, the we
 While the answer runs, the server pushes what it's doing (2026-10-26): event
 `update` at `apns-priority` 5 (which Apple doesn't count against the app's
 budget), at most every 3 seconds, with a `stale-date` an hour ahead, and the
-content state `{phase: "answering", message, step, steps}`: `message` the
+content state `{phase: "answering", message, step, steps, recent_steps}`: `message` the
 step it's on in the words of the chat's activity line ("Searching Todoist",
 "Reading 3 files in Drive", "Running code", "Writing the answer", or
 "Answering" between steps), `step` its kind for the app's symbol (`search`,
@@ -1635,6 +1635,15 @@ step it's on in the words of the chat's activity line ("Searching Todoist",
 how many it took so far. Never a query, file name, title or text, and an MCP
 server or computer only as "an MCP server" or "a computer". Builds that read
 only `phase` and `message` show the step's words too.
+
+`recent_steps` is optional: at most three observed kind strings from the
+same allowlist, with adjacent duplicates removed. The server orders returned
+tool kinds by their result message, followed by the current kind. These are
+recent activity, not planned stages or proof of success: a returned call may
+have failed or been declined. The widget highlights only the current kind,
+without checkmarks. An older server that omits the field still gets a
+current-step illustration. Unknown kinds are ignored and the trail is
+bounded defensively. No customer text is added.
 
 The server ends it when the answer ends, with an APNs `liveactivity` push,
 event `end`, content state `{phase, message}`: `phase` is `answered`,
@@ -1645,26 +1654,30 @@ phase. A tap opens the chat (`chatwithwork://open?path=/482139075/chats/42`).
 The app also ends it itself when that chat's composer says it's done while
 the person is in the app; in the background it leaves the end to the
 server's push. The activity's attributes are `ChatActivityAttributes` in
-`Shared/`. The widget makes the current action the dominant line, with a
-small organization/brand label. Elapsed time and steps so far sit together,
-followed by a quiet link back to chat; the count includes a running step,
-not just completed work. The expanded Island uses the same hierarchy on
-black, without an icon tile or a separate filled action button. Completed
-and waiting states show one headline and the appropriate Read answer,
-Review change or Reply link, without repeating the same status underneath.
-These links open the authenticated chat and never approve a change.
+`Shared/`. Working activities use a dashboard: a prominent real step count
+and elapsed metric flank a graphic of the recent activity. The current
+action anchors a blue band. A single known step uses its larger native
+symbol instead of inventing history. The count includes a running step,
+not just completed work. Decisions switch to an amber handoff band and a
+large approval or question symbol; ready uses a green result treatment.
+Failure, stopped and stale states are quieter and distinct. No terminal
+count or duration is inferred because end payloads omit them. The band's
+link opens the authenticated chat and never approves a change.
 
-Compact presentation keeps the small brand and timer or state icon. Minimal
+Compact presentation keeps the current work symbol and timer or state icon. Minimal
 presentation shows the current state. On iOS 27, the system's limited-width
 environment uses a single state icon inside 28pt and omits the trailing
 timer. Working is blue, decisions amber, ready green, and errors red, using
 Live Wire's ink colors. Stale or unknown states are neutral; stale content
 never keeps a ready-green tint or an elapsed timer. The action line supports
-two lines; bounded system presentations cap Dynamic Type at Accessibility
-1, and the Island's secondary organization label remains small. No
+two lines; bounded presentations first omit the recent trail's small node
+captions, retaining its actual glyphs and current highlight. At accessibility
+sizes, the working metrics become one row. System presentations cap Dynamic
+Type at Accessibility 1, and the Island's secondary organization label
+remains small. No
 percentage or ETA is inferred from the step count.
 
-The payload is unchanged. If a message is absent, the step supplies a
+If a message is absent, the step supplies a
 content-free fallback; `run` means "Running a task", `write` means
 "Writing the answer", and `answer` remains generic "Answering" (it is not
 evidence that streaming has started). Signing out or losing the session
@@ -1683,10 +1696,11 @@ layouts also remain physical-device checks. The simulator did not advance
 ActivityKit to stale after its configured date. None of those unobserved
 presentations is counted as visual proof.
 
-Debug builds support `-CWWLiveActivityPreview search|run|approval_waiting|input_requested|answered|failed|stopped|long|minimal|stale`
+Debug builds support `-CWWLiveActivityPreview search|run|approval_waiting|input_requested|answered|failed|stopped|long|legacy|minimal|stale`
 for synthetic system-surface previews without push credentials.
 `long` uses a long organization/action, 123 steps and more than an hour of
-elapsed time; `minimal` starts two synthetic activities.
+elapsed time; `legacy` omits recent history to exercise the older payload;
+`minimal` starts two synthetic activities.
 `LiveActivityPresentationTests` captures the Island and Lock Screen. Set
 `TEST_RUNNER_CWW_ACTIVITY_SCENARIOS` to a comma-separated subset when
 checking light, dark or accessibility text. The opt-in ActivityKit cleanup

@@ -49,6 +49,23 @@ struct LiveActivityTests {
         #expect(ChatActivityAttributes.ContentState(phase: "answering", step: "something new").symbol == "ellipsis")
     }
 
+    @Test("recent activity decodes observed kinds and preserves older payloads")
+    func recentActivity() throws {
+        let state = try JSONDecoder().decode(ChatActivityAttributes.ContentState.self, from: Data(#"{"phase":"answering","step":"run","steps":3,"recent_steps":["search","read","run"]}"#.utf8))
+        #expect(state.recentActivityKinds == ["search", "read", "run"])
+        let legacy = try JSONDecoder().decode(ChatActivityAttributes.ContentState.self, from: Data(#"{"phase":"answering","step":"write"}"#.utf8))
+        #expect(legacy.recentSteps == nil)
+        #expect(legacy.recentActivityKinds == ["write"])
+        #expect(ChatActivityAttributes.ContentState.answering.recentActivityKinds == ["answer"])
+        let defensive = ChatActivityAttributes.ContentState(phase: "answering", step: "run", recentSteps: ["unknown", "plan", "search", "search", "read", "run"])
+        #expect(defensive.recentActivityKinds == ["search", "read", "run"])
+        #expect(ChatActivityAttributes.ContentState(phase: "answering", step: "run", recentSteps: ["search", "unknown"]).recentActivityKinds == ["search", "run"])
+        #expect(ChatActivityAttributes.ContentState(phase: "answering", step: "read", recentSteps: ["unknown"]).recentActivityKinds == ["read"])
+        let encoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(state)) as? [String: Any]
+        #expect(encoded?["recent_steps"] as? [String] == ["search", "read", "run"])
+        #expect(encoded?["recentSteps"] == nil)
+    }
+
     @Test("builds the app's own links")
     func links() {
         #expect(AppLink.newChat().absoluteString == "chatwithwork://new-chat")
