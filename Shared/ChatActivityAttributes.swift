@@ -52,14 +52,26 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
 
         /// The line the Live Activity shows for this phase.
         var line: String {
-            if let message, !message.isEmpty { return message }
+            if let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return message }
             switch phase {
             case "answered": return String(localized: "Your answer is ready.")
             case "approval_waiting": return String(localized: "A change is waiting for your approval.")
             case "input_requested": return String(localized: "A question is waiting for your answer.")
             case "failed": return String(localized: "The answer couldn't finish.")
             case "stopped": return String(localized: "The answer stopped.")
-            default: return String(localized: "Answering")
+            case "answering":
+                switch step {
+                case "search": return String(localized: "Searching")
+                case "list": return String(localized: "Browsing")
+                case "read": return String(localized: "Reading")
+                case "plan": return String(localized: "Planning")
+                case "run": return String(localized: "Running a task")
+                case "ask": return String(localized: "Asking you to decide")
+                case "write": return String(localized: "Writing the answer")
+                case "use": return String(localized: "Using a tool")
+                default: return String(localized: "Answering")
+                }
+            default: return String(localized: "Open chat for an update")
             }
         }
 
@@ -76,13 +88,23 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
                 case "ask": "questionmark.bubble"
                 case "write": "text.alignleft"
                 case "use": "wrench.and.screwdriver"
+                case "answer": "ellipsis"
                 default: "ellipsis"
                 }
             case "answered": "checkmark.circle.fill"
-            case "approval_waiting", "input_requested": "hand.raised.fill"
+            case "approval_waiting": "hand.raised.fill"
+            case "input_requested": "questionmark.bubble.fill"
             case "failed": "exclamationmark.triangle.fill"
-            default: "stop.circle.fill"
+            case "stopped": "stop.circle.fill"
+            default: "arrow.clockwise"
             }
+        }
+
+        /// Staleness takes precedence over the last state, even a ready result.
+        func displaySymbol(isStale: Bool) -> String { isStale ? "arrow.clockwise" : symbol }
+
+        func displayHeadline(isStale: Bool) -> String {
+            isStale ? String(localized: "Open chat for an update") : headline
         }
 
         /// Includes a step still running, so never call these completed steps.

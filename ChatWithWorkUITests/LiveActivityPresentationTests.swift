@@ -7,7 +7,9 @@ final class LiveActivityPresentationTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication()
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        for scenario in ["search", "approval_waiting", "answered", "failed"] {
+        let scenarios = ProcessInfo.processInfo.environment["CWW_ACTIVITY_SCENARIOS"]?.split(separator: ",").map(String.init)
+            ?? ["search", "run", "approval_waiting", "input_requested", "answered", "failed", "stopped", "long"]
+        for scenario in scenarios {
             app.launchArguments = ["-CWWLiveActivityPreview", scenario, "-CWWAskForNotifications", "NO"]
             app.launch()
             XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
@@ -21,23 +23,33 @@ final class LiveActivityPresentationTests: XCTestCase {
             }
             let headline = switch scenario {
             case "search": "Searching your work tools"
+            case "run": "Running an agent"
+            case "long": "Reading information in your connected work tools"
             case "approval_waiting": "Approval needed"
+            case "input_requested": "Your input needed"
             case "answered": "Answer ready"
             case "failed": "Couldn't finish"
+            case "stopped": "Stopped"
             default: "Open chat for an update"
             }
-            XCTAssertTrue(springboard.staticTexts[headline].waitForExistence(timeout: 10), headline)
-            if scenario != "search" { XCTAssertFalse(springboard.staticTexts["Elapsed time"].exists) }
+            // A cold widget-extension launch after a device appearance change
+            // can take longer than the app itself. Wait for the actual surface.
+            XCTAssertTrue(springboard.staticTexts[headline].waitForExistence(timeout: 30), headline)
+            if !["search", "run", "long"].contains(scenario) { XCTAssertFalse(springboard.staticTexts["Elapsed time"].exists) }
             if scenario == "search", springboard.buttons["Allow"].firstMatch.waitForExistence(timeout: 3) {
                 springboard.buttons["Allow"].firstMatch.tap()
             }
             keep("lock-\(scenario)")
             XCUIDevice.shared.press(.home)
-            if scenario == "search" {
-                keep("island-compact")
+            if ["search", "run", "long"].contains(scenario) {
+                XCTAssertTrue(springboard.icons["CWW Dev"].waitForExistence(timeout: 10))
+                keep("island-compact-\(scenario)")
                 springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.025)).press(forDuration: 1.2)
                 XCTAssertTrue(springboard.staticTexts[headline].waitForExistence(timeout: 10))
-                keep("island-expanded")
+                let visible = NSPredicate(format: "exists == true AND hittable == true")
+                expectation(for: visible, evaluatedWith: springboard.staticTexts[headline])
+                waitForExpectations(timeout: 10)
+                keep("island-expanded-\(scenario)")
                 XCUIDevice.shared.press(.home)
             }
             app.terminate()

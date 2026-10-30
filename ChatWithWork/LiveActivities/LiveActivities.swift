@@ -24,17 +24,21 @@ final class LiveActivities {
                 for activity in Activity<ChatActivityAttributes>.activities {
                     await activity.end(nil, dismissalPolicy: .immediate)
                 }
-                let working = ["search", "run", "stale"].contains(scenario)
+                let working = ["search", "run", "long", "minimal", "stale"].contains(scenario)
                 let state = ChatActivityAttributes.ContentState(
                     phase: working ? "answering" : scenario,
-                    message: scenario == "search" ? "Searching your work tools" : scenario == "run" ? "Running an agent" : nil,
-                    step: working ? scenario : nil,
-                    steps: working ? 3 : nil
+                    message: scenario == "search" || scenario == "minimal" ? "Searching your work tools" : scenario == "run" ? "Running an agent" : scenario == "long" ? "Reading information in your connected work tools" : nil,
+                    step: scenario == "long" ? "read" : scenario == "minimal" ? "search" : working ? scenario : nil,
+                    steps: scenario == "long" ? 123 : working ? 3 : nil
                 )
-                let attributes = ChatActivityAttributes(organization: "Northwind Studio", path: "/1000001/chats/99999", startedAt: Date().addingTimeInterval(-83))
+                let attributes = ChatActivityAttributes(organization: scenario == "long" ? "Northwind Studio International Operations" : "Northwind Studio", path: "/1000001/chats/99999", startedAt: Date().addingTimeInterval(scenario == "long" ? -3703 : -83))
                 let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(scenario == "stale" ? 10 : 3600))
                 do {
                     let activity = try Activity.request(attributes: attributes, content: content, pushType: nil)
+                    if scenario == "minimal" {
+                        let other = ChatActivityAttributes(organization: "Northwind Studio", path: "/1000001/chats/99998", startedAt: Date().addingTimeInterval(-18))
+                        _ = try Activity.request(attributes: other, content: ActivityContent(state: .init(phase: "answering", message: "Running an agent", step: "run", steps: 1), staleDate: .now.addingTimeInterval(3600)), pushType: nil)
+                    }
                     if !working { await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(900))) }
                     for await phase in activity.activityStateUpdates {
                         NSLog("Live Activity preview %@: %@", scenario, String(describing: phase))
@@ -66,6 +70,18 @@ final class LiveActivities {
     }
 
     // MARK: Starting and ending
+
+    /// Sign-out or an expired session removes every old account surface.
+    /// Snapshot now so an asynchronous dismissal cannot end a later login's work.
+    @discardableResult
+    func endAll() -> Task<Void, Never> {
+        let current = Set(Activity<ChatActivityAttributes>.activities.map(\.id))
+        return Task {
+            for activity in Activity<ChatActivityAttributes>.activities where current.contains(activity.id) {
+                await activity.end(nil, dismissalPolicy: .immediate)
+            }
+        }
+    }
 
     private func start(for path: String, csrfToken: String?) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled,

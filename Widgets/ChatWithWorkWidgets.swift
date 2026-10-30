@@ -99,101 +99,157 @@ struct AskView: View {
 
 // MARK: - Live Activity
 
-/// A compact dashboard for one running answer. State is always content-free:
-/// the current kind of work, elapsed time, steps so far and a way back to chat.
+/// Content-free, current work first. The system controls the Island's black
+/// background and the activity's lifetime; no progress or ETA is inferred.
 struct ChatLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ChatActivityAttributes.self) { context in
             ActivityCard(attributes: context.attributes, state: context.state, isStale: context.isStale)
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
                 .activityBackgroundTint(Color("Canvas"))
                 .widgetURL(AppLink.open(path: context.attributes.path))
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    ActivityIdentity(organization: context.attributes.organization)
+                    ActivityMark(size: 14)
                         .environment(\.colorScheme, .dark)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    ActivityElapsed(startedAt: context.attributes.startedAt, state: context.state, isStale: context.isStale)
+                    Text(context.attributes.organization)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(Color("InkMuted"))
+                        .lineLimit(1)
+                        .frame(maxWidth: 130, alignment: .trailing)
                         .padding(.trailing, 8)
+                        .dynamicTypeSize(...DynamicTypeSize.large)
                         .environment(\.colorScheme, .dark)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     ActivityBody(attributes: context.attributes, state: context.state, isStale: context.isStale)
-                        .padding(.top, 8)
+                        .padding(.top, 6)
                         .environment(\.colorScheme, .dark)
                 }
             } compactLeading: {
-                Image("Mark").resizable().scaledToFit().frame(width: 18, height: 18)
+                ActivityCompact(attributes: context.attributes, state: context.state, isStale: context.isStale, position: .leading)
             } compactTrailing: {
-                if context.state.showsElapsed(isStale: context.isStale) {
-                    Text(context.attributes.startedAt, style: .timer)
-                        .font(.caption.weight(.semibold).monospacedDigit())
-                        .multilineTextAlignment(.trailing)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .frame(width: 52)
-                        .foregroundStyle(context.state.tint)
-                        .environment(\.colorScheme, .dark)
-                } else {
-                    Image(systemName: context.isStale ? "arrow.clockwise" : context.state.symbol)
-                        .foregroundStyle(context.state.tint)
-                        .environment(\.colorScheme, .dark)
-                }
+                ActivityCompact(attributes: context.attributes, state: context.state, isStale: context.isStale, position: .trailing)
             } minimal: {
-                Image(systemName: context.isStale ? "arrow.clockwise" : context.state.symbol)
-                    .foregroundStyle(context.state.tint)
-                    .environment(\.colorScheme, .dark)
+                ActivityCompact(attributes: context.attributes, state: context.state, isStale: context.isStale, position: .minimal)
             }
+            .keylineTint(context.state.tint(isStale: context.isStale))
             .widgetURL(AppLink.open(path: context.attributes.path))
         }
     }
 }
 
 private extension ChatActivityAttributes.ContentState {
-    var tint: Color {
+    func tint(isStale: Bool) -> Color {
+        if isStale { return Color("InkMuted") }
         if needsAttention { return Color("AttentionInk") }
         switch phase {
+        case "answering": return Color("LiveInk")
         case "answered": return Color("PositiveInk")
         case "failed": return Color("NegativeInk")
-        case "stopped": return Color("InkMuted")
-        default: return Color("LiveInk")
+        default: return Color("InkMuted")
         }
     }
 }
 
-private struct ActivityIdentity: View {
-    let organization: String
+private struct ActivityMark: View {
+    var size: CGFloat = 14
 
     var body: some View {
-        HStack(spacing: 7) {
-            Image("Mark").resizable().scaledToFit().frame(width: 20, height: 20)
-                .accessibilityLabel("Chat with Work")
-            Text(organization)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color("InkMuted"))
-                .lineLimit(1)
-        }
+        Image("Mark")
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .accessibilityLabel("Chat with Work")
     }
 }
 
 private struct ActivityElapsed: View {
     let startedAt: Date
-    let state: ChatActivityAttributes.ContentState
-    let isStale: Bool
+    var compact = false
 
     var body: some View {
-        if state.showsElapsed(isStale: isStale) {
-            Text(startedAt, style: .timer)
-                .font(.subheadline.weight(.semibold).monospacedDigit())
-                .foregroundStyle(Color("InkMuted"))
-                .multilineTextAlignment(.trailing)
-                .frame(width: 60, alignment: .trailing)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-                .accessibilityLabel("Elapsed time")
-                .accessibilityValue(Text(startedAt, style: .timer))
+        // Timer text otherwise expands into all available space. Reserve a
+        // monospaced time shape, not a wide invisible gap before the step count.
+        Text(startedAt.timeIntervalSinceNow <= -3600 ? "0:00:00" : "00:00")
+            .hidden()
+            .font(compact ? .caption.weight(.semibold).monospacedDigit() : .subheadline.weight(.semibold).monospacedDigit())
+            .overlay(alignment: .leading) {
+                Text(startedAt, style: .timer)
+                    .font(compact ? .caption.weight(.semibold).monospacedDigit() : .subheadline.weight(.semibold).monospacedDigit())
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+            }
+            .fixedSize()
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Elapsed time")
+            .accessibilityValue(Text(startedAt, style: .timer))
+    }
+}
+
+private enum ActivityCompactPosition { case leading, trailing, minimal }
+
+private struct ActivityCompact: View {
+    let attributes: ChatActivityAttributes
+    let state: ChatActivityAttributes.ContentState
+    let isStale: Bool
+    let position: ActivityCompactPosition
+
+    var body: some View {
+        Group {
+            if #available(iOS 27.0, *) {
+                LimitedActivityCompact(attributes: attributes, state: state, isStale: isStale, position: position)
+            } else {
+                ActivityCompactContent(attributes: attributes, state: state, isStale: isStale, position: position, limited: false)
+            }
+        }
+        .environment(\.colorScheme, .dark)
+    }
+}
+
+/// Landscape and other narrow system contexts allow only a 28pt circle.
+/// One meaningful state icon replaces the split brand/timer presentation.
+@available(iOS 27.0, *)
+private struct LimitedActivityCompact: View {
+    @Environment(\.isDynamicIslandLimitedInWidth) private var limited
+    let attributes: ChatActivityAttributes
+    let state: ChatActivityAttributes.ContentState
+    let isStale: Bool
+    let position: ActivityCompactPosition
+
+    var body: some View {
+        ActivityCompactContent(attributes: attributes, state: state, isStale: isStale, position: position, limited: limited)
+    }
+}
+
+private struct ActivityCompactContent: View {
+    let attributes: ChatActivityAttributes
+    let state: ChatActivityAttributes.ContentState
+    let isStale: Bool
+    let position: ActivityCompactPosition
+    let limited: Bool
+
+    var body: some View {
+        Group {
+            if position == .leading && !limited {
+                ActivityMark(size: 16)
+            } else if position == .trailing && limited {
+                EmptyView()
+            } else if position == .trailing && state.showsElapsed(isStale: isStale) {
+                ActivityElapsed(startedAt: attributes.startedAt, compact: true)
+                    .foregroundStyle(state.tint(isStale: isStale))
+            } else {
+                Image(systemName: state.displaySymbol(isStale: isStale))
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(state.tint(isStale: isStale))
+                    .frame(width: limited ? 28 : 20, height: limited ? 28 : 20)
+                    .accessibilityLabel(state.displayHeadline(isStale: isStale))
+            }
         }
     }
 }
@@ -204,14 +260,17 @@ private struct ActivityCard: View {
     let isStale: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                ActivityIdentity(organization: attributes.organization)
-                Spacer(minLength: 8)
-                ActivityElapsed(startedAt: attributes.startedAt, state: state, isStale: isStale)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                ActivityMark()
+                Text(attributes.organization)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(Color("InkMuted"))
+                    .lineLimit(1)
             }
             ActivityBody(attributes: attributes, state: state, isStale: isStale)
         }
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
     }
 }
 
@@ -221,16 +280,15 @@ private struct ActivityBody: View {
     let isStale: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 10) {
-                Image(systemName: isStale ? "arrow.clockwise" : state.symbol)
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(state.tint)
-                    .frame(width: 38, height: 38)
-                    .background(state.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 9) {
+                Image(systemName: state.displaySymbol(isStale: isStale))
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(state.tint(isStale: isStale))
+                    .frame(width: 22)
                     .contentTransition(.symbolEffect(.replace))
                     .accessibilityHidden(true)
-                Text(isStale ? String(localized: "Open chat for an update") : state.headline)
+                Text(state.displayHeadline(isStale: isStale))
                     .font(.headline)
                     .foregroundStyle(Color("Ink"))
                     .lineLimit(2)
@@ -238,31 +296,52 @@ private struct ActivityBody: View {
                     .contentTransition(.opacity)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            HStack(alignment: .center, spacing: 12) {
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(Color("InkMuted"))
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Link(destination: AppLink.open(path: attributes.path)) {
-                    HStack(spacing: 5) {
-                        Text(isStale ? String(localized: "Open chat") : state.action)
-                        Image(systemName: "chevron.right").font(.caption2.weight(.bold))
-                    }
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(state.tint)
-                    .padding(.horizontal, 12)
-                    .frame(minHeight: 36)
-                    .background(state.tint.opacity(0.12), in: Capsule())
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    if state.showsElapsed(isStale: isStale) { metrics }
+                    Spacer(minLength: 6)
+                    action
                 }
-                .fixedSize()
+                HStack(spacing: 8) {
+                    if state.showsElapsed(isStale: isStale) { metrics }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color("InkMuted"))
+                        .accessibilityHidden(true)
+                }
             }
         }
+        // Live Activities are bounded system surfaces (maximum 160pt).
+        // Keep the current action readable at accessibility sizes without
+        // letting optional identity/actions push it out of the presentation.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
     }
 
-    private var detail: String {
-        if isStale { return String(localized: "Last update may be out of date") }
-        if state.isWorking { return state.stepsLine ?? String(localized: "Working in the background") }
-        return state.line
+    private var metrics: some View {
+        HStack(spacing: 6) {
+            ActivityElapsed(startedAt: attributes.startedAt)
+                .foregroundStyle(Color("Ink"))
+            if let steps = state.stepsLine {
+                Text("·").accessibilityHidden(true)
+                Text(steps).lineLimit(1)
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(Color("InkMuted"))
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var action: some View {
+        Link(destination: AppLink.open(path: attributes.path)) {
+            HStack(spacing: 4) {
+                Text(isStale ? String(localized: "Open chat") : state.action)
+                Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .semibold))
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(state.tint(isStale: isStale))
+            .padding(.vertical, 2)
+        }
+        .fixedSize()
     }
 }

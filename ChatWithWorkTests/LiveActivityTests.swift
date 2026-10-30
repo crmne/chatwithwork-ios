@@ -1,3 +1,4 @@
+import ActivityKit
 import Foundation
 import Testing
 @testable import ChatWithWork
@@ -74,6 +75,50 @@ struct LiveActivityTests {
         #expect(unknown.headline == "Open chat for an update")
         #expect(unknown.action == "Open chat")
         #expect(ChatActivityAttributes.ContentState(phase: "answering", steps: -1).stepsLine == nil)
+    }
+
+    @Test("missing content-free messages retain the actual kind of work")
+    func missingMessages() {
+        let expected = ["search": "Searching", "run": "Running a task", "read": "Reading", "write": "Writing the answer", "answer": "Answering", "ask": "Asking you to decide"]
+        for (step, headline) in expected {
+            let state = ChatActivityAttributes.ContentState(phase: "answering", message: "  ", step: step)
+            #expect(state.headline == headline)
+        }
+        let answering = ChatActivityAttributes.ContentState(phase: "answering", step: "answer")
+        #expect(answering.symbol == "ellipsis")
+        #expect(answering.symbol != ChatActivityAttributes.ContentState(phase: "answering", step: "write").symbol)
+        #expect(ChatActivityAttributes.ContentState(phase: "answering", message: "Running an agent", step: "run").headline == "Running an agent")
+    }
+
+    @Test("stale and unknown activity states never look successful or stopped")
+    func stalePresentation() {
+        for phase in ["answering", "answered", "approval_waiting", "failed", "stopped"] {
+            let state = ChatActivityAttributes.ContentState(phase: phase)
+            #expect(state.displaySymbol(isStale: true) == "arrow.clockwise")
+            #expect(state.displayHeadline(isStale: true) == "Open chat for an update")
+        }
+        let unknown = ChatActivityAttributes.ContentState(phase: "future_state")
+        #expect(unknown.symbol == "arrow.clockwise")
+        #expect(unknown.line == "Open chat for an update")
+        #expect(ChatActivityAttributes.ContentState(phase: "input_requested").symbol == "questionmark.bubble.fill")
+        #expect(ChatActivityAttributes.ContentState(phase: "approval_waiting").symbol == "hand.raised.fill")
+    }
+
+    @MainActor @Test("sign-out cleanup ends already-running system activities", .enabled(if: ProcessInfo.processInfo.environment["CWW_TEST_ACTIVITYKIT"] == "1"))
+    func endAllActivities() async throws {
+        let attributes = ChatActivityAttributes(organization: "Synthetic test", path: "/1000001/chats/99999", startedAt: .now)
+        let activity = try Activity.request(attributes: attributes, content: ActivityContent(state: ChatActivityAttributes.ContentState.answering, staleDate: .now.addingTimeInterval(300)), pushType: nil)
+        let registeredBy = Date().addingTimeInterval(5)
+        while !Activity<ChatActivityAttributes>.activities.contains(where: { $0.id == activity.id }), Date() < registeredBy {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(Activity<ChatActivityAttributes>.activities.contains(where: { $0.id == activity.id }))
+        await LiveActivities.shared.endAll().value
+        let dismissedBy = Date().addingTimeInterval(5)
+        while activity.activityState == .active, Date() < dismissedBy {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(activity.activityState == .ended || activity.activityState == .dismissed)
     }
 
     @Test("takes nothing for a folder that isn't a share's")

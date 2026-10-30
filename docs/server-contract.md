@@ -1645,25 +1645,54 @@ phase. A tap opens the chat (`chatwithwork://open?path=/482139075/chats/42`).
 The app also ends it itself when that chat's composer says it's done while
 the person is in the app; in the background it leaves the end to the
 server's push. The activity's attributes are `ChatActivityAttributes` in
-`Shared/`. The widget draws a compact status card: organization and elapsed
-time in the header, a meaningful step icon and headline, then steps so far
-and Open chat. The count includes a running step, not just completed work.
-The expanded Island uses the same hierarchy; compact and minimal variants
-keep the icon or timer. Working is blue, decisions amber, and ready green,
-using Live Wire's accessible ink colors. Ended states stop the timer and
-offer Read answer, Review change or Reply, opening the authenticated chat
-without approving anything. Stale activities stop claiming live elapsed
-time and ask the person to open the chat for an update. No percentage or
-ETA is inferred from the step count.
+`Shared/`. The widget makes the current action the dominant line, with a
+small organization/brand label. Elapsed time and steps so far sit together,
+followed by a quiet link back to chat; the count includes a running step,
+not just completed work. The expanded Island uses the same hierarchy on
+black, without an icon tile or a separate filled action button. Completed
+and waiting states show one headline and the appropriate Read answer,
+Review change or Reply link, without repeating the same status underneath.
+These links open the authenticated chat and never approve a change.
 
-The system UI test covers active, approval, completed and failed cards. The
-elapsed-state unit test also covers stale content. The iOS 27 simulator did
-not advance ActivityKit to stale after its configured date during visual
-QA, so the stale scenario remains a physical-device check.
+Compact presentation keeps the small brand and timer or state icon. Minimal
+presentation shows the current state. On iOS 27, the system's limited-width
+environment uses a single state icon inside 28pt and omits the trailing
+timer. Working is blue, decisions amber, ready green, and errors red, using
+Live Wire's ink colors. Stale or unknown states are neutral; stale content
+never keeps a ready-green tint or an elapsed timer. The action line supports
+two lines; bounded system presentations cap Dynamic Type at Accessibility
+1, and the Island's secondary organization label remains small. No
+percentage or ETA is inferred from the step count.
 
-Debug builds support `-CWWLiveActivityPreview search|run|approval_waiting|answered|failed|stale`
+The payload is unchanged. If a message is absent, the step supplies a
+content-free fallback; `run` means "Running a task", `write` means
+"Writing the answer", and `answer` remains generic "Answering" (it is not
+evidence that streaming has started). Signing out or losing the session
+immediately ends the old account's activities.
+
+The system UI test covers current work, approval, input, ready, failed,
+stopped and long-text cards, including compact and expanded Island views.
+The elapsed-state unit test also covers stale content. In iOS 27 simulator
+QA, the Lock Screen activity rendered its dark palette under light device
+appearance. After switching the device to dark appearance, ActivityKit
+reported active cards but SpringBoard did not reliably present them, even
+after a fresh install. The dark-device and largest-accessibility checks
+remain outstanding. Two simultaneous activities still showed a compact
+Island, and landscape Safari hid the Island, so minimal and limited-width
+layouts also remain physical-device checks. The simulator did not advance
+ActivityKit to stale after its configured date. None of those unobserved
+presentations is counted as visual proof.
+
+Debug builds support `-CWWLiveActivityPreview search|run|approval_waiting|input_requested|answered|failed|stopped|long|minimal|stale`
 for synthetic system-surface previews without push credentials.
-`LiveActivityPresentationTests` captures the Island and Lock Screen.
+`long` uses a long organization/action, 123 steps and more than an hour of
+elapsed time; `minimal` starts two synthetic activities.
+`LiveActivityPresentationTests` captures the Island and Lock Screen. Set
+`TEST_RUNNER_CWW_ACTIVITY_SCENARIOS` to a comma-separated subset when
+checking light, dark or accessibility text. The opt-in ActivityKit cleanup
+integration check (`TEST_RUNNER_CWW_TEST_ACTIVITYKIT=1`) needs a foreground
+simulator that allows Live Activities; normal unit runs do not request a
+system activity.
 
 ### Widgets and the app's links
 
