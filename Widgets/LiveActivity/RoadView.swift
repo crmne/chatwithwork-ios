@@ -46,8 +46,7 @@ struct RoadView: View {
             case .working: working(w)
             case .agents: agents(w)
             case .writing: writing(w)
-            case .decision: gate(w)
-            case .input: reply(w)
+            case .decision, .input: yourTurn(w)
             case .finished: finished(w)
             case .failed: broken(w)
             case .stopped: halted(w)
@@ -227,43 +226,34 @@ struct RoadView: View {
         return bars
     }
 
-    private func gate(_ w: CGFloat) -> some View {
-        let head = 0.4 * w
-        let post = head + bot + 13
+    /// A decision or a question: the bot turns to you and holds up a card with
+    /// what it's about, and the road ahead waits.
+    private func yourTurn(_ w: CGFloat) -> some View {
+        let head = 0.34 * w
+        let right = head + 4 + bot
+        let card = right + 4
         return Group {
             line(to: head + 8).fill(Road.line)
             origin(Road.grey)
             Bars(rects: ticks(head)).fill(Road.grey)
             stops(head)
+            aheadDashes(from: card + 46, to: w)
             placedBot(x: head + 4)
-            Gate(x: post, base: base)
-                .fill(style: FillStyle(eoFill: true))
-                .foregroundStyle(Road.attention)
-                .transition(.scale(scale: 0.1, anchor: .bottom))
-            dots(from: post + 22, to: post + 56, y: base, colour: Road.attention)
-            if let service = road.service {
-                stop(service, size: 36, logo: 24).offset(x: post + 74 - 20, y: base - 17 - 20)
+            ZStack(alignment: .topLeading) {
+                Bars(rects: [CGRect(x: right - 2, y: base - 16, width: 10, height: 3)], corner: 0).fill(botColor)
+                HeldCard(road: road).rotationEffect(.degrees(-5)).offset(x: card, y: base - 40)
             }
+            .frame(width: w, height: height, alignment: .topLeading)
+            .transition(reduceMotion ? .opacity : .scale(scale: 0.6, anchor: UnitPoint(x: right / w, y: 1)).combined(with: .opacity))
         }
     }
 
-    private func reply(_ w: CGFloat) -> some View {
-        let head = 0.34 * w
-        let box = head + bot + toolWidth(.ask) + 16
-        return Group {
-            line(to: head + 8).fill(Road.line)
-            origin(Road.grey)
-            Bars(rects: ticks(head)).fill(Road.grey)
-            stops(head)
-            placedBot(x: head + 4)
-            UnevenRoundedRectangle(topLeadingRadius: 10, bottomLeadingRadius: 2, bottomTrailingRadius: 10, topTrailingRadius: 10)
-                .stroke(Road.attention, lineWidth: 1.5)
-                .overlay(alignment: .leading) {
-                    Rectangle().fill(Road.attention).frame(width: 2, height: 15).padding(.leading, 9)
-                }
-                .frame(width: max(w - box, 0), height: 34)
-                .offset(x: box, y: base - 38)
+    private func aheadDashes(from x: CGFloat, to w: CGFloat) -> some View {
+        Path { path in
+            path.move(to: CGPoint(x: x, y: base))
+            path.addLine(to: CGPoint(x: w, y: base))
         }
+        .stroke(Road.dimmedAhead, style: StrokeStyle(lineWidth: 1.5, dash: [4, 5]))
     }
 
     private func finished(_ w: CGFloat) -> some View {
@@ -373,19 +363,40 @@ private nonisolated struct Crack: Shape {
     }
 }
 
-/// A barrier post with its black bars, cap and foot.
-private nonisolated struct Gate: Shape {
-    let x: CGFloat
-    let base: CGFloat
+/// The small amber card the bot holds up: the service's logo, or generic glyph,
+/// on a white plate. A question or a change with no service draws its own mark.
+private struct HeldCard: View {
+    let road: OpenRoad
+    @Environment(\.isLuminanceReduced) private var dimmed
 
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.addRect(CGRect(x: x, y: base - 42, width: 8, height: 42))
-        for index in 0..<5 {
-            path.addRect(CGRect(x: x, y: base - 37 + CGFloat(index) * 8.5, width: 8, height: 4))
+    private var mark: OpenRoad.Tool { road.stage == .input ? .ask : .write }
+
+    var body: some View {
+        content
+            .frame(width: 34, height: 27)
+            .background {
+                if dimmed {
+                    RoundedRectangle(cornerRadius: 4).stroke(Road.attention, lineWidth: 1.5)
+                } else {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Road.attention)
+                        .shadow(color: Road.attention.opacity(0.35), radius: 7)
+                }
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let service = road.service {
+            ServiceLogo(key: service, size: 14, color: dimmed ? Road.dim : Road.canvas)
+                .frame(width: 18, height: 18)
+                .background { if !dimmed { RoundedRectangle(cornerRadius: 3).fill(.white) } }
+                .opacity(dimmed ? 0.6 : 1)
+        } else {
+            let drawing = BotPixels.tool(mark)
+            PixelShape(rects: drawing.rects, square: 2)
+                .fill(dimmed ? Road.attention : Road.canvas)
+                .frame(width: drawing.width * 2, height: drawing.height * 2)
         }
-        path.addRect(CGRect(x: x - 2.5, y: base - 46, width: 13, height: 4))
-        path.addRect(CGRect(x: x - 5, y: base - 1.5, width: 18, height: 2.5))
-        return path
     }
 }

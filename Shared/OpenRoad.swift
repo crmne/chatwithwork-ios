@@ -123,7 +123,7 @@ nonisolated struct OpenRoad: Equatable {
         case .working, .writing: (face, tool) = Self.pose(for: state.step)
         case .agents: (face, tool) = (.focus, nil)
         case .decision: (face, tool) = (.wide, nil)
-        case .input: (face, tool) = (.brow, .ask)
+        case .input: (face, tool) = (.brow, nil)
         case .finished: (face, tool) = (.happy, nil)
         // Calm on purpose: a failure may be serious, and x eyes would joke about it.
         case .failed, .stale: (face, tool) = (.closed, nil)
@@ -181,7 +181,7 @@ nonisolated struct OpenRoad: Equatable {
     }
 
     /// Stops behind the bot, oldest first, newest kept. The service it's in now
-    /// is the headline's or the gate's, so it isn't a stop yet.
+    /// is the headline's or the held card's, so it isn't a stop yet.
     static func stops(services: [String]?, current: String?) -> [String] {
         var seen = Set<String>()
         let drawn = (services ?? []).filter { seen.insert($0).inserted && $0 != current }

@@ -9,6 +9,7 @@ enum Road {
     static let grey = Color("RoadGrey")
     static let line = Color("RoadLine")
     static let quiet = Color(red: 0x2A / 255, green: 0x30 / 255, blue: 0x40 / 255)
+    static let dimmedAhead = Color(red: 0x6B / 255, green: 0x74 / 255, blue: 0x88 / 255)
     static let plinth = Color("RoadPlinth")
     static let attention = Color("RoadAttention")
     static let positive = Color("RoadPositive")

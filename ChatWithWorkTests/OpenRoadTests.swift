@@ -103,6 +103,14 @@ struct OpenRoadTests {
         #expect(try JSONDecoder().decode(State.self, from: json).pace == "14")
     }
 
+    @Test("a wait faces you and draws no tool: the card it holds says what about")
+    func waits() {
+        #expect(road(State(phase: "approval_waiting", step: "use", service: "slack")).face == .wide)
+        #expect(road(State(phase: "approval_waiting", step: "use", service: "slack")).tool == nil)
+        #expect(road(State(phase: "input_requested", step: "ask")).face == .brow)
+        #expect(road(State(phase: "input_requested", step: "ask")).tool == nil)
+    }
+
     @Test("an older server gets even ticks from its real count, and no stops")
     func legacy() {
         let drawn = road(State(phase: "answering", message: "Searching Drive", step: "search", steps: 7))
