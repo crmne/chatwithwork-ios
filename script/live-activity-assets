@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""Rebuilds the Live Activity's bundled fonts and service logos from the Rails
+app's own assets: Geist, Geist Mono and Unbounded instanced at the weights the
+card uses and subset, and each built-in service's logo.
+
+    script/live-activity-assets [path to chatwithwork]
+
+Needs fonttools with brotli, ImageMagick and librsvg's rsvg-convert. Keep SERVICES in step with
+OpenRoad.serviceNames in Shared/OpenRoad.swift.
+"""
+import json
+import pathlib
+import shutil
+import subprocess
+import sys
+
+from fontTools import subset
+from fontTools.ttLib import TTFont
+from fontTools.varLib import instancer
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+RAILS = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ROOT.parent / "chatwithwork") / "app/assets"
+FONTS = ROOT / "Widgets/Fonts"
+CATALOG = ROOT / "Widgets/Assets.xcassets"
+
+LATIN = "U+0020-007E,U+00A0-017F,U+2013,U+2014,U+2018,U+2019,U+201C,U+201D,U+2026,U+00D7"
+CLOCK = "U+0030-003A"
+CUTS = [
+    ("geist-variable.woff2", "Geist", 600, "SemiBold", LATIN),
+    ("geist-variable.woff2", "Geist", 500, "Medium", LATIN),
+    ("geist-mono-variable.woff2", "GeistMono", 500, "Medium", LATIN),
+    ("unbounded-variable.woff2", "Unbounded", 500, "Medium", CLOCK),
+    ("unbounded-variable.woff2", "Unbounded", 600, "SemiBold", CLOCK),
+]
+
+SERVICES = """google_drive gmail google_calendar dropbox onedrive sharepoint outlook teams nextcloud
+odoo chatwoot slack discord sendfox tidycal x basecamp notion todoist github bugsink linear atlassian
+granola fireflies hubspot salesforce intercom asana monday figma lattice netsuite chargebee databricks
+looker pidgeon""".split()
+DRAWINGS = {"mcp": "marketing/servers-mark.svg", "computer": "marketing/computer-mark.svg"}
+MONOCHROME = set("basecamp discord github intercom pidgeon x".split())  # ProviderIcon::MONOCHROME
+
+
+def tabular(cut):
+    """Makes the tabular figures the plain digits, so a running timer never shifts."""
+    for table in cut["cmap"].tables:
+        if table.isUnicode():
+            for code, name in zip(range(0x30, 0x3A), "zero one two three four five six seven eight nine".split()):
+                table.cmap[code] = f"{name}.tf"
+
+
+def font(source, family, weight, style, unicodes):
+    variable = TTFont(RAILS / "fonts" / source)
+    variable.flavor = None
+    cut = instancer.instantiateVariableFont(variable, {"wght": weight})
+    if family == "Unbounded":
+        tabular(cut)
+    options = subset.Options(layout_features=["kern", "liga", "tnum", "calt"], hinting=False, name_IDs=["*"], notdef_outline=True)
+    subsetter = subset.Subsetter(options)
+    subsetter.populate(unicodes=subset.parse_unicodes(unicodes))
+    subsetter.subset(cut)
+    postscript = f"{family}-{style}"
+    names = cut["name"]
+    for record in list(names.names):
+        if record.nameID in (16, 17, 25):
+            names.removeNames(nameID=record.nameID)
+    names.setName(f"{family} {style}", 1, 3, 1, 0x409)
+    names.setName("Regular", 2, 3, 1, 0x409)
+    names.setName(f"{family} {style}", 4, 3, 1, 0x409)
+    names.setName(postscript, 6, 3, 1, 0x409)
+    cut.save(FONTS / f"{postscript}.ttf")
+
+
+def imageset(name, filename, *, template, vector):
+    folder = CATALOG / f"Logo-{name}.imageset"
+    folder.mkdir(exist_ok=True)
+    properties = {"template-rendering-intent": "template" if template else "original"}
+    if vector:
+        properties["preserves-vector-representation"] = True
+    contents = {"images": [{"filename": filename, "idiom": "universal"}], "info": {"author": "xcode", "version": 1}, "properties": properties}
+    (folder / "Contents.json").write_text(json.dumps(contents, indent=2) + "\n")
+    return folder
+
+
+def logo(name, source, *, template):
+    if source.suffix == ".svg":
+        folder = imageset(name, f"{name}.pdf", template=template, vector=True)
+        subprocess.run(["rsvg-convert", "-f", "pdf", "-w", "24", "-h", "24", "--keep-aspect-ratio", "-o", folder / f"{name}.pdf", source], check=True)
+    else:
+        folder = imageset(name, f"{name}.png", template=template, vector=False)
+        subprocess.run(["magick", source, "-resize", "96x96", "-strip", folder / f"{name}.png"], check=True)
+
+
+FONTS.mkdir(exist_ok=True)
+for source, family, weight, style, unicodes in CUTS:
+    font(source, family, weight, style, unicodes)
+shutil.copy(RAILS / "fonts/geist-LICENSE.txt", FONTS / "Geist-LICENSE.txt")
+shutil.copy(RAILS / "fonts/unbounded-LICENSE.txt", FONTS / "Unbounded-LICENSE.txt")
+
+for name in SERVICES:
+    path = RAILS / "images/providers" / f"{name}.svg"
+    logo(name, path if path.exists() else path.with_suffix(".png"), template=name in MONOCHROME)
+for name, drawing in DRAWINGS.items():
+    logo(name, RAILS / "images" / drawing, template=True)
