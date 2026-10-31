@@ -1621,12 +1621,44 @@ activity's push token with the server:
 ```
 POST /:account/chats/:number/live_activity
 Content-Type: application/json, X-CSRF-Token: <the composer's csrfToken>, the web view's cookies
-{ "live_activity": { "token": "<hex>", "app_id": "com.chatwithwork.app", "environment": "sandbox" | "production" } }
+{ "live_activity": { "token": "<hex>", "app_id": "com.chatwithwork.app", "environment": "sandbox" | "production", "run": "<the composer's run>" } }
 ```
+
+**Runs (2026-10-31).** While the composer says `working` or `waiting`, its state
+also says `run`, `revision` and `startedAt` (unix seconds), null otherwise, and
+absent on an older server. A run is one turn: a question until it's answered, through
+steering and waits for the person. A new question or a retry is a new run.
+`run` is opaque and content-free, `revision` orders everything within it, and
+the start never changes within it, so the activity's timer is the answer's.
+Both APNs events carry them too, as optional `run`, `revision` and
+`started_at` in the content state, and `201` answers with `id`, `run`,
+`revision` and `started_at`. `409` means the named run is over (the answer
+ended before the token arrived): the app ends its activity, since no push
+would. An app that sends no `run` follows as before.
+
+Only an answer, a failure or a stop ends an activity. `approval_waiting` and
+`input_requested` are `update` events at priority 10, with `waiting_since`, and
+the activity carries on when the answer does: ending it would take it off the
+Dynamic Island, and iOS can't start one from the background. In front, the app
+leaves it alone while the composer says `waiting`. The stale date is 10
+minutes, and the server repeats the state every 4 minutes with `heard_at`.
+Also optional, and content-free, for the design to draw: `service`, `services`,
+`trail`, `agents`.
+
+An activity belongs to one run for life (`attributes.run`). Apple delivers a
+push only to the activity whose token it is, so a late push for an old answer
+can't reach a newer activity, and the server checks every event against the
+run and revision before sending it. A chat's next run replaces the last run's
+activity, even an ended one still on the Lock Screen. When a person dismisses
+a working activity (`activityStateUpdates`, `.dismissed` straight from active
+or stale, not after the app or the server ended it) that run stays dismissed,
+across launches, and a later run starts. Signing out or losing the session
+ends every activity, cancels registrations under way, ignores any composer
+state still arriving from the old web view, and forgets those dismissals.
 
 While the answer runs, the server pushes what it's doing (2026-10-26): event
 `update` at `apns-priority` 5 (which Apple doesn't count against the app's
-budget), at most every 3 seconds, with a `stale-date` an hour ahead, and the
+budget), at most every 3 seconds, with a `stale-date` 10 minutes ahead, and the
 content state `{phase: "answering", message, step, steps, recent_steps}`: `message` the
 step it's on in the words of the chat's activity line ("Searching Todoist",
 "Reading 3 files in Drive", "Running code", "Writing the answer", or
@@ -1647,7 +1679,7 @@ bounded defensively. No customer text is added.
 
 The server ends it when the answer ends, with an APNs `liveactivity` push,
 event `end`, content state `{phase, message}`: `phase` is `answered`,
-`approval_waiting`, `input_requested`, `failed` or `stopped` (the person's
+`failed` or `stopped` (the person's
 Stop, or out of credits), `message` generic words for it, shown on the Lock
 Screen for 15 minutes. The app shows the message, or its own words for the
 phase. A tap opens the chat (`chatwithwork://open?path=/482139075/chats/42`).
@@ -1680,8 +1712,7 @@ percentage or ETA is inferred from the step count.
 If a message is absent, the step supplies a
 content-free fallback; `run` means "Running a task", `write` means
 "Writing the answer", and `answer` remains generic "Answering" (it is not
-evidence that streaming has started). Signing out or losing the session
-immediately ends the old account's activities.
+evidence that streaming has started).
 
 The system UI test covers current work, approval, input, ready, failed,
 stopped and long-text cards, including compact and expanded Island views.

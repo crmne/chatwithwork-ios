@@ -10,19 +10,36 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
     /// What the server's pushes say. While the answer works, `phase` is
     /// `answering`, `message` the step it's on in words that carry nothing
     /// from the chat ("Searching Todoist", "Writing the answer"), `step` its
-    /// kind and `steps` how many it took so far. At the end, `phase` is
-    /// `answered`, `approval_waiting`, `input_requested`, `failed` or
-    /// `stopped`, and `message` generic words for it.
+    /// kind and `steps` how many it took so far. A wait for the person is an
+    /// update with `phase` `approval_waiting` or `input_requested`, and the
+    /// activity goes on after it. At the end, `phase` is `answered`, `failed`
+    /// or `stopped`, and `message` generic words for it. `run`, `revision` and
+    /// `startedAt` (unix seconds) say which answer that is and where it
+    /// stands. Older servers send those, and the optionals after them, not
+    /// at all. `service` and `services` are built-in keys, or `mcp` and
+    /// `computer`, never a name a person gave one.
     struct ContentState: Codable, Hashable, Sendable {
         var phase: String
         var message: String?
         var step: String?
         var steps: Int?
         var recentSteps: [String]?
+        var run: String?
+        var revision: Int64?
+        var startedAt: Int64?
+        var waitingSince: Int64?
+        var service: String?
+        var services: [String]?
+        var trail: String?
+        var agents: Int?
+        var heardAt: Int64?
 
         enum CodingKeys: String, CodingKey {
-            case phase, message, step, steps
+            case phase, message, step, steps, run, revision, service, services, trail, agents
             case recentSteps = "recent_steps"
+            case startedAt = "started_at"
+            case waitingSince = "waiting_since"
+            case heardAt = "heard_at"
         }
 
         /// Observed work only. Older servers supply just the current step.
@@ -160,6 +177,9 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
     /// The chat's path on the server, which a tap opens.
     var path: String
     var startedAt: Date
+    /// The answer this activity belongs to, which it keeps for its whole
+    /// life; nil on an older server.
+    var run: String? = nil
 }
 
 /// The app's own links, which widgets, Live Activities and the share

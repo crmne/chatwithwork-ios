@@ -57,6 +57,12 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     let lockReason: String?
     let working: Bool
     let stopping: Bool
+    /// Stopped for the person: not `working`, and the answer's run goes on.
+    let waiting: Bool
+    /// Which answer is working or waiting, as the server names it.
+    let run: String?
+    let revision: Int64?
+    let startedAt: Int64?
     let models: [Model]
     let permissionModes: PermissionModes?
     let webSearch: WebSearch?
@@ -69,6 +75,8 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     func canSelectPermissionMode(_ value: String) -> Bool {
         !locked && permissionModes?.options.contains { $0.value == value && !$0.disabled } == true
     }
+
+    var liveRun: LiveRun? { LiveRun(id: run, revision: revision, startedAt: startedAt) }
 
     var selectedModel: Model? { models.first(where: \.selected) }
     var isUploading: Bool { attachments.contains(where: \.uploading) }
@@ -83,6 +91,10 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
         lockReason = try values.decodeIfPresent(String.self, forKey: .lockReason)
         working = try values.decodeIfPresent(Bool.self, forKey: .working) ?? false
         stopping = try values.decodeIfPresent(Bool.self, forKey: .stopping) ?? false
+        waiting = try values.decodeIfPresent(Bool.self, forKey: .waiting) ?? false
+        run = try values.decodeIfPresent(String.self, forKey: .run)
+        revision = try values.decodeIfPresent(Int64.self, forKey: .revision)
+        startedAt = try values.decodeIfPresent(Int64.self, forKey: .startedAt)
         models = try values.decodeIfPresent([Model].self, forKey: .models) ?? []
         permissionModes = try values.decodeIfPresent(PermissionModes.self, forKey: .permissionModes)
         webSearch = try values.decodeIfPresent(WebSearch.self, forKey: .webSearch)
@@ -93,7 +105,7 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case overlay, visible, placeholder, text, locked, lockReason, working, stopping, models, permissionModes, webSearch, dictation, csrfToken, attachments, acceptsFiles
+        case overlay, visible, placeholder, text, locked, lockReason, working, stopping, waiting, run, revision, startedAt, models, permissionModes, webSearch, dictation, csrfToken, attachments, acceptsFiles
     }
 
     /// Whether Send can go now: words or files, nothing still uploading, and

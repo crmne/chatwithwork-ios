@@ -12,6 +12,13 @@ import UIKit
 /// app ends it itself when the composer says the answer is done while the
 /// person is in the app; in the background it leaves the end to the
 /// server's push, which keeps it on the Lock Screen saying how it ended.
+///
+/// An activity belongs to one run, the answer the composer names
+/// (`LiveRun`), since Apple delivers a push only to the activity whose token
+/// it is: the server decides which of them are current, and a chat's next run
+/// replaces the last run's activity. A person dismissing a working card holds
+/// for that run, and signing out ends everything, cancels every registration
+/// and forgets those dismissals.
 @MainActor
 final class LiveActivities {
     static let shared = LiveActivities()
@@ -59,13 +66,25 @@ final class LiveActivities {
     /// Whether the person is in the app, where a finished answer shows itself.
     var isInFront: () -> Bool = { UIApplication.shared.applicationState == .active }
 
+    /// Whether there's a session: a web view going away after sign-out may
+    /// still say its composer works.
+    var isSignedIn: () -> Bool = { true }
+
+    private let dismissals = LiveRunDismissals()
+    /// What's watching each activity, by its id: its push token and its state.
+    private var watchers: [String: [Task<Void, Never>]] = [:]
+    /// Activities this app ended, whose dismissal isn't the person's.
+    private var endedByApp: Set<String> = []
+
     /// The composer on `chatURL` changed.
     func noteState(_ state: ComposerState, chatURL: URL?) {
-        guard let chatURL, case .chat = AppRoute(url: chatURL).kind else { return }
+        guard isSignedIn(), let chatURL, case .chat = AppRoute(url: chatURL).kind else { return }
         let path = chatURL.path(percentEncoded: false)
         if state.working {
-            start(for: path, csrfToken: state.csrfToken)
-        } else if isInFront() {
+            start(for: path, run: state.liveRun, csrfToken: state.csrfToken)
+        } else if isInFront(), !state.waiting {
+            // A wait keeps its activity: the answer goes on after it, and iOS
+            // can't start another from the background.
             end(for: path)
         }
     }
@@ -77,6 +96,10 @@ final class LiveActivities {
     @discardableResult
     func endAll() -> Task<Void, Never> {
         let current = Set(Activity<ChatActivityAttributes>.activities.map(\.id))
+        endedByApp.formUnion(current)
+        watchers.values.joined().forEach { $0.cancel() }
+        watchers.removeAll()
+        dismissals.removeAll()
         return Task {
             for activity in Activity<ChatActivityAttributes>.activities where current.contains(activity.id) {
                 await activity.end(nil, dismissalPolicy: .immediate)
@@ -84,13 +107,30 @@ final class LiveActivities {
         }
     }
 
-    private func start(for path: String, csrfToken: String?) {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled,
-              !Activity<ChatActivityAttributes>.activities.contains(where: { $0.attributes.path == path })
-        else { return }
+    private func start(for path: String, run: LiveRun?, csrfToken: String?) {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
-        let attributes = ChatActivityAttributes(organization: organizationName() ?? "Chat with Work", path: path, startedAt: Date())
-        let content = ActivityContent(state: ChatActivityAttributes.ContentState.answering, staleDate: Date().addingTimeInterval(60 * 60))
+        let activities = Activity<ChatActivityAttributes>.activities.filter { $0.attributes.path == path }
+        let existing = activities.map {
+            LiveActivityStart.Existing(id: $0.id, run: $0.attributes.run, isLive: $0.activityState == .active || $0.activityState == .stale)
+        }
+        switch LiveActivityStart.choose(for: run, existing: existing, dismissed: run.map { dismissals.contains($0.id) } ?? false) {
+        case .none:
+            return
+        case .keep(let id):
+            if let activity = activities.first(where: { $0.id == id }) { watch(activity, run: run, csrfToken: csrfToken) }
+        case .start(let replacing):
+            for activity in activities where replacing.contains(activity.id) { end(activity) }
+            request(for: path, run: run, csrfToken: csrfToken)
+        }
+    }
+
+    private func request(for path: String, run: LiveRun?, csrfToken: String?) {
+        let attributes = ChatActivityAttributes(organization: organizationName() ?? "Chat with Work", path: path, startedAt: run?.startedAt ?? Date(), run: run?.id)
+        var state = ChatActivityAttributes.ContentState.answering
+        state.run = run?.id
+        state.revision = run?.revision
+        let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(60 * 60))
         let activity: Activity<ChatActivityAttributes>
         do {
             activity = try Activity.request(attributes: attributes, content: content, pushType: .token)
@@ -99,34 +139,75 @@ final class LiveActivities {
             NSLog("Live Activity didn't start: %@ %ld", error.domain, error.code)
             return
         }
+        watch(activity, run: run, csrfToken: csrfToken)
+    }
 
-        Task { [environment] in
+    /// Registers the activity's token, and notes how it leaves. Once per
+    /// activity, also for one that outlived the app's last launch.
+    private func watch(_ activity: Activity<ChatActivityAttributes>, run: LiveRun?, csrfToken: String?) {
+        guard watchers[activity.id] == nil else { return }
+
+        let id = activity.id
+        let path = activity.attributes.path
+        let tokens = Task { [weak self, environment] in
             for await token in activity.pushTokenUpdates {
                 let hex = token.map { String(format: "%02x", $0) }.joined()
-                await Self.register(hex, for: path, csrfToken: csrfToken, environment: environment)
+                let outcome = await Self.register(hex, for: path, run: run?.id, csrfToken: csrfToken, environment: environment)
+                if outcome == .runOver {
+                    self?.end(activity)
+                    return
+                }
             }
+        }
+        let states = Task { [weak self] in
+            var previous = activity.activityState
+            for await state in activity.activityStateUpdates {
+                self?.note(state, from: previous, id: id, run: activity.attributes.run)
+                previous = state
+            }
+        }
+        watchers[id] = [tokens, states]
+    }
+
+    private func note(_ state: ActivityState, from previous: ActivityState, id: String, run: String?) {
+        if let run, LiveActivityEnding.isPersonsDismissal(from: previous, to: state, endedByApp: endedByApp.contains(id)) {
+            dismissals.insert(run)
+        }
+        if state == .dismissed {
+            watchers.removeValue(forKey: id)?.forEach { $0.cancel() }
+            endedByApp.remove(id)
         }
     }
 
     private func end(for path: String) {
+        for activity in Activity<ChatActivityAttributes>.activities where activity.attributes.path == path {
+            end(activity)
+        }
+    }
+
+    private func end(_ activity: Activity<ChatActivityAttributes>) {
+        endedByApp.insert(activity.id)
+        let id = activity.id
         Task {
-            for activity in Activity<ChatActivityAttributes>.activities where activity.attributes.path == path {
+            for activity in Activity<ChatActivityAttributes>.activities where activity.id == id {
                 await activity.end(nil, dismissalPolicy: .immediate)
             }
         }
     }
 
     /// Tells the server the activity's push token, so it can end it.
-    private static func register(_ token: String, for path: String, csrfToken: String?, environment: AppEnvironment) async {
+    private static func register(_ token: String, for path: String, run: String?, csrfToken: String?, environment: AppEnvironment) async -> LiveActivityRegistration.Outcome {
         let route = AppRoute(path: path)
-        guard let account = route.account, case .chat(let number) = route.kind else { return }
+        guard let account = route.account, case .chat(let number) = route.kind else { return .gaveUp }
 
         var request = URLRequest(url: environment.url(path: "/\(account.rawValue)/chats/\(number)/live_activity"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let csrfToken { request.setValue(csrfToken, forHTTPHeaderField: "X-CSRF-Token") }
-        let body: [String: Any] = ["live_activity": ["token": token, "app_id": environment.bundleIdentifier, "environment": environment.pushEnvironment.apnsName]]
+        var activity = ["token": token, "app_id": environment.bundleIdentifier, "environment": environment.pushEnvironment.apnsName]
+        activity["run"] = run
+        let body: [String: Any] = ["live_activity": activity]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         await WebSession.authorize(&request)
 
@@ -134,11 +215,13 @@ final class LiveActivities {
         defer { session.finishTasksAndInvalidate() }
         // Without the token the server can't end the activity once the app is in the
         // background, so a failed request (offline, a server error) is tried again, waiting
-        // longer each time. The server refusing it (4xx) won't change by trying again.
-        for attempt in 0..<6 {
-            if attempt > 0 { try? await Task.sleep(for: .seconds(2 << attempt)) }
-            guard let (_, response) = try? await session.data(for: request), let status = (response as? HTTPURLResponse)?.statusCode else { continue }
-            if status < 500 { return }
-        }
+        // longer each time.
+        return await LiveActivityRegistration.attempt(
+            send: { [request] in
+                guard let (_, response) = try? await session.data(for: request) else { return nil }
+                return (response as? HTTPURLResponse)?.statusCode
+            },
+            pause: { attempt in try? await Task.sleep(for: .seconds(2 << attempt)) }
+        )
     }
 }
