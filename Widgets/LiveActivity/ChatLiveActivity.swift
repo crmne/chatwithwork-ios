@@ -427,17 +427,22 @@ private struct CompactTrailing: View {
 
     var body: some View {
         Group {
+            #if compiler(>=6.4)
             if #available(iOS 27.0, *) {
                 LimitedAwareTrailing(road: road)
             } else {
                 CompactClock(road: road)
             }
+            #else
+            CompactClock(road: road)
+            #endif
         }
     }
 }
 
 /// Landscape and other narrow system contexts leave only a 28pt circle, so the
-/// bot says it alone.
+/// bot says it alone. Needs the iOS 27 SDK, which CI's Xcode doesn't have yet.
+#if compiler(>=6.4)
 @available(iOS 27.0, *)
 private struct LimitedAwareTrailing: View {
     let road: OpenRoad
@@ -447,6 +452,7 @@ private struct LimitedAwareTrailing: View {
         if !limited { CompactClock(road: road) }
     }
 }
+#endif
 
 private struct CompactClock: View {
     let road: OpenRoad
