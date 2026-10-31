@@ -42,67 +42,9 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
             case heardAt = "heard_at"
         }
 
-        /// Observed work only. Older servers supply just the current step.
-        /// Returned tools may have failed or been declined; this is not a
-        /// completion pipeline and must never receive success checkmarks.
-        var recentActivityKinds: [String] {
-            let known = Set(["search", "list", "read", "use", "plan", "run", "ask", "write", "answer"])
-            var observed = recentSteps ?? []
-            if let step, known.contains(step) { observed.append(step) }
-            var kinds: [String] = []
-            for kind in observed where known.contains(kind) && kinds.last != kind {
-                kinds.append(kind)
-            }
-            if kinds.isEmpty { return [step.flatMap { known.contains($0) ? $0 : nil } ?? "answer"] }
-            return Array(kinds.suffix(3))
-        }
-
-        static func activitySymbol(for kind: String) -> String {
-            ContentState(phase: "answering", step: kind).symbol
-        }
-
-        static func activityLabel(for kind: String) -> String {
-            switch kind {
-            case "search": String(localized: "Search")
-            case "list": String(localized: "Browse")
-            case "read": String(localized: "Read")
-            case "use": String(localized: "Tool")
-            case "plan": String(localized: "Plan")
-            case "run": String(localized: "Run")
-            case "ask": String(localized: "Decide")
-            case "write": String(localized: "Write")
-            default: String(localized: "Think")
-            }
-        }
-
         static let answering = ContentState(phase: "answering", message: nil)
 
         var isWorking: Bool { phase == "answering" }
-
-        /// Stale content must never suggest the answer is still progressing.
-        func showsElapsed(isStale: Bool) -> Bool { isWorking && !isStale }
-
-        /// Compact headlines fit the Island without truncating the decision.
-        var headline: String {
-            switch phase {
-            case "answering": line
-            case "answered": String(localized: "Answer ready")
-            case "approval_waiting": String(localized: "Approval needed")
-            case "input_requested": String(localized: "Your input needed")
-            case "failed": String(localized: "Couldn't finish")
-            case "stopped": String(localized: "Stopped")
-            default: String(localized: "Open chat for an update")
-            }
-        }
-
-        var action: String {
-            switch phase {
-            case "approval_waiting": String(localized: "Review change")
-            case "input_requested": String(localized: "Reply")
-            case "answered": String(localized: "Read answer")
-            default: String(localized: "Open chat")
-            }
-        }
 
         var needsAttention: Bool { phase == "approval_waiting" || phase == "input_requested" }
 
@@ -129,46 +71,6 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
                 }
             default: return String(localized: "Open chat for an update")
             }
-        }
-
-        /// The SF Symbol for the step it's on, or for how it ended.
-        var symbol: String {
-            switch phase {
-            case "answering":
-                switch step {
-                case "search": "magnifyingglass"
-                case "list": "folder"
-                case "read": "doc.text"
-                case "plan": "checklist"
-                case "run": "terminal"
-                case "ask": "questionmark.bubble"
-                case "write": "text.alignleft"
-                case "use": "wrench.and.screwdriver"
-                case "answer": "ellipsis"
-                default: "ellipsis"
-                }
-            case "answered": "checkmark.circle.fill"
-            case "approval_waiting": "hand.raised.fill"
-            case "input_requested": "questionmark.bubble.fill"
-            case "failed": "exclamationmark.triangle.fill"
-            case "stopped": "stop.circle.fill"
-            default: "arrow.clockwise"
-            }
-        }
-
-        /// Staleness takes precedence over the last state, even a ready result.
-        func displaySymbol(isStale: Bool) -> String { isStale ? "arrow.clockwise" : symbol }
-
-        func displayHeadline(isStale: Bool) -> String {
-            isStale ? String(localized: "Open chat for an update") : headline
-        }
-
-        /// Includes a step still running, so never call these completed steps.
-        var stepsLine: String? {
-            guard let steps, steps > 0 else { return nil }
-            return steps == 1
-                ? String(localized: "1 step so far", comment: "Includes the step currently running")
-                : String(localized: "\(steps) steps so far", comment: "Includes the step currently running")
         }
     }
 

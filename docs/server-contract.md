@@ -1668,14 +1668,15 @@ how many it took so far. Never a query, file name, title or text, and an MCP
 server or computer only as "an MCP server" or "a computer". Builds that read
 only `phase` and `message` show the step's words too.
 
-`recent_steps` is optional: at most three observed kind strings from the
-same allowlist, with adjacent duplicates removed. The server orders returned
-tool kinds by their result message, followed by the current kind. These are
-recent activity, not planned stages or proof of success: a returned call may
-have failed or been declined. The widget highlights only the current kind,
-without checkmarks. An older server that omits the field still gets a
-current-step illustration. Unknown kinds are ignored and the trail is
-bounded defensively. No customer text is added.
+`recent_steps` is optional and no longer drawn; builds before Open Road read
+it. `trail` is one letter per step, oldest first (`s` search, `l` list, `r`
+read, `u` use, `p` plan, `x` run, `a` ask, `w` write), upper case where a
+result failed or the person turned it down. `service` and `services` are
+built-in keys (`slack`, `google_drive`), or `mcp` and `computer`, never a name
+a person gave one. A key the app has no logo for draws as a neutral dot.
+`agents` is how many agents run at once, from 2. These are observed work, not
+planned stages or proof of success. An older server that omits them gets even
+ticks counted from `steps`. No customer text is added.
 
 The server ends it when the answer ends, with an APNs `liveactivity` push,
 event `end`, content state `{phase, message}`: `phase` is `answered`,
@@ -1686,58 +1687,67 @@ phase. A tap opens the chat (`chatwithwork://open?path=/482139075/chats/42`).
 The app also ends it itself when that chat's composer says it's done while
 the person is in the app; in the background it leaves the end to the
 server's push. The activity's attributes are `ChatActivityAttributes` in
-`Shared/`. Working activities use a dashboard: a prominent real step count
-and elapsed metric flank a graphic of the recent activity. The current
-action anchors a blue band. A single known step uses its larger native
-symbol instead of inventing history. The count includes a running step,
-not just completed work. Decisions switch to an amber handoff band and a
-large approval or question symbol; ready uses a green result treatment.
-Failure, stopped and stale states are quieter and distinct. No terminal
-count or duration is inferred because end payloads omit them. The band's
-link opens the authenticated chat and never approves a change.
+`Shared/`.
 
-Compact presentation keeps the current work symbol and timer or state icon. Minimal
-presentation shows the current state. On iOS 27, the system's limited-width
-environment uses a single state icon inside 28pt and omits the trailing
-timer. Working is blue, decisions amber, ready green, and errors red, using
-Live Wire's ink colors. Stale or unknown states are neutral; stale content
-never keeps a ready-green tint or an elapsed timer. The action line supports
-two lines; bounded presentations first omit the recent trail's small node
-captions, retaining its actual glyphs and current highlight. At accessibility
-sizes, the working metrics become one row. System presentations cap Dynamic
-Type at Accessibility 1, and the Island's secondary organization label
-remains small. No
-percentage or ETA is inferred from the step count.
+An end push today carries only `phase`, `message`, `run`, `revision`,
+`started_at` and `heard_at`, and an ended activity shows only what its last
+content state says. So the app draws the end without a step count, ticks or
+stops: the road closes with no history on it, and the fixed total is `heard_at`
+minus `started_at`. If the end push also carries `steps`, `trail` and
+`services`, the app draws them with no change. No total is inferred without
+both times.
 
-If a message is absent, the step supplies a
-content-free fallback; `run` means "Running a task", `write` means
-"Writing the answer", and `answer` remains generic "Answering" (it is not
-evidence that streaming has started).
+**Presentation: Open Road (2026-10-31).** `OpenRoad` (`Shared/`) works out what
+to draw, `Widgets/LiveActivity/` draws it. A small bot stands on a road it lays
+down as it works. The bot's place never follows progress, the road ahead fades
+to nothing, and our logo appears only on arrival, so nothing pretends to know
+the distance: no percentage, ETA, planned stage or checkmark. The card is always
+dark. While it works the only colours are the rainbow and the service logos;
+amber means the person is needed, green that it finished, orange that it
+failed, grey that it stopped or went quiet.
 
-The system UI test covers current work, approval, input, ready, failed,
-stopped and long-text cards, including compact and expanded Island views.
-The elapsed-state unit test also covers stale content. In iOS 27 simulator
-QA, the Lock Screen activity rendered its dark palette under light device
-appearance. After switching the device to dark appearance, ActivityKit
-reported active cards but SpringBoard did not reliably present them, even
-after a fresh install. The dark-device and largest-accessibility checks
-remain outstanding. Two simultaneous activities still showed a compact
-Island, and landscape Safari hid the Island, so minimal and limited-width
-layouts also remain physical-device checks. The simulator did not advance
-ActivityKit to stale after its configured date. None of those unobserved
-presentations is counted as visual proof.
+| State | When | Face | Words | Clock |
+| --- | --- | --- | --- | --- |
+| Starting | `answering`, no steps, step `answer` or none | `open` | Starting | from the start |
+| Working | `answering` | by `step` | `message`, with the service's logo | from the start |
+| Agents | `agents` 2 or more | three small faces | `message` | from the start |
+| Writing | `step` `write` | `down`, pen | `message` | from the start |
+| Decision | `approval_waiting` | `wide` | Approve a change, in the service | from `waiting_since` |
+| Input | `input_requested` | `brow` | A question for you | from `waiting_since` |
+| Finished | `answered` | `happy` | Answer ready | fixed total |
+| Failed | `failed` | `closed`, a broken road | Couldn't finish | none |
+| Stopped | `stopped` | `flat` | Stopped | fixed total |
+| Stale | `context.isStale` while working | `closed`, outline | Last heard 14:27 | none |
 
-Debug builds support `-CWWLiveActivityPreview search|run|approval_waiting|input_requested|answered|failed|stopped|long|legacy|minimal|stale`
-for synthetic system-surface previews without push credentials.
-`long` uses a long organization/action, 123 steps and more than an hour of
-elapsed time; `legacy` omits recent history to exercise the older payload;
-`minimal` starts two synthetic activities.
-`LiveActivityPresentationTests` captures the Island and Lock Screen. Set
-`TEST_RUNNER_CWW_ACTIVITY_SCENARIOS` to a comma-separated subset when
-checking light, dark or accessibility text. The opt-in ActivityKit cleanup
-integration check (`TEST_RUNNER_CWW_TEST_ACTIVITYKIT=1`) needs a foreground
-simulator that allows Live Activities; normal unit runs do not request a
-system activity.
+An ended state never shows stale, and a wait stays amber when stale: the wait
+is still true. Faces change only on content updates, never between pushes. A
+decision makes one buzz, the existing waiting push: the activity's update
+carries no `alert`. Its link opens the chat and never approves anything. The
+Island shows bot and logo with the clock in compact, the bot alone in minimal,
+and the Lock Screen's content expanded. Largest Dynamic Type drops the road and
+keeps bot, words, clock and band, capped at Accessibility 3. Always-On draws the
+outline bot and greys the rainbow, and amber stays amber. The Watch's and
+CarPlay's small family shows bot, words and clock, or "Open on your phone" for
+a wait. Geist, Geist Mono and a digits-only Unbounded with tabular figures are
+bundled in the widget extension only (OFL, `Widgets/Fonts`), with the built-in
+services' logos in its catalog; `script/live-activity-assets` rebuilds both
+from the Rails app's assets.
+
+Debug builds support `-CWWLiveActivityPreview <scenario>` for synthetic
+system-surface previews without push credentials: `starting`, `working`, `deep`,
+`agents`, `agents_five`, `writing`, `decision`, `input`, `finished`, `failed`,
+`stopped`, `quiet`, `legacy`, `long`, `mcp`, the `*_bare` ends (what an end push
+carries today), `stale`, and `minimal` or `minimal_<scenario>`, which start two
+activities. `LiveActivityPresentationTests` captures the Lock Screen and the
+Island. Set `TEST_RUNNER_CWW_ACTIVITY_SCENARIOS` to a comma-separated subset,
+and `TEST_RUNNER_CWW_UI_TEST_SHOTS` to a folder for its pictures. Two activities
+of one app stay compact: the Island turns minimal only beside another app's, so
+a copy of the app under another bundle id, running its own preview, shows it.
+Change appearance or text size and reboot the simulator before capturing, or
+SpringBoard may not present the activity. The opt-in
+ActivityKit cleanup integration check (`TEST_RUNNER_CWW_TEST_ACTIVITYKIT=1`)
+needs a foreground simulator that allows Live Activities; normal unit runs do
+not request a system activity.
 
 ### Widgets and the app's links
 

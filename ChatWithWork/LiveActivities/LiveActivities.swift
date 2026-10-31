@@ -26,28 +26,56 @@ final class LiveActivities {
     #if DEBUG
         /// Synthetic system-surface previews, with no token or server registration.
         /// `-CWWLiveActivityPreview search|approval_waiting|answered|failed|stale`.
+        /// Synthetic content for every state of Open Road. `*_bare` is what an
+        /// end push carries today; `legacy` what an older server sends.
+        static func previewState(_ scenario: String, now: Date) -> (state: ChatActivityAttributes.ContentState, age: TimeInterval) {
+            let clock = Int64(now.timeIntervalSince1970)
+            typealias State = ChatActivityAttributes.ContentState
+            func state(_ phase: String, _ message: String?, step: String?, steps: Int?, age: Int64, service: String? = nil, services: [String]? = nil, trail: String? = nil, agents: Int? = nil, waited: Int64? = nil) -> (State, TimeInterval) {
+                (State(phase: phase, message: message, step: step, steps: steps, run: "preview", revision: 1, startedAt: clock - age, waitingSince: waited.map { clock - $0 }, service: service, services: services, trail: trail, agents: agents, heardAt: clock), TimeInterval(age))
+            }
+            let deepTrail = "srslruprxlsrrslpurxsrlsurrslrplsruxsrlurslpsrrrr"
+            switch scenario {
+            case "starting": return state("answering", "Answering", step: "answer", steps: 0, age: 3)
+            case "deep": return state("answering", "Reading 12 files in HubSpot", step: "read", steps: 47, age: 1334, service: "hubspot", services: ["slack", "google_drive", "linear", "todoist", "notion", "hubspot"], trail: deepTrail)
+            case "agents": return state("answering", "Running 3 agents", step: "use", steps: 18, age: 302, service: nil, services: ["slack"], trail: "srlrxsurlrsr", agents: 3)
+            case "agents_five": return state("answering", "Running 5 agents", step: "use", steps: 18, age: 302, services: ["slack"], trail: "srlrxsurlrsr", agents: 5)
+            case "writing": return state("answering", "Writing the answer", step: "write", steps: 23, age: 401, services: ["google_drive"], trail: "slrrsuxrslpsrw")
+            case "decision": return state("approval_waiting", "A change is waiting for your approval in Slack.", step: "use", steps: 12, age: 400, service: "slack", services: ["google_drive", "slack"], trail: "srlrusrlr", waited: 134)
+            case "input": return state("input_requested", "A question is waiting for your answer.", step: "ask", steps: 8, age: 200, service: "todoist", services: ["todoist"], trail: "srlrusrl", waited: 37)
+            case "finished": return state("answered", "Your answer is ready.", step: nil, steps: 24, age: 418, services: ["slack", "google_drive", "todoist"], trail: "srlrxsurlrsrpslrusrlrw")
+            case "failed": return state("failed", "The answer couldn't finish.", step: nil, steps: 9, age: 200, services: ["google_drive"], trail: "srlrusrlr")
+            case "stopped": return state("stopped", "The answer stopped.", step: nil, steps: 9, age: 200, services: ["google_drive"], trail: "srlrusrlr")
+            case "finished_bare": return state("answered", "Your answer is ready.", step: nil, steps: nil, age: 418)
+            case "failed_bare": return state("failed", "The answer couldn't finish.", step: nil, steps: nil, age: 200)
+            case "stopped_bare": return state("stopped", "The answer stopped.", step: nil, steps: nil, age: 200)
+            case "quiet":
+                var quiet = state("quiet", nil, step: nil, steps: 12, age: 900, services: ["slack"], trail: "srlrxsurlrsrpslr").0
+                quiet.heardAt = clock - 720
+                return (quiet, 900)
+            case "mcp": return state("answering", "Searching an MCP server", step: "search", steps: 4, age: 61, service: "mcp", services: ["mcp"], trail: "srls")
+            case "long": return state("answering", "Reading 3 files in Jira and Confluence", step: "read", steps: 123, age: 3703, service: "atlassian", services: ["slack", "atlassian"], trail: deepTrail)
+            case "legacy": return (State(phase: "answering", message: "Searching Drive", step: "search", steps: 7), 97)
+            default: return state("answering", "Searching Drive", step: "search", steps: 5, age: 48, service: "google_drive", services: ["slack", "google_drive"], trail: "srlsruxps")
+            }
+        }
+
         static func preview(_ scenario: String) {
             Task {
                 for activity in Activity<ChatActivityAttributes>.activities {
                     await activity.end(nil, dismissalPolicy: .immediate)
                 }
-                let working = ["search", "run", "long", "legacy", "minimal", "stale"].contains(scenario)
-                let state = ChatActivityAttributes.ContentState(
-                    phase: working ? "answering" : scenario,
-                    message: scenario == "search" || scenario == "minimal" ? "Searching your work tools" : scenario == "run" ? "Running an agent" : scenario == "long" ? "Reading information in your connected work tools" : scenario == "legacy" ? "Writing the answer" : nil,
-                    step: scenario == "legacy" ? "write" : scenario == "long" ? "read" : scenario == "minimal" ? "search" : working ? scenario : nil,
-                    steps: scenario == "long" ? 123 : working ? 3 : nil,
-                    recentSteps: scenario == "run" ? ["search", "read", "run"] : scenario == "long" ? ["search", "use", "read"] : scenario == "search" ? ["plan", "search"] : nil
-                )
-                let attributes = ChatActivityAttributes(organization: scenario == "long" ? "Northwind Studio International Operations" : "Northwind Studio", path: "/1000001/chats/99999", startedAt: Date().addingTimeInterval(scenario == "long" ? -3703 : -83))
-                let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(scenario == "stale" ? 10 : 3600))
+                let now = Date()
+                let (state, age) = previewState(scenario.replacingOccurrences(of: "minimal_", with: ""), now: now)
+                let organization = scenario == "long" ? "Northwind Studio International Operations" : "Northwind Studio"
+                let attributes = ChatActivityAttributes(organization: organization, path: "/1000001/chats/99999", startedAt: now.addingTimeInterval(-age))
+                let content = ActivityContent(state: state, staleDate: now.addingTimeInterval(scenario == "stale" ? 10 : 3600))
                 do {
                     let activity = try Activity.request(attributes: attributes, content: content, pushType: nil)
-                    if scenario == "minimal" {
-                        let other = ChatActivityAttributes(organization: "Northwind Studio", path: "/1000001/chats/99998", startedAt: Date().addingTimeInterval(-18))
-                        _ = try Activity.request(attributes: other, content: ActivityContent(state: .init(phase: "answering", message: "Running an agent", step: "run", steps: 1), staleDate: .now.addingTimeInterval(3600)), pushType: nil)
+                    if scenario.hasPrefix("minimal") {
+                        let other = ChatActivityAttributes(organization: organization, path: "/1000001/chats/99998", startedAt: now.addingTimeInterval(-18))
+                        _ = try Activity.request(attributes: other, content: ActivityContent(state: previewState("working", now: now).state, staleDate: now.addingTimeInterval(3600)), pushType: nil)
                     }
-                    if !working { await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(900))) }
                     for await phase in activity.activityStateUpdates {
                         NSLog("Live Activity preview %@: %@", scenario, String(describing: phase))
                     }

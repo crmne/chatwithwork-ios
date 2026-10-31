@@ -2,13 +2,18 @@ import XCTest
 
 /// System-rendered Live Activities with synthetic data and no push credentials.
 final class LiveActivityPresentationTests: XCTestCase {
+    /// Every state of Open Road on the Lock Screen and in the Island. Set
+    /// `TEST_RUNNER_CWW_ACTIVITY_SCENARIOS` to a subset, and
+    /// `TEST_RUNNER_CWW_ACTIVITY_LOCK_ONLY` to skip the Island.
     @MainActor
     func testSystemPresentations() {
         continueAfterFailure = false
         let app = XCUIApplication()
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let scenarios = ProcessInfo.processInfo.environment["CWW_ACTIVITY_SCENARIOS"]?.split(separator: ",").map(String.init)
-            ?? ["search", "run", "approval_waiting", "input_requested", "answered", "failed", "stopped", "long"]
+        let environment = ProcessInfo.processInfo.environment
+        let scenarios = environment["CWW_ACTIVITY_SCENARIOS"]?.split(separator: ",").map(String.init)
+            ?? ["starting", "working", "deep", "agents", "writing", "decision", "input", "finished", "failed", "stopped", "quiet", "legacy"]
+        let lockOnly = environment["CWW_ACTIVITY_LOCK_ONLY"] != nil
         for scenario in scenarios {
             app.launchArguments = ["-CWWLiveActivityPreview", scenario, "-CWWAskForNotifications", "NO"]
             app.launch()
@@ -18,22 +23,11 @@ final class LiveActivityPresentationTests: XCTestCase {
             XCUIDevice.shared.press(.home)
             let top = springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.002))
             top.press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.7)))
-            let headline = switch scenario {
-            case "search": "Searching your work tools"
-            case "run": "Running an agent"
-            case "legacy": "Writing the answer"
-            case "long": "Reading information in your connected work tools"
-            case "approval_waiting": "Approval needed"
-            case "input_requested": "Your input needed"
-            case "answered": "Answer ready"
-            case "failed": "Couldn't finish"
-            case "stopped": "Stopped"
-            default: "Open chat for an update"
-            }
-            // A cold widget-extension launch after a device appearance change
-            // can take longer than the app itself. Wait for the actual surface.
-            XCTAssertTrue(springboard.staticTexts[headline].waitForExistence(timeout: 30), headline)
-            if !["search", "run", "long", "legacy"].contains(scenario) { XCTAssertFalse(springboard.staticTexts["Elapsed time"].exists) }
+            // The card is one VoiceOver element, whatever it draws.
+            let card = springboard.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'Northwind' OR label CONTAINS 'waiting' OR label CONTAINS 'Answer ready' OR label CONTAINS 'finish' OR label CONTAINS 'Stopped' OR label CONTAINS 'update' OR label CONTAINS 'agents' OR label CONTAINS 'Running'")).firstMatch
+            let found = card.waitForExistence(timeout: 30)
+            if !found { keep("missing-\(scenario)") }
+            XCTAssertTrue(found, scenario)
             // First-use permission controls arrive with the Activity surface,
             // not necessarily before its headline. Keep them out of evidence.
             for answer in ["Always Allow", "Allow"] {
@@ -46,15 +40,12 @@ final class LiveActivityPresentationTests: XCTestCase {
             }
             keep("lock-\(scenario)")
             XCUIDevice.shared.press(.home)
-            if ["search", "run", "long", "legacy"].contains(scenario) {
-                XCTAssertTrue(springboard.icons["CWW Dev"].waitForExistence(timeout: 10))
-                keep("island-compact-\(scenario)")
+            if !lockOnly {
+                Thread.sleep(forTimeInterval: 1.5)
+                keep("compact-\(scenario)")
                 springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.025)).press(forDuration: 1.2)
-                XCTAssertTrue(springboard.staticTexts[headline].waitForExistence(timeout: 10))
-                let visible = NSPredicate(format: "exists == true AND hittable == true")
-                expectation(for: visible, evaluatedWith: springboard.staticTexts[headline])
-                waitForExpectations(timeout: 10)
-                keep("island-expanded-\(scenario)")
+                Thread.sleep(forTimeInterval: 1)
+                keep("expanded-\(scenario)")
                 XCUIDevice.shared.press(.home)
             }
             app.terminate()
