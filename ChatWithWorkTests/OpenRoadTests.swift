@@ -65,16 +65,49 @@ struct OpenRoadTests {
     @Test("the trail is what happened, one tick a step, refused ones marked")
     func trail() {
         let ticks = OpenRoad.ticks(trail: "xrUslpaw", steps: 8)
-        #expect(ticks.map(\.height) == [27, 22, 17, 14, 10, 8, 12, 7])
         #expect(ticks.map(\.refused) == [false, false, true, false, false, false, false, false])
         #expect(OpenRoad.ticks(trail: String(repeating: "s", count: 60), steps: 60).count == OpenRoad.maxTicks)
+    }
+
+    @Test("a tick is as tall as the time its step took, in four sizes")
+    func pace() {
+        #expect(OpenRoad.ticks(trail: "srUx", pace: "1234", steps: 4).map(\.height) == [6, 13, 21, 29])
+        #expect(OpenRoad.ticks(trail: "srUx", pace: "4321", steps: 4).map(\.refused) == [false, false, true, false])
+        let drawn = road(State(phase: "answering", step: "read", steps: 2, trail: "sr", pace: "41"))
+        #expect(drawn.ticks.map(\.height) == [29, 6])
+    }
+
+    @Test("pace is cut with the trail, keeping the newest of both")
+    func paceTruncation() {
+        let trail = String(repeating: "s", count: OpenRoad.maxTicks) + "rr"
+        let pace = "44" + String(repeating: "1", count: OpenRoad.maxTicks - 1) + "3"
+        let ticks = OpenRoad.ticks(trail: trail, pace: pace, steps: 50)
+        #expect(ticks.count == OpenRoad.maxTicks)
+        #expect(ticks.first?.height == 6)
+        #expect(ticks.last?.height == 21)
+    }
+
+    @Test("with no usable pace every tick is one even height, whatever its kind")
+    func evenTicks() {
+        let even = Array(repeating: OpenRoad.evenHeight, count: 4)
+        #expect(OpenRoad.ticks(trail: "xrpw", steps: 4).map(\.height) == even)
+        #expect(OpenRoad.ticks(trail: "xrpw", pace: "123", steps: 4).map(\.height) == even)
+        #expect(OpenRoad.ticks(trail: "xrpw", pace: "12345", steps: 4).map(\.height) == even)
+        #expect(OpenRoad.ticks(trail: "xrpw", pace: "12x4", steps: 4).map(\.height) == even)
+        #expect(OpenRoad.ticks(trail: "xrpw", pace: "1205", steps: 4).map(\.height) == even)
+    }
+
+    @Test("pace comes in the content state's own key")
+    func paceDecodes() throws {
+        let json = Data(#"{"phase":"answering","trail":"sr","pace":"14"}"#.utf8)
+        #expect(try JSONDecoder().decode(State.self, from: json).pace == "14")
     }
 
     @Test("an older server gets even ticks from its real count, and no stops")
     func legacy() {
         let drawn = road(State(phase: "answering", message: "Searching Drive", step: "search", steps: 7))
         #expect(drawn.isLegacy)
-        #expect(drawn.ticks == Array(repeating: OpenRoad.Tick(height: 14), count: 7))
+        #expect(drawn.ticks == Array(repeating: OpenRoad.Tick(height: OpenRoad.evenHeight), count: 7))
         #expect(drawn.stops.isEmpty)
         #expect(drawn.splitHeadline == nil)
         #expect(drawn.headline == "Searching Drive")

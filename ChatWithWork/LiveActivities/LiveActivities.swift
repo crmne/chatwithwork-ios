@@ -31,18 +31,19 @@ final class LiveActivities {
         static func previewState(_ scenario: String, now: Date) -> (state: ChatActivityAttributes.ContentState, age: TimeInterval) {
             let clock = Int64(now.timeIntervalSince1970)
             typealias State = ChatActivityAttributes.ContentState
-            func state(_ phase: String, _ message: String?, step: String?, steps: Int?, age: Int64, service: String? = nil, services: [String]? = nil, trail: String? = nil, agents: Int? = nil, waited: Int64? = nil) -> (State, TimeInterval) {
-                (State(phase: phase, message: message, step: step, steps: steps, run: "preview", revision: 1, startedAt: clock - age, waitingSince: waited.map { clock - $0 }, service: service, services: services, trail: trail, agents: agents, heardAt: clock), TimeInterval(age))
+            func state(_ phase: String, _ message: String?, step: String?, steps: Int?, age: Int64, service: String? = nil, services: [String]? = nil, trail: String? = nil, pace: String? = nil, agents: Int? = nil, waited: Int64? = nil) -> (State, TimeInterval) {
+                (State(phase: phase, message: message, step: step, steps: steps, run: "preview", revision: 1, startedAt: clock - age, waitingSince: waited.map { clock - $0 }, service: service, services: services, trail: trail, pace: pace, agents: agents, heardAt: clock), TimeInterval(age))
             }
             let deepTrail = "srslruprxlsrrslpurxsrlsurrslrplsruxsrlurslpsrrrr"
             switch scenario {
             case "starting": return state("answering", "Answering", step: "answer", steps: 0, age: 3)
             case "deep": return state("answering", "Reading 12 files in HubSpot", step: "read", steps: 47, age: 1334, service: "hubspot", services: ["slack", "google_drive", "linear", "todoist", "notion", "hubspot"], trail: deepTrail)
+            case "paced": return state("answering", "Searching Drive", step: "search", steps: 12, age: 348, service: "google_drive", services: ["slack", "google_drive"], trail: "srlrxsurlrsr", pace: "112214211212")
             case "agents": return state("answering", "Running 3 agents", step: "use", steps: 18, age: 302, service: nil, services: ["slack"], trail: "srlrxsurlrsr", agents: 3)
             case "agents_five": return state("answering", "Running 5 agents", step: "use", steps: 18, age: 302, services: ["slack"], trail: "srlrxsurlrsr", agents: 5)
             case "writing": return state("answering", "Writing the answer", step: "write", steps: 23, age: 401, services: ["google_drive"], trail: "slrrsuxrslpsrw")
-            case "decision": return state("approval_waiting", "A change is waiting for your approval in Slack.", step: "use", steps: 12, age: 400, service: "slack", services: ["google_drive", "slack"], trail: "srlrusrlr", waited: 134)
-            case "input": return state("input_requested", "A question is waiting for your answer.", step: "ask", steps: 8, age: 200, service: "todoist", services: ["todoist"], trail: "srlrusrl", waited: 37)
+            case "decision": return state("approval_waiting", "A change is waiting for your approval in Slack.", step: "use", steps: 12, age: 400, service: "slack", services: ["google_drive", "slack"], trail: "srlrusrlr", pace: "112214211", waited: 134)
+            case "input": return state("input_requested", "A question is waiting for your answer.", step: "ask", steps: 8, age: 200, service: "todoist", services: ["todoist"], trail: "srlrusrl", pace: "11221421", waited: 37)
             case "finished": return state("answered", "Your answer is ready.", step: nil, steps: 24, age: 418, services: ["slack", "google_drive", "todoist"], trail: "srlrxsurlrsrpslrusrlrw")
             case "failed": return state("failed", "The answer couldn't finish.", step: nil, steps: 9, age: 200, services: ["google_drive"], trail: "srlrusrlr")
             case "stopped": return state("stopped", "The answer stopped.", step: nil, steps: 9, age: 200, services: ["google_drive"], trail: "srlrusrlr")

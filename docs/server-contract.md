@@ -1643,7 +1643,7 @@ Dynamic Island, and iOS can't start one from the background. In front, the app
 leaves it alone while the composer says `waiting`. The stale date is 10
 minutes, and the server repeats the state every 4 minutes with `heard_at`.
 Also optional, and content-free, for the design to draw: `service`, `services`,
-`trail`, `agents`.
+`trail`, `pace`, `agents`.
 
 An activity belongs to one run for life (`attributes.run`). Apple delivers a
 push only to the activity whose token it is, so a late push for an old answer
@@ -1671,7 +1671,12 @@ only `phase` and `message` show the step's words too.
 `recent_steps` is optional and no longer drawn; builds before Open Road read
 it. `trail` is one letter per step, oldest first (`s` search, `l` list, `r`
 read, `u` use, `p` plan, `x` run, `a` ask, `w` write), upper case where a
-result failed or the person turned it down. `service` and `services` are
+result failed or the person turned it down. `pace` is one digit per character
+of `trail`, in the same order and cut to the same steps: how long the step took,
+`1` under 2 seconds, `2` under 10, `3` under 60, `4` a minute or more. A tick is
+as tall as its digit, in four sizes. With `pace` absent, a different length from
+`trail`, or holding anything else, every tick is one even height. `service` and
+`services` are
 built-in keys (`slack`, `google_drive`), or `mcp` and `computer`, never a name
 a person gave one. A key the app has no logo for draws as a neutral dot.
 `agents` is how many agents run at once, from 2. These are observed work, not
@@ -1735,7 +1740,9 @@ from the Rails app's assets.
 
 Debug builds support `-CWWLiveActivityPreview <scenario>` for synthetic
 system-surface previews without push credentials: `starting`, `working`, `deep`,
-`agents`, `agents_five`, `writing`, `decision`, `input`, `finished`, `failed`,
+`paced`, `agents`, `agents_five`, `writing`,
+`decision`, `input`,
+`finished`, `failed`,
 `stopped`, `quiet`, `legacy`, `long`, `mcp`, the `*_bare` ends (what an end push
 carries today), `stale`, and `minimal` or `minimal_<scenario>`, which start two
 activities. `LiveActivityPresentationTests` captures the Lock Screen and the

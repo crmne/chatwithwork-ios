@@ -17,7 +17,8 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
     /// `startedAt` (unix seconds) say which answer that is and where it
     /// stands. Older servers send those, and the optionals after them, not
     /// at all. `service` and `services` are built-in keys, or `mcp` and
-    /// `computer`, never a name a person gave one.
+    /// `computer`, never a name a person gave one. `pace` says how long each
+    /// step of `trail` took, a digit each.
     struct ContentState: Codable, Hashable, Sendable {
         var phase: String
         var message: String?
@@ -31,11 +32,12 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
         var service: String?
         var services: [String]?
         var trail: String?
+        var pace: String?
         var agents: Int?
         var heardAt: Int64?
 
         enum CodingKeys: String, CodingKey {
-            case phase, message, step, steps, run, revision, service, services, trail, agents
+            case phase, message, step, steps, run, revision, service, services, trail, pace, agents
             case recentSteps = "recent_steps"
             case startedAt = "started_at"
             case waitingSince = "waiting_since"

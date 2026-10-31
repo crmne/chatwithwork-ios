@@ -12,7 +12,7 @@ final class LiveActivityPresentationTests: XCTestCase {
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let environment = ProcessInfo.processInfo.environment
         let scenarios = environment["CWW_ACTIVITY_SCENARIOS"]?.split(separator: ",").map(String.init)
-            ?? ["starting", "working", "deep", "agents", "writing", "decision", "input", "finished", "failed", "stopped", "quiet", "legacy"]
+            ?? ["starting", "working", "paced", "deep", "agents", "writing", "decision", "input", "finished", "failed", "stopped", "quiet", "legacy"]
         let lockOnly = environment["CWW_ACTIVITY_LOCK_ONLY"] != nil
         for scenario in scenarios {
             app.launchArguments = ["-CWWLiveActivityPreview", scenario, "-CWWAskForNotifications", "NO"]

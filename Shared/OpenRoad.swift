@@ -18,8 +18,8 @@ nonisolated struct OpenRoad: Equatable {
         case search, read, list, use, plan, run, write, ask
     }
 
-    /// One observed step, as tall as its kind. `refused` is one that failed or
-    /// the person turned down.
+    /// One observed step, as tall as the time it took, where the server says.
+    /// `refused` is one that failed or the person turned down.
     struct Tick: Equatable {
         var height: CGFloat
         var refused = false
@@ -39,6 +39,10 @@ nonisolated struct OpenRoad: Equatable {
     static let maxStops = 6
     /// Bots drawn side by side on a fork. Any more read as `+n`.
     static let maxAgentBots = 3
+    /// `pace` digits: under 2 seconds, under 10, under 60, a minute or more.
+    static let paceHeights: [Character: CGFloat] = ["1": 6, "2": 13, "3": 21, "4": 29]
+    /// Where the time of each step isn't known, every tick is this tall.
+    static let evenHeight: CGFloat = 14
 
     /// Built-in services' words in `message`, and which of them are drawn. Keep
     /// in step with `script/live-activity-assets`.
@@ -82,7 +86,7 @@ nonisolated struct OpenRoad: Equatable {
         message = state.line
         heardAt = heard
         isLegacy = state.trail == nil
-        ticks = Self.ticks(trail: state.trail, steps: steps)
+        ticks = Self.ticks(trail: state.trail, pace: state.pace, steps: steps)
         service = state.service
         stops = Self.stops(services: state.services, current: service)
         agents = (state.agents ?? 0) >= 2 ? state.agents : nil
@@ -150,29 +154,24 @@ nonisolated struct OpenRoad: Equatable {
         }
     }
 
-    static func height(for letter: Character) -> CGFloat {
-        switch letter {
-        case "x": 27
-        case "r": 22
-        case "u": 17
-        case "s": 14
-        case "a": 12
-        case "l": 10
-        case "p": 8
-        default: 7
-        }
+    /// The height each step of a `count`-long trail took, or nil where `pace`
+    /// doesn't say that of every one of them.
+    static func heights(pace: String?, count: Int) -> [CGFloat]? {
+        guard let pace, pace.count == count else { return nil }
+        let heights = pace.compactMap { paceHeights[$0] }
+        return heights.count == count ? heights : nil
     }
 
     /// The trail, or even ticks counted from `steps` where an older server
     /// sends none: the count is real, the heights would not be.
-    static func ticks(trail: String?, steps: Int) -> [Tick] {
-        if let trail {
-            return trail.suffix(maxTicks).filter(\.isLetter).map { letter in
-                let lower = Character(letter.lowercased())
-                return Tick(height: height(for: lower), refused: letter != lower)
-            }
+    static func ticks(trail: String?, pace: String? = nil, steps: Int) -> [Tick] {
+        guard let trail else {
+            return Array(repeating: Tick(height: evenHeight), count: min(steps, maxTicks))
         }
-        return Array(repeating: Tick(height: 14), count: min(steps, maxTicks))
+        let heights = heights(pace: pace, count: trail.count) ?? Array(repeating: evenHeight, count: trail.count)
+        return zip(trail, heights).suffix(maxTicks).filter(\.0.isLetter).map { letter, height in
+            Tick(height: height, refused: letter != Character(letter.lowercased()))
+        }
     }
 
     /// Whether a logo ships for this key. A key this build doesn't know, a
