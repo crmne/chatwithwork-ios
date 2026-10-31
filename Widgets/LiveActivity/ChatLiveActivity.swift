@@ -408,10 +408,11 @@ private struct CompactLeading: View {
     var body: some View {
         HStack(spacing: 4) {
             BotMark(face: road.stage == .agents ? .focus : road.face, size: 24, mode: road.stage == .stale ? .line : .solid, color: road.stage == .stale ? Road.inkMuted : .white, eyes: .black)
-            if road.stage == .agents, let agents = road.agents {
-                Text(verbatim: "×\(agents)")
+            if road.stage == .agents, let count = road.compactAgents {
+                Text(verbatim: count)
                     .font(Road.compactClock)
                     .foregroundStyle(.white)
+                    .lineLimit(1)
             } else if !road.isOver, !road.isWaiting, road.stage != .stale, let service = road.service, OpenRoad.hasLogo(service) {
                 ServiceLogo(key: service, size: 15)
             }

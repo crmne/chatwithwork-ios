@@ -163,10 +163,9 @@ struct RoadView: View {
         let trailEnd = fork - 6
         let fill = rainbow(from: trailEnd - span(trailEnd), to: 0.72 * w, width: w)
         let end = 0.66 * w
-        let lanes = [base - 35, base - 17.5, base - 0.5]
+        let lanes = road.agentBots < OpenRoad.maxAgentBots ? [base - 26, base - 0.5] : [base - 35, base - 17.5, base - 0.5]
         let faces: [OpenRoad.Face] = [.right, .down, .focus]
         let small: CGFloat = 18
-        let more = (road.agents ?? 0) - OpenRoad.maxAgentBots
         return Group {
             line(to: fork).fill(fill)
             origin(dimmed ? Road.dim : Road.rainbow[0])
@@ -181,8 +180,8 @@ struct RoadView: View {
                     .offset(x: end + 2, y: lanes[index] - small * 15 / 16 + 0.5)
                 dots(from: end + small + 12, to: w, y: lanes[index] + 0.5)
             }
-            if more > 0 {
-                Text(verbatim: "+\(more)")
+            if road.moreAgents > 0 {
+                Text(verbatim: "+\(road.moreAgents)")
                     .font(Road.more)
                     .foregroundStyle(Road.dim)
                     .frame(width: w, alignment: .trailing)

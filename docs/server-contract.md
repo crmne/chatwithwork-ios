@@ -1715,7 +1715,7 @@ failed, grey that it stopped or went quiet.
 | --- | --- | --- | --- | --- |
 | Starting | `answering`, no steps, step `answer` or none | `open` | Starting | from the start |
 | Working | `answering` | by `step` | `message`, with the service's logo | from the start |
-| Agents | `agents` 2 or more | three small faces | `message` | from the start |
+| Agents | `agents` 2 or more | up to three small faces, then `+n` | `message` | from the start |
 | Writing | `step` `write` | `down`, pen | `message` | from the start |
 | Decision | `approval_waiting` | `wide`, holding up an amber card with the service's logo | Approve a change, in the service | from `waiting_since` |
 | Input | `input_requested` | `brow`, holding up the card, with `?` where no service is named | A question for you | from `waiting_since` |
@@ -1730,8 +1730,8 @@ server or computer shows its generic glyph, and a change with no service a pen.
 Faces change only on content updates, never between pushes. A
 decision makes one buzz, the existing waiting push: the activity's update
 carries no `alert`. Its link opens the chat and never approves anything. The
-Island shows bot and logo with the clock in compact, the bot alone in minimal,
-and the Lock Screen's content expanded. Largest Dynamic Type drops the road and
+Island shows bot and logo with the clock in compact, or bot and `×3` for agents
+(just `12` from 10 up, clear of the camera), the bot alone in minimal, and the Lock Screen's content expanded. Largest Dynamic Type drops the road and
 keeps bot, words, clock and band, capped at Accessibility 3. Always-On draws the
 outline bot and greys the rainbow, and amber stays amber. The Watch's and
 CarPlay's small family shows bot, words and clock, or "Open on your phone" for
@@ -1742,7 +1742,7 @@ from the Rails app's assets.
 
 Debug builds support `-CWWLiveActivityPreview <scenario>` for synthetic
 system-surface previews without push credentials: `starting`, `working`, `deep`,
-`paced`, `agents`, `agents_five`, `writing`,
+`paced`, `agents`, `agents_2`, `agents_4`, `agents_7`, `agents_12`, `writing`,
 `decision`, `decision_mcp`, `decision_computer`, `input`, `input_plain`,
 `finished`, `failed`,
 `stopped`, `quiet`, `legacy`, `long`, `mcp`, the `*_bare` ends (what an end push

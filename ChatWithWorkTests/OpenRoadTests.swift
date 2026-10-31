@@ -103,6 +103,14 @@ struct OpenRoadTests {
         #expect(try JSONDecoder().decode(State.self, from: json).pace == "14")
     }
 
+    @Test("a fork shows up to three bots, then the rest as a count, and the compact Island loses its × at 10")
+    func agentCounts() {
+        func agents(_ count: Int) -> OpenRoad { road(State(phase: "answering", step: "use", steps: 3, agents: count)) }
+        #expect([2, 3, 4, 7, 12].map { agents($0).agentBots } == [2, 3, 3, 3, 3])
+        #expect([2, 3, 4, 7, 12].map { agents($0).moreAgents } == [0, 0, 1, 4, 9])
+        #expect([2, 3, 4, 7, 9, 10, 12].map { agents($0).compactAgents } == ["×2", "×3", "×4", "×7", "×9", "10", "12"])
+    }
+
     @Test("a wait faces you and draws no tool: the card it holds says what about")
     func waits() {
         #expect(road(State(phase: "approval_waiting", step: "use", service: "slack")).face == .wide)

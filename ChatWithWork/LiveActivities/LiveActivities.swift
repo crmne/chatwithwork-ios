@@ -39,8 +39,9 @@ final class LiveActivities {
             case "starting": return state("answering", "Answering", step: "answer", steps: 0, age: 3)
             case "deep": return state("answering", "Reading 12 files in HubSpot", step: "read", steps: 47, age: 1334, service: "hubspot", services: ["slack", "google_drive", "linear", "todoist", "notion", "hubspot"], trail: deepTrail)
             case "paced": return state("answering", "Searching Drive", step: "search", steps: 12, age: 348, service: "google_drive", services: ["slack", "google_drive"], trail: "srlrxsurlrsr", pace: "112214211212")
-            case "agents": return state("answering", "Running 3 agents", step: "use", steps: 18, age: 302, service: nil, services: ["slack"], trail: "srlrxsurlrsr", agents: 3)
-            case "agents_five": return state("answering", "Running 5 agents", step: "use", steps: 18, age: 302, services: ["slack"], trail: "srlrxsurlrsr", agents: 5)
+            case "agents", "agents_2", "agents_4", "agents_7", "agents_12":
+                let count = Int(scenario.dropFirst("agents_".count)) ?? 3
+                return state("answering", "Running \(count) agents", step: "use", steps: 18, age: 302, services: ["slack"], trail: "srlrxsurlrsr", pace: "112214211212", agents: count)
             case "writing": return state("answering", "Writing the answer", step: "write", steps: 23, age: 401, services: ["google_drive"], trail: "slrrsuxrslpsrw")
             case "decision": return state("approval_waiting", "A change is waiting for your approval in Slack.", step: "use", steps: 12, age: 400, service: "slack", services: ["google_drive", "slack"], trail: "srlrusrlr", pace: "112214211", waited: 134)
             case "decision_mcp": return state("approval_waiting", "A change is waiting for your approval.", step: "use", steps: 12, age: 400, service: "mcp", services: ["google_drive", "mcp"], trail: "srlrusrlr", pace: "112214211", waited: 134)

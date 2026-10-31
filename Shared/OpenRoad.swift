@@ -39,6 +39,9 @@ nonisolated struct OpenRoad: Equatable {
     static let maxStops = 6
     /// Bots drawn side by side on a fork. Any more read as `+n`.
     static let maxAgentBots = 3
+    /// From here the compact Island's count drops its ×, or it runs under the
+    /// camera.
+    static let bareAgentCountFrom = 10
     /// `pace` digits: under 2 seconds, under 10, under 60, a minute or more.
     static let paceHeights: [Character: CGFloat] = ["1": 6, "2": 13, "3": 21, "4": 29]
     /// Where the time of each step isn't known, every tick is this tall.
@@ -190,6 +193,14 @@ nonisolated struct OpenRoad: Equatable {
 
     var isDeep: Bool { ticks.count >= Self.deepAfter }
     var isWaiting: Bool { stage == .decision || stage == .input }
+
+    /// The bots a fork draws, and the rest, which read as `+n`.
+    var agentBots: Int { min(agents ?? 0, Self.maxAgentBots) }
+    var moreAgents: Int { max((agents ?? 0) - Self.maxAgentBots, 0) }
+    /// "×7", then "12".
+    var compactAgents: String? {
+        agents.map { $0 < Self.bareAgentCountFrom ? "×\($0)" : "\($0)" }
+    }
     var isOver: Bool { stage == .finished || stage == .failed || stage == .stopped }
     var hasBand: Bool { isWaiting || stage == .failed }
 
