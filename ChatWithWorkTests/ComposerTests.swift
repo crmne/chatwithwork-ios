@@ -8,6 +8,54 @@ import UIKit
 /// sends back (docs/server-contract.md, "The composer").
 @Suite("Composer")
 struct ComposerTests {
+    @Test("the rainbow follows the web's composer: edge and glow for each state")
+    func rainbowLook() {
+        #expect(ComposerLook() == ComposerLook(locked: false, working: false, waiting: false, focused: false))
+        let rest = ComposerLook()
+        #expect(rest.edge == .rainbow && rest.edgeOpacity == 0.7 && rest.glowOpacity == 0.14 && !rest.glowsAmber)
+        let focused = ComposerLook(focused: true)
+        #expect(focused.edgeOpacity == 1 && focused.glowOpacity == 0.3)
+        let working = ComposerLook(working: true)
+        #expect(working.edge == .flowing && working.glowOpacity == 0.14)
+        let locked = ComposerLook(locked: true)
+        #expect(locked.edge == .rainbow && locked.edgeOpacity == 0.6 && locked.glowOpacity == 0.05)
+        // Amber outranks the flow, and the lock's dim glow.
+        let waiting = ComposerLook(locked: true, working: true, waiting: true)
+        #expect(waiting.edge == .attention && waiting.glowsAmber && waiting.glowOpacity == 0.14)
+        #expect(ComposerLook(waiting: true, focused: true).glowOpacity == 0.3)
+    }
+
+    @Test("the glow is blurred once for a width: a taller box and other looks never blur again")
+    func glowIsCached() {
+        let box = RainbowBox(frame: CGRect(x: 0, y: 0, width: 311, height: 96))
+        box.layoutIfNeeded()
+        let drawn = ComposerGlow.renders
+        for height in stride(from: 96.0, through: 240, by: 24) {
+            box.frame.size.height = height
+            box.layoutIfNeeded()
+        }
+        box.look = ComposerLook(focused: true)
+        box.look = ComposerLook(working: true)
+        box.layoutIfNeeded()
+        #expect(ComposerGlow.renders == drawn)
+        #expect(box.glowOpacity == 0.14)
+
+        let image = ComposerGlow.image(width: 311, attention: nil, dark: false)
+        #expect(image?.width == 311 + 134)
+        #expect(image?.height == 80 + 134)
+    }
+
+    @Test("the edge flows only while an answer runs, and not under Reduce Motion")
+    func edgeFlows() {
+        let box = RainbowBox(frame: CGRect(x: 0, y: 0, width: 311, height: 96))
+        box.layoutIfNeeded()
+        #expect(!box.isFlowing)
+        box.look = ComposerLook(working: true)
+        #expect(box.isFlowing == !UIAccessibility.isReduceMotionEnabled)
+        box.look = ComposerLook(working: true, waiting: true)
+        #expect(!box.isFlowing)
+    }
+
     @Test("the composer says which run is working, and an older server's says none")
     func composerRun() throws {
         let working = try #require(message("state", #"{"working":true,"run":"a1","revision":7,"startedAt":2500}"#).data() as ComposerState?)
