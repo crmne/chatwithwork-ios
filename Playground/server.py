@@ -1117,13 +1117,15 @@ def sidebar_json(handler, account, query):
         current = {"key": "all", "name": "All chats", "kind": "all", "hq": False}
     else:
         chats = [(n, c) for n, c in sorted(CHATS.items(), reverse=True) if not c["project"]]
-        current = {"key": "recent", "name": "Private chats", "kind": "recent", "hq": False}
+        current = {"key": "recent", "name": "My chats", "kind": "recent", "hq": False}
 
-    lists = [{"key": "recent", "name": "Private chats", "kind": "recent", "hq": False, "pinned": False},
+    lists = [{"key": "recent", "name": "My chats", "kind": "recent", "hq": False, "pinned": False},
              {"key": "all", "name": "All chats", "kind": "all", "hq": False, "pinned": False}]
     lists += [{"key": str(n), "name": p["name"], "kind": "project", "hq": p["hq"], "pinned": False} for n, p in PROJECTS.items()]
     for item in lists:
         item["current"] = item["key"] == current["key"]
+        item.setdefault("url", f"/{account}/projects/{item['key']}" if item["kind"] == "project" else None)
+    current["url"] = f"/{account}/projects/{key}" if project else None
 
     # The person's sections, each with this list's chats in it; the list's
     # chats are then those in none (ChatList#sections, #unsectioned_chats).
@@ -1149,17 +1151,36 @@ def sidebar_json(handler, account, query):
         "links": {"new_chat": f"/{account}/chats/new" + (f"?project_id={key}" if project else ""), "bots": f"/{account}/bots",
                   "settings": f"/{account}/settings", "projects": f"/{account}/projects", "new_project": f"/{account}/projects/new",
                   "organizations": "/accounts", "new_organization": "/accounts/new",
-                  "instructions": f"/{account}/settings?tab=instructions" + (f"&project={key}" if project else "")},
+                  "instructions": f"/{account}/settings?tab=instructions" + (f"&project={key}" if project else ""),
+                  "chats": f"/{account}/projects/{key}" if project else f"/{account}/chats"},
         "waiting": {"count": len(waiting), "items": waiting, "url": f"/{account}/decisions"},
         "bots": {"count": sum(bot["waiting"] for bot in BOTS.values()), "attention": True, "next_run": None,
                  "url": f"/{account}/bots", "new_url": f"/{account}/bots/new",
-                 "items": [dict({key: value for key, value in bot.items() if key != "summary"}, id=number, url=f"/{account}/bots/{number}")
+                 "list": dict(bot_list(lists[1]), url=None),
+                 "lists": [dict(bot_list(item), pinned=item["pinned"], current=item["kind"] == "all", url=item["url"],
+                                new_url=f"/{account}/bots/new" + (f"?project_id={item['key']}" if item["kind"] == "project" else ""))
+                           for item in lists],
+                 "items": [dict({key: value for key, value in bot.items() if key != "summary"}, id=number, url=f"/{account}/bots/{number}",
+                                description=bot["summary"], lists=bot_lists(bot))
                            for number, bot in BOTS.items()]},
         "pins": [chat_json(n, CHATS[n], group=False) for n in sorted(handler.session["pinned"]) if n in CHATS],
         "sections": sections,
         "chats": [chat_json(n, c) for n, c in chats if n not in sectioned],
         "next": None,
     }
+
+
+def bot_list(chat_list):
+    """A BotList's name beside its ChatList's: the choices are the same."""
+    name = chat_list["name"].replace("chats", "bots") if chat_list["kind"] != "project" else chat_list["name"]
+    return {"key": chat_list["key"], "name": name, "kind": chat_list["kind"], "hq": chat_list["hq"]}
+
+
+def bot_lists(bot):
+    """The keys of the lists holding a bot (BotList.keys_holding)."""
+    if bot["project"]:
+        return ["all", *(str(number) for number, project in PROJECTS.items() if project["name"] == bot["project"])]
+    return ["all", "recent"]
 
 
 def projects_index(handler, account):

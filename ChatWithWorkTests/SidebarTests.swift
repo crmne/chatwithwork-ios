@@ -35,6 +35,74 @@ struct SidebarTests {
     }
     """
 
+    /// A server from 2026-11-01: bots with their lists, and each list's page.
+    static let listsJSON = """
+    {
+      "organization": {"id": "482139075", "name": "Northwind Studio", "initials": "NS"},
+      "organizations": [],
+      "person": {"name": "Maya Hart", "initials": "MH"},
+      "list": {"key": "recent", "name": "My chats", "kind": "recent", "hq": false, "url": null},
+      "lists": [{"key": "recent", "name": "My chats", "kind": "recent", "hq": false, "pinned": false, "current": true, "url": null}],
+      "links": {"chats": "/482139075/chats?list=recent"},
+      "waiting": {"count": 0, "items": []},
+      "bots": {"count": 1, "attention": true, "next_run": null, "url": "/482139075/bots", "new_url": "/482139075/bots/new",
+        "list": {"key": "all", "name": "All bots", "kind": "all", "hq": false, "url": null},
+        "lists": [
+          {"key": "recent", "name": "My bots", "kind": "recent", "hq": false, "pinned": false, "current": false, "url": null, "new_url": "/482139075/bots/new"},
+          {"key": "all", "name": "All bots", "kind": "all", "hq": false, "pinned": false, "current": true, "url": null, "new_url": "/482139075/bots/new"},
+          {"key": "3", "name": "Support", "kind": "project", "hq": false, "pinned": false, "current": false, "url": "/482139075/projects/3", "new_url": "/482139075/bots/new?project_id=3"}
+        ],
+        "items": [
+          {"id": 5, "name": "Front desk", "description": "Answers refunds", "lists": ["all", "3"], "url": "/482139075/bots/5", "group": "needs_you", "project": "Support", "state": "waiting", "state_label": "Waiting for you", "tone": "attention", "waiting": 1, "working": false, "next_run": null},
+          {"id": 6, "name": "Morning plan", "description": null, "lists": ["all", "recent"], "url": "/482139075/bots/6", "group": "quiet", "project": null, "state": "idle", "state_label": "Idle", "tone": null, "waiting": 0, "working": false, "next_run": null}
+        ]},
+      "pins": [],
+      "chats": [],
+      "next": null
+    }
+    """
+
+    @Test("a bot's lists narrow it, and a list no longer offered falls back to the server's")
+    func botLists() throws {
+        let bots = try #require(try SidebarData.decode(Data(Self.listsJSON.utf8)).bots)
+
+        #expect(bots.chosenList("3")?.name == "Support")
+        #expect(bots.chosenList("3")?.newUrl == "/482139075/bots/new?project_id=3")
+        #expect(bots.chosenList("3")?.url == "/482139075/projects/3")
+        #expect(bots.chosenList("99")?.key == "all")
+        #expect(bots.chosenList(nil)?.key == "all")
+        #expect(bots.items(in: "recent").map(\.name) == ["Morning plan"])
+        #expect(bots.items(in: "3").map(\.name) == ["Front desk"])
+        #expect(bots.items(in: "all").count == 2)
+    }
+
+    @Test("the bots' search looks in every word of the name and what it does, ignoring case")
+    func botSearch() throws {
+        let bots = try #require(try SidebarData.decode(Data(Self.listsJSON.utf8)).bots?.items)
+        let found = { (query: String) in bots.filter { $0.matches(query.lowercased().split(separator: " ")) }.map(\.name) }
+
+        #expect(found("REFUNDS") == ["Front desk"])
+        #expect(found("desk answers") == ["Front desk"])
+        #expect(found("plan") == ["Morning plan"])
+        #expect(found("waiting") == [], "Never its state")
+    }
+
+    @Test("a server from before the bots' lists decodes, and nothing is narrowed")
+    func olderServerBots() throws {
+        let json = """
+        {"count": 0, "attention": false, "next_run": null, "url": "/1/bots", "new_url": "/1/bots/new", "items": [
+          {"id": 5, "name": "Front desk", "url": "/1/bots/5", "group": "quiet", "project": null, "state": "idle", "state_label": "Idle", "tone": null, "waiting": 0, "working": false, "next_run": null}]}
+        """
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let bots = try decoder.decode(SidebarData.Bots.self, from: Data(json.utf8))
+
+        #expect(bots.lists == nil && bots.list == nil)
+        #expect(bots.chosenList("all") == nil)
+        #expect(bots.items(in: nil).count == 1)
+        #expect(bots.items?.first?.matches(["front"]) == true)
+    }
+
     @Test("reads the server's JSON")
     func decodes() throws {
         let data = try SidebarData.decode(Data(Self.json.utf8))
@@ -172,14 +240,6 @@ struct SidebarTests {
         #expect(SidebarView.decisionsValue(0) == "None waiting")
         #expect(SidebarView.decisionsValue(1) == "1 waiting")
         #expect(SidebarView.decisionsValue(3) == "3 waiting")
-    }
-
-    @Test("keeps the server's groups in order")
-    func groups() throws {
-        let data = try SidebarData.decode(Data(Self.json.utf8))
-        let groups = SidebarData.grouped(data.chats)
-        #expect(groups.map(\.label) == ["Today", "Yesterday"])
-        #expect(groups[0].chats.map(\.number) == [42, 41])
     }
 
     @Test("adds a page's chats after the ones it has, once each")

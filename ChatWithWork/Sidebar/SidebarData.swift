@@ -27,6 +27,10 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
         let hq: Bool?
         let pinned: Bool?
         let current: Bool?
+        /// A project's page, for "Open <project>" (servers from 2026-11-01).
+        let url: String?
+        /// In `bots.lists`, New bot in this list (servers from 2026-11-01).
+        let newUrl: String?
 
         var id: String { key }
         var isProject: Bool { kind == "project" }
@@ -42,6 +46,8 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
         let newOrganization: String?
         let decisions: String?
         let instructions: String?
+        /// The list's page, its last row (servers from 2026-11-01).
+        let chats: String?
     }
 
     struct Waiting: Decodable, Equatable, Sendable {
@@ -78,6 +84,10 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
         struct Item: Decodable, Equatable, Sendable, Identifiable {
             let id: Int
             let name: String
+            /// What it does, which the search looks in (servers from 2026-11-01).
+            let description: String?
+            /// The keys of the lists holding it (servers from 2026-11-01).
+            let lists: [String]?
             let url: String
             /// `needs_you` or `quiet`, the web's two headings, in that order.
             let group: String
@@ -95,6 +105,12 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
             let nextRun: String?
 
             var needsYou: Bool { group == "needs_you" }
+
+            /// Whether every word is in its name or what it does, ignoring case.
+            func matches(_ words: [Substring]) -> Bool {
+                let text = [name, description].compactMap { $0 }.joined(separator: " ").lowercased()
+                return words.allSatisfy { text.contains($0) }
+            }
         }
 
         /// How many decisions wait for the person in their bots.
@@ -108,11 +124,30 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
         /// The person's bots, those that need them first; nil from an older
         /// server, which keeps the Bots row instead of the switch.
         let items: [Item]?
+        /// The list the web's Bots view shows, and the same choices as the
+        /// Chats view's (servers from 2026-11-01); nil keeps the Bots card.
+        let list: List?
+        let lists: [List]?
+
+        /// The list chosen under `key` here, else the server's, while it's
+        /// still one of the choices.
+        func chosenList(_ key: String?) -> List? {
+            lists?.first { $0.key == key } ?? list
+        }
+
+        /// The bots in the list `key`, or all of them where a bot doesn't say.
+        func items(in key: String?) -> [Item] {
+            (items ?? []).filter { item in
+                guard let key, let holding = item.lists else { return true }
+                return holding.contains(key)
+            }
+        }
 
         /// The bots under their headings: "Needs you" and "Quiet" only when
         /// both have bots, else one list without a heading.
-        var groups: [(label: String?, items: [Item])] {
-            let items = items ?? []
+        var groups: [(label: String?, items: [Item])] { Self.groups(items ?? []) }
+
+        static func groups(_ items: [Item]) -> [(label: String?, items: [Item])] {
             let needs = items.filter(\.needsYou)
             let quiet = items.filter { !$0.needsYou }
             if needs.isEmpty || quiet.isEmpty { return items.isEmpty ? [] : [(nil, items)] }
@@ -211,19 +246,5 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try decoder.decode(SidebarData.self, from: data)
-    }
-
-    /// The chats in their groups ("Today", "Yesterday"...), in order.
-    static func grouped(_ chats: [Chat]) -> [(label: String, chats: [Chat])] {
-        var groups: [(label: String, chats: [Chat])] = []
-        for chat in chats {
-            let label = chat.group ?? ""
-            if let last = groups.indices.last, groups[last].label == label {
-                groups[last].chats.append(chat)
-            } else {
-                groups.append((label, [chat]))
-            }
-        }
-        return groups
     }
 }
