@@ -10,87 +10,69 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
     /// What the server's pushes say. While the answer works, `phase` is
     /// `answering`, `message` the step it's on in words that carry nothing
     /// from the chat ("Searching Todoist", "Writing the answer"), `step` its
-    /// kind and `steps` how many it took so far. At the end, `phase` is
-    /// `answered`, `approval_waiting`, `input_requested`, `failed` or
-    /// `stopped`, and `message` generic words for it.
+    /// kind and `steps` how many it took so far. A wait for the person is an
+    /// update with `phase` `approval_waiting` or `input_requested`, and the
+    /// activity goes on after it. At the end, `phase` is `answered`, `failed`
+    /// or `stopped`, and `message` generic words for it. `run`, `revision` and
+    /// `startedAt` (unix seconds) say which answer that is and where it
+    /// stands. Older servers send those, and the optionals after them, not
+    /// at all. `service` and `services` are built-in keys, or `mcp` and
+    /// `computer`, never a name a person gave one. `pace` says how long each
+    /// step of `trail` took, a digit each.
     struct ContentState: Codable, Hashable, Sendable {
         var phase: String
         var message: String?
         var step: String?
         var steps: Int?
+        var recentSteps: [String]?
+        var run: String?
+        var revision: Int64?
+        var startedAt: Int64?
+        var waitingSince: Int64?
+        var service: String?
+        var services: [String]?
+        var trail: String?
+        var pace: String?
+        var agents: Int?
+        var heardAt: Int64?
+
+        enum CodingKeys: String, CodingKey {
+            case phase, message, step, steps, run, revision, service, services, trail, pace, agents
+            case recentSteps = "recent_steps"
+            case startedAt = "started_at"
+            case waitingSince = "waiting_since"
+            case heardAt = "heard_at"
+        }
 
         static let answering = ContentState(phase: "answering", message: nil)
 
         var isWorking: Bool { phase == "answering" }
 
-        /// Stale content must never suggest the answer is still progressing.
-        func showsElapsed(isStale: Bool) -> Bool { isWorking && !isStale }
-
-        /// Compact headlines fit the Island without truncating the decision.
-        var headline: String {
-            switch phase {
-            case "answering": line
-            case "answered": String(localized: "Answer ready")
-            case "approval_waiting": String(localized: "Approval needed")
-            case "input_requested": String(localized: "Your input needed")
-            case "failed": String(localized: "Couldn't finish")
-            case "stopped": String(localized: "Stopped")
-            default: String(localized: "Open chat for an update")
-            }
-        }
-
-        var action: String {
-            switch phase {
-            case "approval_waiting": String(localized: "Review change")
-            case "input_requested": String(localized: "Reply")
-            case "answered": String(localized: "Read answer")
-            default: String(localized: "Open chat")
-            }
-        }
-
         var needsAttention: Bool { phase == "approval_waiting" || phase == "input_requested" }
 
         /// The line the Live Activity shows for this phase.
         var line: String {
-            if let message, !message.isEmpty { return message }
+            if let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return message }
             switch phase {
             case "answered": return String(localized: "Your answer is ready.")
             case "approval_waiting": return String(localized: "A change is waiting for your approval.")
             case "input_requested": return String(localized: "A question is waiting for your answer.")
             case "failed": return String(localized: "The answer couldn't finish.")
             case "stopped": return String(localized: "The answer stopped.")
-            default: return String(localized: "Answering")
-            }
-        }
-
-        /// The SF Symbol for the step it's on, or for how it ended.
-        var symbol: String {
-            switch phase {
             case "answering":
                 switch step {
-                case "search": "magnifyingglass"
-                case "list": "folder"
-                case "read": "doc.text"
-                case "plan": "checklist"
-                case "run": "terminal"
-                case "ask": "questionmark.bubble"
-                case "write": "text.alignleft"
-                case "use": "wrench.and.screwdriver"
-                default: "ellipsis"
+                case "search": return String(localized: "Searching")
+                case "list": return String(localized: "Browsing")
+                case "read": return String(localized: "Reading")
+                case "plan": return String(localized: "Planning")
+                case "run": return String(localized: "Running a task")
+                case "ask": return String(localized: "Asking you to decide")
+                case "write": return String(localized: "Writing the answer")
+                case "use": return String(localized: "Using a tool")
+                default: return String(localized: "Answering")
                 }
-            case "answered": "checkmark.circle.fill"
-            case "approval_waiting", "input_requested": "hand.raised.fill"
-            case "failed": "exclamationmark.triangle.fill"
-            default: "stop.circle.fill"
+            default: return String(localized: "Open chat for an update")
             }
-        }
-
-        /// Includes a step still running, so never call these completed steps.
-        var stepsLine: String? {
-            guard let steps, steps > 0 else { return nil }
-            return steps == 1
-                ? String(localized: "1 step so far", comment: "Includes the step currently running")
-                : String(localized: "\(steps) steps so far", comment: "Includes the step currently running")
         }
     }
 
@@ -99,6 +81,9 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
     /// The chat's path on the server, which a tap opens.
     var path: String
     var startedAt: Date
+    /// The answer this activity belongs to, which it keeps for its whole
+    /// life; nil on an older server.
+    var run: String? = nil
 }
 
 /// The app's own links, which widgets, Live Activities and the share

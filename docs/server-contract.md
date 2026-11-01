@@ -1621,13 +1621,45 @@ activity's push token with the server:
 ```
 POST /:account/chats/:number/live_activity
 Content-Type: application/json, X-CSRF-Token: <the composer's csrfToken>, the web view's cookies
-{ "live_activity": { "token": "<hex>", "app_id": "com.chatwithwork.app", "environment": "sandbox" | "production" } }
+{ "live_activity": { "token": "<hex>", "app_id": "com.chatwithwork.app", "environment": "sandbox" | "production", "run": "<the composer's run>" } }
 ```
+
+**Runs (2026-10-31).** While the composer says `working` or `waiting`, its state
+also says `run`, `revision` and `startedAt` (unix seconds), null otherwise, and
+absent on an older server. A run is one turn: a question until it's answered, through
+steering and waits for the person. A new question or a retry is a new run.
+`run` is opaque and content-free, `revision` orders everything within it, and
+the start never changes within it, so the activity's timer is the answer's.
+Both APNs events carry them too, as optional `run`, `revision` and
+`started_at` in the content state, and `201` answers with `id`, `run`,
+`revision` and `started_at`. `409` means the named run is over (the answer
+ended before the token arrived): the app ends its activity, since no push
+would. An app that sends no `run` follows as before.
+
+Only an answer, a failure or a stop ends an activity. `approval_waiting` and
+`input_requested` are `update` events at priority 10, with `waiting_since`, and
+the activity carries on when the answer does: ending it would take it off the
+Dynamic Island, and iOS can't start one from the background. In front, the app
+leaves it alone while the composer says `waiting`. The stale date is 10
+minutes, and the server repeats the state every 4 minutes with `heard_at`.
+Also optional, and content-free, for the design to draw: `service`, `services`,
+`trail`, `pace`, `agents`.
+
+An activity belongs to one run for life (`attributes.run`). Apple delivers a
+push only to the activity whose token it is, so a late push for an old answer
+can't reach a newer activity, and the server checks every event against the
+run and revision before sending it. A chat's next run replaces the last run's
+activity, even an ended one still on the Lock Screen. When a person dismisses
+a working activity (`activityStateUpdates`, `.dismissed` straight from active
+or stale, not after the app or the server ended it) that run stays dismissed,
+across launches, and a later run starts. Signing out or losing the session
+ends every activity, cancels registrations under way, ignores any composer
+state still arriving from the old web view, and forgets those dismissals.
 
 While the answer runs, the server pushes what it's doing (2026-10-26): event
 `update` at `apns-priority` 5 (which Apple doesn't count against the app's
-budget), at most every 3 seconds, with a `stale-date` an hour ahead, and the
-content state `{phase: "answering", message, step, steps}`: `message` the
+budget), at most every 3 seconds, with a `stale-date` 10 minutes ahead, and the
+content state `{phase: "answering", message, step, steps, recent_steps}`: `message` the
 step it's on in the words of the chat's activity line ("Searching Todoist",
 "Reading 3 files in Drive", "Running code", "Writing the answer", or
 "Answering" between steps), `step` its kind for the app's symbol (`search`,
@@ -1636,34 +1668,95 @@ how many it took so far. Never a query, file name, title or text, and an MCP
 server or computer only as "an MCP server" or "a computer". Builds that read
 only `phase` and `message` show the step's words too.
 
+`recent_steps` is optional and no longer drawn; builds before Open Road read
+it. `trail` is one letter per step, oldest first (`s` search, `l` list, `r`
+read, `u` use, `p` plan, `x` run, `a` ask, `w` write), upper case where a
+result failed or the person turned it down. `pace` is one digit per character
+of `trail`, in the same order and cut to the same steps: how long the step took,
+`1` under 2 seconds, `2` under 10, `3` under 60, `4` a minute or more. A tick is
+as tall as its digit, in four sizes. With `pace` absent, a different length from
+`trail`, or holding anything else, every tick is one even height. `service` and
+`services` are
+built-in keys (`slack`, `google_drive`), or `mcp` and `computer`, never a name
+a person gave one. A key the app has no logo for draws as a neutral dot.
+`agents` is how many agents run at once, from 2. These are observed work, not
+planned stages or proof of success. An older server that omits them gets even
+ticks counted from `steps`. No customer text is added.
+
 The server ends it when the answer ends, with an APNs `liveactivity` push,
 event `end`, content state `{phase, message}`: `phase` is `answered`,
-`approval_waiting`, `input_requested`, `failed` or `stopped` (the person's
+`failed` or `stopped` (the person's
 Stop, or out of credits), `message` generic words for it, shown on the Lock
 Screen for 15 minutes. The app shows the message, or its own words for the
 phase. A tap opens the chat (`chatwithwork://open?path=/482139075/chats/42`).
 The app also ends it itself when that chat's composer says it's done while
 the person is in the app; in the background it leaves the end to the
 server's push. The activity's attributes are `ChatActivityAttributes` in
-`Shared/`. The widget draws a compact status card: organization and elapsed
-time in the header, a meaningful step icon and headline, then steps so far
-and Open chat. The count includes a running step, not just completed work.
-The expanded Island uses the same hierarchy; compact and minimal variants
-keep the icon or timer. Working is blue, decisions amber, and ready green,
-using Live Wire's accessible ink colors. Ended states stop the timer and
-offer Read answer, Review change or Reply, opening the authenticated chat
-without approving anything. Stale activities stop claiming live elapsed
-time and ask the person to open the chat for an update. No percentage or
-ETA is inferred from the step count.
+`Shared/`.
 
-The system UI test covers active, approval, completed and failed cards. The
-elapsed-state unit test also covers stale content. The iOS 27 simulator did
-not advance ActivityKit to stale after its configured date during visual
-QA, so the stale scenario remains a physical-device check.
+An end push today carries only `phase`, `message`, `run`, `revision`,
+`started_at` and `heard_at`, and an ended activity shows only what its last
+content state says. So the app draws the end without a step count, ticks or
+stops: the road closes with no history on it, and the fixed total is `heard_at`
+minus `started_at`. If the end push also carries `steps`, `trail` and
+`services`, the app draws them with no change. No total is inferred without
+both times.
 
-Debug builds support `-CWWLiveActivityPreview search|run|approval_waiting|answered|failed|stale`
-for synthetic system-surface previews without push credentials.
-`LiveActivityPresentationTests` captures the Island and Lock Screen.
+**Presentation: Open Road (2026-10-31).** `OpenRoad` (`Shared/`) works out what
+to draw, `Widgets/LiveActivity/` draws it. A small bot stands on a road it lays
+down as it works. The bot's place never follows progress, the road ahead fades
+to nothing, and our logo appears only on arrival, so nothing pretends to know
+the distance: no percentage, ETA, planned stage or checkmark. The card is always
+dark. While it works the only colours are the rainbow and the service logos;
+amber means the person is needed, green that it finished, orange that it
+failed, grey that it stopped or went quiet.
+
+| State | When | Face | Words | Clock |
+| --- | --- | --- | --- | --- |
+| Starting | `answering`, no steps, step `answer` or none | `open` | Starting | from the start |
+| Working | `answering` | by `step` | `message`, with the service's logo | from the start |
+| Agents | `agents` 2 or more | up to three small faces, then `+n` | `message` | from the start |
+| Writing | `step` `write` | `down`, pen | `message` | from the start |
+| Decision | `approval_waiting` | `wide`, holding up an amber card with the service's logo | Approve a change, in the service | from `waiting_since` |
+| Input | `input_requested` | `brow`, holding up the card, with `?` where no service is named | A question for you | from `waiting_since` |
+| Finished | `answered` | `happy` | Answer ready | fixed total |
+| Failed | `failed` | `closed`, a broken road | Couldn't finish | none |
+| Stopped | `stopped` | `flat` | Stopped | fixed total |
+| Stale | `context.isStale` while working | `closed`, outline | Last heard 14:27 | none |
+
+An ended state never shows stale, and a wait stays amber when stale: the wait
+is still true. During a wait the road ahead dims to dashes; on a card, an MCP
+server or computer shows its generic glyph, and a change with no service a pen.
+Faces change only on content updates, never between pushes. A
+decision makes one buzz, the existing waiting push: the activity's update
+carries no `alert`. Its link opens the chat and never approves anything. The
+Island shows bot and logo with the clock in compact, or bot and `×3` for agents
+(just `12` from 10 up, clear of the camera), the bot alone in minimal, and the Lock Screen's content expanded. Largest Dynamic Type drops the road and
+keeps bot, words, clock and band, capped at Accessibility 3. Always-On draws the
+outline bot and greys the rainbow, and amber stays amber. The Watch's and
+CarPlay's small family shows bot, words and clock, or "Open on your phone" for
+a wait. Geist, Geist Mono and a digits-only Unbounded with tabular figures are
+bundled in the widget extension only (OFL, `Widgets/Fonts`), with the built-in
+services' logos in its catalog; `script/live-activity-assets` rebuilds both
+from the Rails app's assets.
+
+Debug builds support `-CWWLiveActivityPreview <scenario>` for synthetic
+system-surface previews without push credentials: `starting`, `working`, `deep`,
+`paced`, `agents`, `agents_2`, `agents_4`, `agents_7`, `agents_12`, `writing`,
+`decision`, `decision_mcp`, `decision_computer`, `input`, `input_plain`,
+`finished`, `failed`,
+`stopped`, `quiet`, `legacy`, `long`, `mcp`, the `*_bare` ends (what an end push
+carries today), `stale`, and `minimal` or `minimal_<scenario>`, which start two
+activities. `LiveActivityPresentationTests` captures the Lock Screen and the
+Island. Set `TEST_RUNNER_CWW_ACTIVITY_SCENARIOS` to a comma-separated subset,
+and `TEST_RUNNER_CWW_UI_TEST_SHOTS` to a folder for its pictures. Two activities
+of one app stay compact: the Island turns minimal only beside another app's, so
+a copy of the app under another bundle id, running its own preview, shows it.
+Change appearance or text size and reboot the simulator before capturing, or
+SpringBoard may not present the activity. The opt-in
+ActivityKit cleanup integration check (`TEST_RUNNER_CWW_TEST_ACTIVITYKIT=1`)
+needs a foreground simulator that allows Live Activities; normal unit runs do
+not request a system activity.
 
 ### Widgets and the app's links
 

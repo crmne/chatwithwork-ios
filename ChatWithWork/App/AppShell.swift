@@ -38,6 +38,10 @@ final class AppShell: NSObject {
     }
 
     func start() {
+        LiveActivities.shared.isSignedIn = { [weak self] in
+            if case .signedIn = self?.state { true } else { false }
+        }
+
         if memory.hasSignedIn || LaunchOptions.assumesSignedIn {
             showSignedIn(account: memory.lastAccount, animated: false)
             PushNotifications.shared.refreshRegistrationIfAuthorized()
@@ -229,6 +233,7 @@ final class AppShell: NSObject {
         memory.lastAccount = nil
         account = nil
         PushNotifications.shared.forgetKey()
+        LiveActivities.shared.endAll()
 
         let flow = SignedOutFlow(environment: environment, navigatorDelegate: self)
         flow.onLocationChange = { [weak self] url in

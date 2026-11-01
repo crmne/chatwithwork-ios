@@ -7,11 +7,13 @@ import { BridgeComponent } from "@hotwired/hotwire-native-bridge"
 // one connects again with what it is now.
 //
 // Web to app: connect {state}, then state {state} whenever it changes (an upload's progress, a lock):
-//   state = { overlay, visible, placeholder, text, locked, lockReason, working, stopping,
+//   state = { overlay, visible, placeholder, text, locked, lockReason, working, stopping, waiting, run, revision, startedAt,
 //             models: [{name, rate, selected, searchesWeb, icon, iconName, invertIcon}],
 //             permissionModes: {selected, options: [{value, label, description, selected, disabled}]} | null,
 //             webSearch: {on, disabled, note} | null, dictation: {url} | null, csrfToken,
 //             attachments: [{id, name, size, contentType, uploading, progress}], acceptsFiles }
+// +run+, +revision+, and +startedAt+ (unix seconds) say which answer is working or +waiting+ for the person (the
+// server's LiveActivity::Run), null while none is: opaque, and nothing from the chat.
 // +text+ is the words the web composer holds (a shared link, a restored draft), files left out, for the app's empty field.
 // Until the person says yes to their words going to models (model_consent_controller.js), +dictation+ is null, and a
 // send waits for the page's dialog: agreeing sends it, while Not now connects again, so the app's field gets its words
@@ -183,6 +185,10 @@ export default class extends BridgeComponent {
       lockReason: lock?.textContent.trim().replace(/\s+/g, " ") || null,
       working: element.classList.contains("composer--working"),
       stopping: Boolean(element.querySelector("button.chat-prompt__stop[disabled]")),
+      waiting: element.dataset.liveWaiting === "true",
+      run: element.dataset.liveRun || null,
+      revision: element.dataset.liveRevision ? Number(element.dataset.liveRevision) : null,
+      startedAt: element.dataset.liveStartedAt ? Number(element.dataset.liveStartedAt) : null,
       models: [ ...element.querySelectorAll(".model-picker__option") ].map(option => ({
         name: option.dataset.modelSelectNameParam,
         rate: option.dataset.modelSelectRateParam || null,

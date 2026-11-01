@@ -8,6 +8,19 @@ import UIKit
 /// sends back (docs/server-contract.md, "The composer").
 @Suite("Composer")
 struct ComposerTests {
+    @Test("the composer says which run is working, and an older server's says none")
+    func composerRun() throws {
+        let working = try #require(message("state", #"{"working":true,"run":"a1","revision":7,"startedAt":2500}"#).data() as ComposerState?)
+        #expect(working.liveRun == LiveRun(id: "a1", revision: 7, startedAt: 2500))
+        let older = try #require(message("state", #"{"working":true}"#).data() as ComposerState?)
+        #expect(older.liveRun == nil)
+        let waiting = try #require(message("state", #"{"waiting":true,"run":"a1"}"#).data() as ComposerState?)
+        #expect(waiting.waiting && !waiting.working)
+        #expect(!older.waiting)
+        let idle = try #require(message("state", #"{"run":null,"revision":null,"startedAt":null}"#).data() as ComposerState?)
+        #expect(idle.liveRun == nil)
+    }
+
     @Test("accepts concurrent photo callbacks off the main actor in selection order")
     func pickedImagesFromBackgroundQueues() async {
         let ordered = (0..<64).map { _ in UIImage() }
