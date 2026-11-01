@@ -300,6 +300,7 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             pollWhileOpen()
         } else {
             pollTask?.cancel()
+            releaseSidebarFocus()
         }
         let target: CGFloat = open ? 1 : 0
         guard animated else {
@@ -320,6 +321,12 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         dim.isHidden = false
     }
 
+    /// A closed sidebar's search field keeps nothing: left focused, it
+    /// would hold the keyboard up and go on taking what's typed.
+    private func releaseSidebarFocus() {
+        sidebarHost.view.endEditing(true)
+    }
+
     /// Puts the sidebar `value` of the way open. Once `settled`, a closed
     /// sidebar and its dimming leave the screen (and the accessibility tree).
     private func apply(progress value: CGFloat, settled: Bool = true) {
@@ -328,6 +335,7 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         dim.alpha = 0.28 * progress
         if settled {
             let resting = progress == 0
+            if resting { releaseSidebarFocus() }
             sidebarHost.view.isHidden = resting
             dim.isHidden = resting
         }
