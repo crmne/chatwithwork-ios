@@ -13,6 +13,7 @@ struct SessionMemory {
         static let hasSignedIn = "CWWHasSignedIn"
         static let lastAccount = "CWWLastAccount"
         static let listKeys = "CWWSidebarLists"
+        static let botListKeys = "CWWSidebarBotLists"
         static let newChatPaths = "CWWNewChatPaths"
         static let lastChat = "CWWLastChat"
         static let lastChatAt = "CWWLastChatAt"
@@ -38,6 +39,18 @@ struct SessionMemory {
         var keys = (defaults.dictionary(forKey: Key.listKeys) as? [String: String]) ?? [:]
         keys[account.rawValue] = key
         defaults.set(keys, forKey: Key.listKeys)
+    }
+
+    /// The list the sidebar's Bots view shows in each organization (a BotList
+    /// key), nil before anyone chose here.
+    func botListKey(in account: AccountSlug) -> String? {
+        (defaults.dictionary(forKey: Key.botListKeys) as? [String: String])?[account.rawValue]
+    }
+
+    func setBotListKey(_ key: String?, in account: AccountSlug) {
+        var keys = (defaults.dictionary(forKey: Key.botListKeys) as? [String: String]) ?? [:]
+        keys[account.rawValue] = key
+        defaults.set(keys, forKey: Key.botListKeys)
     }
 
     /// The half of the sidebar's Chats | Bots switch last chosen on this
@@ -72,6 +85,6 @@ struct SessionMemory {
     }
 
     func reset() {
-        [Key.hasSignedIn, Key.lastAccount, Key.listKeys, Key.newChatPaths, Key.lastChat, Key.lastChatAt, Key.sidebarView].forEach(defaults.removeObject(forKey:))
+        [Key.hasSignedIn, Key.lastAccount, Key.listKeys, Key.botListKeys, Key.newChatPaths, Key.lastChat, Key.lastChatAt, Key.sidebarView].forEach(defaults.removeObject(forKey:))
     }
 }

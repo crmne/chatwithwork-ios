@@ -1236,11 +1236,44 @@ Android.
 
 ## 11. The sidebar
 
-**Instructions and order (2026-10-29).** Optional `links.instructions`
-opens the same notes as the chosen web chat list, including its project
-when applicable. The Chats view follows the web: list chooser, New chat,
-Instructions, pins, search, sections and chats. Decisions and the Chats |
-Bots switch stay above both views. Older servers can omit the link.
+**Same head in both views (2026-11-01).** The native sidebar draws what the
+web's does at a phone's width, and both views open the same way, so switching
+moves nothing: Decisions, the Chats | Bots switch, the head (the list selector
+and a square plus), and the search, all fixed above what scrolls. The server
+and the apps change together; builds from before ignore the new keys, and a
+build from now on keeps working on a server without them.
+
+- `list` and each of `lists` gain `url`, the project's page (null otherwise),
+  which the selector's menu offers as "Open <project>".
+- `links.chats` is the list's page, the list's last row once `next` is null
+  and it holds a chat ("See all, by date", or "Open <project>"), never while
+  searching.
+- `bots` gains `list` (what the web's Bots view shows, the app's default) and
+  `lists` (the same choices as the Chats view's: My bots, All bots, the
+  projects), each of `lists` also with `pinned`, `current`, `url`, and
+  `new_url`, New bot in that list; `bots.new_url` is the chosen list's.
+- `BOT` gains `description`, what it does, null if nothing says, and `lists`,
+  the keys of the lists holding it. All bots always come at once, so the app
+  narrows them itself, with no fetch, and remembers the key per organization,
+  as it does the Chats view's, apart from the web's choice. Bots search every
+  word in the name and `description`, never the state.
+- New chat and New bot are one square (36 points, hairline, `plus`), raised
+  while its page is on screen, opening `links.new_chat` or the chosen list's
+  `new_url`. There are no New chat, New bot or Instructions rows;
+  `links.instructions` stays for older builds, and Instructions stays in
+  Settings.
+- The selector's menu: My and All (My noting "only you"), "Projects you're
+  on", then "Open <project>", All projects… and New project, with a check on
+  the chosen one. In Bots the name is followed by how many wait in the list.
+- Pinned follows the search, chats list with no `group` headings, as on the
+  web, and a bot's row ends as the web's does: `waiting` with a dot, Failed,
+  Paused, or `next_run`, or nothing.
+- With no `bots.lists` (an older server) the Bots view keeps its card in the
+  selector's place, opening the Bots page.
+
+**Instructions and order (2026-10-29, replaced above).** Optional
+`links.instructions` opens the same notes as the chosen web chat list,
+including its project when applicable. Older servers can omit the link.
 
 Builds that register the `sidebar` bridge component (so the user agent's
 `bridge-components` lists it) drop the tab bar. `native_app.supports?(:sidebar)`
@@ -1265,18 +1298,16 @@ is the server's switch for anything that differs.
 - **The sidebar** slides in from the left and pushes the chat aside, opened by
   the bar's button or a swipe from the screen's left edge (on a root screen or a page the sidebar opened
   with nothing over it), closed by a tap or a swipe on the chat, or by picking
-  something. Top to bottom: Decisions (below), the Chats | Bots switch (below), the list switcher (`list`, "Project" or
-  "Showing"; its menu lists `lists`, then All projects… and New project),
-  New chat, Instructions (`links.instructions`),
+  something. Top to bottom: Decisions (below), the Chats | Bots switch (below), the list selector (`list`; its menu lists `lists`,
+  then All projects… and New project) with New chat as a square plus beside it,
+  the search field (titles, natively; the first search loads `all=1`),
   from a server with neither `waiting.url` nor `links.decisions` the Decisions row (the list of
   `waiting.items`; earlier builds called it "Waiting for you"), from a server
   without `bots.items` the Bots row instead of the switch (`links.bots`, with
-  `bots`' count, dot, or next run), Pinned (`pins`), the search field
-  (titles, natively; the first search loads `all=1`), then the person's
+  `bots`' count, dot, or next run), Pinned (`pins`), then the person's
   own sections (`sections`, below),
-  then the chats under their `group` headings (under one "Other chats"
-  heading instead when there are sections, as on the web)
-  with a live dot while `state` is `processing` and an attention dot while
+  then the chats (under one "Other chats" heading when there are sections,
+  as on the web) with a live dot while `state` is `processing` and an attention dot while
   `waiting`, the next page loading from `next` near the end. At the foot,
   the person and the organization; its menu lists `organizations` (each
   opening its `url`), All organizations, New organization, and Settings.
@@ -1294,8 +1325,8 @@ path of the following page. A signed-out request gets `401`.
   "organization": {"id": "482139075", "name": "Northwind Studio", "initials": "NS"},
   "organizations": [{"id": "482139075", "name": "Northwind Studio", "initials": "NS", "current": true, "role": "admin", "url": "/482139075/chats/new"}],
   "person": {"name": "Maya Hart", "email": "maya@northwind.example", "initials": "MH", "avatar_url": null},
-  "list": {"key": "recent", "name": "Private chats", "kind": "recent", "hq": false},
-  "lists": [{"key": "recent", "name": "Private chats", "kind": "recent", "hq": false, "pinned": false, "current": true}],
+  "list": {"key": "recent", "name": "My chats", "kind": "recent", "hq": false},
+  "lists": [{"key": "recent", "name": "My chats", "kind": "recent", "hq": false, "pinned": false, "current": true}],
   "links": {"new_chat": "/482139075/chats/new", "bots": "/482139075/bots", "settings": "/482139075/settings",
             "projects": "/482139075/projects", "new_project": "/482139075/projects/new",
             "organizations": "/accounts", "new_organization": "/accounts/new"},
@@ -1334,7 +1365,7 @@ the top where there's no switch (guests, older servers)
 one thing there that asks for the person: the list-checks symbol
 (`checklist`), "Decisions" spelled out, and at its end `waiting.count` as a
 small badge on the attention wash, its outline taking the attention edge,
-or a quiet "None" at 0. VoiceOver reads "Decisions" and "N waiting" or
+or the happy bot and a quiet "All clear" at 0. VoiceOver reads "Decisions" and "N waiting" or
 "None waiting". It opens `waiting.url` (or `links.decisions`). The same
 data as before, no new keys. A server with neither `waiting.url` nor
 `links.decisions` keeps the Decisions row lower in the sidebar instead. Builds from 2026-10-27 to
@@ -1388,16 +1419,13 @@ Decisions, above the list switcher, in place of the Bots row
 (`sidebar.switch.chats`, `sidebar.switch.bots`): two equal halves, each its
 icon and label centred together, the Bots half's dot hanging past its label. Its Bots half shows an attention dot, never a number,
 while `bots.attention`: Decisions carries the one count. Chats shows the
-sidebar as before. Bots keeps the same skeleton: a card in the list
-switcher's place ("Bots in <organization>", how many bots, and how many are
-working or waiting for the person), opening `url`; New bot where New chat
-sits, opening `new_url`; then the bots, under "Needs you" and "Quiet" only
-when both have some. Each row is the bot mark (with a live dot while
-`working`), the name, a shared bot's project, and at its end `waiting` with
-an attention dot when it's more than 0, else `state_label` with a dot in its
-`tone`. A tap opens `url` like any sidebar link. With no bots it says "Your
-bots, and the ones shared with you, show up here." and offers "Start from a
-recipe" (`new_url`). The search field shows only with the chats. The app
+sidebar as before. Bots keeps the same skeleton: the same head and search
+(first paragraph of this section), then the bots, under "Needs you" and
+"Quiet" only when both have some. Each row is the bot mark (with a live dot
+while `working`), the name, a shared bot's folder icon, and its state at the
+end. A tap opens `url` like any sidebar link. With no bots at all it says
+"Your bots, and the ones shared with you, show up here." and offers a primary
+New bot; a list that's only empty says "No bots here yet." The app
 remembers the chosen half per install. Guests get no `bots`, so no switch;
 a server that sends no `items` keeps the Bots row. The sidebar keeps checking
 every five seconds while open and a bot is `working`, as it does for a chat.

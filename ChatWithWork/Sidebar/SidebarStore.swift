@@ -26,12 +26,23 @@ final class SidebarStore {
     private(set) var everyChat: [SidebarData.Chat]?
     private(set) var isLoading = false
 
-    var account: AccountSlug?
+    var account: AccountSlug? {
+        didSet { botListKey = account.flatMap { memory.botListKey(in: $0) } }
+    }
     /// The list chosen in this organization, remembered between launches.
     var listKey: String? {
         get { account.flatMap { memory.listKey(in: $0) } }
         set { if let account { memory.setListKey(newValue, in: account) } }
     }
+
+    /// The bots' list chosen in this organization, kept here (the bots all
+    /// come at once, so it narrows them with no fetch), nil before anyone chose.
+    var botListKey: String? {
+        didSet { if let account { memory.setBotListKey(botListKey, in: account) } }
+    }
+
+    /// The list the Bots view shows, once the server offers lists.
+    var botList: SidebarData.List? { data?.bots?.chosenList(botListKey) }
 
     /// The sidebar's half, Chats or Bots, remembered on this install. Only
     /// a sidebar whose JSON lists the bots (`bots.items`) offers the switch.
@@ -58,6 +69,7 @@ final class SidebarStore {
         self.environment = environment
         self.account = account
         self.memory = memory
+        botListKey = account.flatMap { memory.botListKey(in: $0) }
         view = memory.sidebarView.flatMap(SidebarView.Half.init(rawValue:)) ?? .chats
     }
 
