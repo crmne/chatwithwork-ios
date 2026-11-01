@@ -331,7 +331,7 @@ final class PlaygroundTests: XCTestCase {
         XCTAssertEqual(botRows.count, 1)
         app.buttons["Clear search"].tap()
         app.buttons["sidebar.list"].tap()
-        app.buttons["My bots"].firstMatch.tap()
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "My bots")).firstMatch.tap()
         XCTAssertTrue(app.buttons["Monday Drive digest"].waitForExistence(timeout: 5))
         XCTAssertEqual(botRows.count, 2, "My bots holds the person's own")
         app.buttons["sidebar.list"].tap()
