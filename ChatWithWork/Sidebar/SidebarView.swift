@@ -70,12 +70,14 @@ struct SidebarView: View {
                     LazyVStack(alignment: .leading, spacing: 1) {
                         if store.showsBots, let bots = data.bots {
                             botsList(bots)
-                        } else if query.isEmpty {
-                            places(data)
-                            pinnedChats(data)
-                            chatsList(data)
                         } else {
-                            searchResults(data)
+                            places(data)
+                            if query.isEmpty {
+                                pinnedChats(data)
+                                chatsList(data)
+                            } else {
+                                searchResults(data)
+                            }
                         }
                     }
                     .padding(.horizontal, 8)
