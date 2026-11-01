@@ -36,22 +36,28 @@ final class AppNavigationController: HotwireNavigationController {
             fade.type = .fade
             view.layer.add(fade, forKey: kCATransition)
         }
+        viewControllers.filter { !self.viewControllers.contains($0) }.forEach { shell?.noteNewScreen($0) }
         super.setViewControllers(viewControllers, animated: animated && !replacesRoot)
         installCloseButtonWhenPresented()
         decorate()
     }
 
     override func pushViewController(_ viewController: UIViewController, animated: Bool) {
+        shell?.noteNewScreen(viewController)
         super.pushViewController(viewController, animated: animated)
         decorate()
     }
 
     /// The sidebar shell's buttons on the main stack's screens.
     private func decorate() {
-        guard let shell = parent as? SidebarShell ?? parent?.parent as? SidebarShell else { return }
+        guard let shell else { return }
         for (index, controller) in viewControllers.enumerated() {
             shell.decorate(controller, isRoot: index == 0)
         }
+    }
+
+    private var shell: SidebarShell? {
+        parent as? SidebarShell ?? parent?.parent as? SidebarShell
     }
 
     private func installCloseButtonWhenPresented() {

@@ -95,6 +95,46 @@ final class PlaygroundTests: XCTestCase {
         keep("connect-dialog-draft-restored")
     }
 
+    /// A page the sidebar opened offers the sidebar, by its button and the
+    /// left-edge swipe, rather than back to whatever chat was underneath.
+    @MainActor
+    func testSidebarPageOffersTheSidebar() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground, "-CWWAskForNotifications", "NO"]
+        app.launch()
+
+        app.buttons["welcome.signIn"].tap()
+        let signIn = app.webViews.buttons["Sign in"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 20))
+        signIn.tap()
+        let sidebarButton = app.buttons["shell.sidebar"]
+        XCTAssertTrue(sidebarButton.waitForExistence(timeout: 20))
+
+        sidebarButton.tap()
+        let botsHalf = app.buttons["sidebar.switch.bots"]
+        XCTAssertTrue(botsHalf.waitForExistence(timeout: 10))
+        botsHalf.tap()
+        let bot = app.buttons["sidebar.bot"].firstMatch
+        XCTAssertTrue(bot.waitForExistence(timeout: 10))
+        bot.tap()
+
+        let title = app.navigationBars["Front desk"]
+        XCTAssertTrue(title.waitForExistence(timeout: 10), "The bot's page should open")
+        XCTAssertTrue(title.buttons["shell.sidebar"].waitForExistence(timeout: 5), "The page the sidebar opened should offer the sidebar")
+        XCTAssertFalse(title.buttons["BackButton"].exists, "It should not offer back")
+        keep("sidebar-page-bar")
+
+        let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
+        edge.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)))
+        XCTAssertTrue(botsHalf.waitForExistence(timeout: 5), "The left-edge swipe should open the sidebar")
+        XCTAssertTrue(botsHalf.isHittable, "The left-edge swipe should open the sidebar")
+        keep("sidebar-page-swiped")
+
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "The swipe should not go back")
+        XCTAssertTrue(title.buttons["shell.sidebar"].exists)
+    }
+
     @MainActor
     func testSignedInShell() throws {
         let app = XCUIApplication()

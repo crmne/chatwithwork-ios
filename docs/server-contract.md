@@ -1256,13 +1256,14 @@ is the server's switch for anything that differs.
   (path configuration v2), so switching chats never stacks screens and the
   web view, shared by every screen, never reloads the app. Bots, projects and
   other pages are pushed over the chat; Settings and every form are sheets.
-- **The bar.** The sidebar button on the leading side of the root
-  (`sidebar.left`), New chat on the trailing side of every main screen
-  (`square.and.pencil`), and the page's own `button`, `menu`, `form` and
+- **The bar.** The sidebar button on the leading side of the root and of a
+  page the sidebar opened, in place of back (`sidebar.left`), and what you
+  reach from that page gets back. New chat on the trailing side of every main
+  screen (`square.and.pencil`), and the page's own `button`, `menu`, `form` and
   `share` beside them. A page's `button` with `nativeAction: "new-chat"` is
   left out.
 - **The sidebar** slides in from the left and pushes the chat aside, opened by
-  the bar's button or a swipe from the screen's left edge (on a root screen
+  the bar's button or a swipe from the screen's left edge (on a root screen or a page the sidebar opened
   with nothing over it), closed by a tap or a swipe on the chat, or by picking
   something. Top to bottom: Decisions (below), the Chats | Bots switch (below), the list switcher (`list`, "Project" or
   "Showing"; its menu lists `lists`, then All projects… and New project),
