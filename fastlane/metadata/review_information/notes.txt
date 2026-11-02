@@ -18,6 +18,6 @@ Services such as Slack or Google Drive are connected through the system's sign-i
 
 The same account and its chats also work on the web at chatwithwork.com and in the Word, Excel, PowerPoint, and Google Docs add-ins; the app shows the same chats, bots, and decisions, and nothing in it is hidden or switched on remotely.
 
-The app sells nothing. Accounts are free to create, with free daily answers. It is a companion to the Chat with Work web service (guideline 3.1.3(f)).
+The app sells nothing. Accounts are free to create, with 300 one-time trial credits. It is a companion to the Chat with Work web service (guideline 3.1.3(f)).
 
 Microphone: dictation in the composer. Camera: attaching a photo or video to a chat. Notifications: an answer is ready or something waits for the person. A push carries no chat content; the app fetches the words it shows from our server as the notification arrives.
