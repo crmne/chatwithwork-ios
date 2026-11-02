@@ -43,6 +43,10 @@ final class ComposerView: UIView, UITextViewDelegate {
     private let dictateButton = UIButton(type: .system)
     private let webSearchButton = UIButton(type: .system)
     private let modelButton = UIButton(type: .system)
+    /// Send and Stop are the web's touch `.chat-prompt__send`: a 36pt square with 10pt corners.
+    private static let sendSide: CGFloat = 36
+    private static let sendCornerRadius: CGFloat = 10
+
     private let stopButton = UIButton(type: .system)
     private let sendButton = UIButton(type: .system)
     private let dictationLine = DictationLine()
@@ -132,13 +136,15 @@ final class ComposerView: UIView, UITextViewDelegate {
         stopButton.accessibilityIdentifier = "composer.stop"
         stopButton.accessibilityLabel = String(localized: "Stop response")
         stopButton.addAction(UIAction { [weak self] _ in self?.stopTapped() }, for: .primaryActionTriggered)
-        stopButton.layer.cornerRadius = 17
+        stopButton.layer.cornerRadius = Self.sendCornerRadius
+        stopButton.layer.cornerCurve = .continuous
         stopButton.setImage(UIImage(systemName: "stop.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .bold)), for: .normal)
         stopButton.isHidden = true
 
         sendButton.accessibilityIdentifier = "composer.send"
         sendButton.addAction(UIAction { [weak self] _ in self?.sendTapped() }, for: .primaryActionTriggered)
-        sendButton.layer.cornerRadius = 17
+        sendButton.layer.cornerRadius = Self.sendCornerRadius
+        sendButton.layer.cornerCurve = .continuous
         sendButton.tintColor = Palette.inkInverted
         sendButton.backgroundColor = Palette.ink
 
@@ -189,10 +195,10 @@ final class ComposerView: UIView, UITextViewDelegate {
             placeholder.topAnchor.constraint(equalTo: textView.topAnchor, constant: 8),
             placeholder.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: 7),
             placeholder.widthAnchor.constraint(lessThanOrEqualTo: textView.widthAnchor, constant: -14),
-            stopButton.widthAnchor.constraint(equalToConstant: 34),
-            stopButton.heightAnchor.constraint(equalToConstant: 34),
-            sendButton.widthAnchor.constraint(equalToConstant: 34),
-            sendButton.heightAnchor.constraint(equalToConstant: 34),
+            stopButton.widthAnchor.constraint(equalToConstant: Self.sendSide),
+            stopButton.heightAnchor.constraint(equalToConstant: Self.sendSide),
+            sendButton.widthAnchor.constraint(equalToConstant: Self.sendSide),
+            sendButton.heightAnchor.constraint(equalToConstant: Self.sendSide),
             plusButton.widthAnchor.constraint(equalToConstant: 34),
             plusButton.heightAnchor.constraint(equalToConstant: 34),
             dictateButton.widthAnchor.constraint(equalToConstant: 34),
