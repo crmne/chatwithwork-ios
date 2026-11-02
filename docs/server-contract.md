@@ -147,6 +147,19 @@ If a public page ever renders differently for the apps, add
    whose entire first exchange fits. Lists retain extended content for
    their collapsing large titles. The composer still overlays the bottom.
 
+   On those screens the bar has no surface, hairline or button backgrounds:
+   the title and buttons sit on the canvas, and a gradient from the canvas
+   to transparent covers the top 36 points of the web view, so what scrolls
+   up fades out below the title. The app sets `--native-top-bar-height` on
+   `<html>` to `24px` as each document starts, on every page, for the
+   server's rules in `native.css` and `scroll_controller.js`, which keep a
+   chat's start and a new question's place clear of the fade. It's how much
+   of the page the fade covers, not the bar's height, since the page starts
+   below the bar. The `.new-chat` rule stays Android's: that page centers
+   its content. The fade steps aside while a web dialog hides the composer.
+   Older builds leave the variable unset and have a bar with a
+   surface.
+
    Two things the app does to every page: it scales it with the system's
    text size (page zoom, 85% to 120%), so layouts must hold down to about
    335 CSS pixels wide (a 402-point phone at 120%); and it sends
