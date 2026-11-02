@@ -24,13 +24,13 @@ BUILT FOR TEAMS
 Share bots and chats in projects. Each person's connected accounts stay their own: sharing a chat shares the answers, not access to the sources.
 
 PRIVATE BY DESIGN
-• The app and its data are hosted in Germany. Your questions, and what the assistant reads to answer them, go to the model you pick: Gemini on Google Vertex AI, GPT on Microsoft Azure, Claude on AWS Bedrock, or Qwen on Hetzner, each in the EU. The app asks before your first question goes to them.
+• The app and its data are hosted in Germany. Your questions, and what the assistant reads to answer them, go to the model you pick: Gemini on Google Vertex AI, GPT on Microsoft Azure, or Claude on AWS Bedrock, each in the EU. The app asks before your first question goes to them.
 • No index of your company: it searches live when you ask.
 • Chats and the text it reads are encrypted at rest.
 • We don't train models on your data, and our model providers' terms don't allow it either.
 • Web search is off by default. Turned on, its queries go to Google or Bing outside the EU.
 
-Free to start, with 30 answers a day on free models.
+Free to start, with 300 trial credits.
 
 Answers are written by AI and can be wrong: check important ones against their sources.
 
