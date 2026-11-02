@@ -87,7 +87,7 @@
   }
 
   [data-native-app] .chat-view .conversation__scroll {
-    padding-block: 0.75rem 10rem;
+    padding-block: calc(var(--native-top-bar-height, 0px) + 0.75rem) 10rem;
   }
 
   /* A native search bar replaces the page's search field. */
