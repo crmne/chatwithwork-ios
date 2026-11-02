@@ -84,7 +84,6 @@ final class ComposerView: UIView, UITextViewDelegate {
         lockLabel.isHidden = true
         lockLabel.accessibilityIdentifier = "composer.lock"
 
-        box.backgroundColor = Palette.surface
         chips.axis = .horizontal
         chips.spacing = 6
         chipsScroll.showsHorizontalScrollIndicator = false
@@ -371,7 +370,12 @@ final class ComposerView: UIView, UITextViewDelegate {
         stopButton.alpha = stopButton.isEnabled ? 1 : 0.35
         styleStop()
         sendButton.alpha = sendButton.isEnabled ? 1 : 0.35
-        box.edgeOpacity = state?.locked == true ? 0.3 : textView.isFirstResponder ? 1 : 0.7
+        box.look = ComposerLook(
+            locked: state?.locked == true,
+            working: state?.working == true,
+            waiting: state?.waiting == true,
+            focused: textView.isFirstResponder
+        )
         resizeText()
     }
 
@@ -472,47 +476,6 @@ final class ComposerView: UIView, UITextViewDelegate {
         let height = min(max(fitting, 40), 140)
         if abs(textHeight.constant - height) > 0.5 { textHeight.constant = height }
         textView.isScrollEnabled = fitting > 140
-    }
-}
-
-/// The composer's box: the surface, a soft shadow, and the rainbow edge,
-/// the brand's one place for it (Live Wire).
-private final class RainbowBox: UIView {
-    private let edge = CAGradientLayer()
-    private let edgeMask = CAShapeLayer()
-
-    var edgeOpacity: Float = 0.7 {
-        didSet { edge.opacity = edgeOpacity }
-    }
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        layer.cornerRadius = 20
-        layer.cornerCurve = .continuous
-        layer.shadowColor = UIColor.black.cgColor
-        layer.shadowOpacity = 0.08
-        layer.shadowRadius = 12
-        layer.shadowOffset = CGSize(width: 0, height: 4)
-        edge.colors = [0x44FF9A, 0x44B0FF, 0x8B44FF, 0xFF6644, 0xEBFF70].map { UIColor(hexValue: $0).cgColor }
-        edge.locations = [0, 0.2341 / 0.9989, 0.4891 / 0.9989, 0.7388 / 0.9989, 1].map { NSNumber(value: $0) }
-        edge.startPoint = CGPoint(x: -0.0055, y: 0.5)
-        edge.endPoint = CGPoint(x: 0.9934, y: 0.5)
-        edge.opacity = edgeOpacity
-        edgeMask.fillColor = UIColor.clear.cgColor
-        edgeMask.strokeColor = UIColor.black.cgColor
-        edgeMask.lineWidth = 2
-        edge.mask = edgeMask
-        layer.addSublayer(edge)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        edge.frame = bounds
-        edgeMask.path = UIBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), cornerRadius: 19).cgPath
-        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: 20).cgPath
     }
 }
 

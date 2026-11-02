@@ -20,6 +20,7 @@ enum Palette {
     static let line = UIColor(light: 0xD6DCE7, dark: 0x1C2130)
     static let lineStrong = UIColor(light: 0xC3CBDA, dark: 0x2A3144)
     static let dot = UIColor(light: 0x0A0D14, lightAlpha: 0.10, dark: 0xE9ECF4, darkAlpha: 0.08)
+    static let shadow = UIColor(light: 0x141E3C, lightAlpha: 0.28, dark: 0x000000, darkAlpha: 0.90)
 
     // Meaning: a dot, an icon, an edge. Small text uses the -Ink variants.
     static let positive = UIColor(light: 0x13C977, dark: 0x44FF9A)

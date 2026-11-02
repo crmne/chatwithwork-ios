@@ -1552,6 +1552,17 @@ Older servers omit these optional fields and retain the existing controls.
 The native composer uses the web’s exact surface/ink tokens and all five
 rainbow stops, with 70% opacity at rest and full opacity while editing.
 
+**The rainbow (2026-11-01).** The composer is the app's clearest mark, and it
+follows the web's `.composer` from `state` alone: `locked`, `working` and
+`waiting` need nothing new. A 2-point edge at 70% (full with focus, 60%
+locked), flowing to the right, one loop in 5 seconds, while `working`; a
+blurred glow around the box at 14% (30% with focus, 5% locked); and both amber
+while `waiting`, which outranks `working` and the glow's lock. Reduce Motion
+stops the flow on the loop's first frame and the fades. The glow is drawn once
+for a width and cached (`ComposerGlow`), so typing and the keyboard move a
+texture and never blur. Colours are `--rainbow`, `--rainbow-loop`,
+`--attention` and `--shadow-float`: change them on the web first.
+
 
 
 **The yes before the first question (2026-10-27).** Before anything a
