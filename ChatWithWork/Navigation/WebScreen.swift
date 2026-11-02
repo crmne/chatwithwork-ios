@@ -29,6 +29,7 @@ enum WebScreen {
             // The page scrolls to questions and answers in document coordinates.
             // Put that viewport below the bar so scrollTop = 0 cannot hide its first line.
             controller.edgesForExtendedLayout.remove(.top)
+            TopFade.install(on: controller)
         default:
             break
         }
@@ -40,6 +41,7 @@ enum WebScreen {
     static func makeWebView(configuration: WKWebViewConfiguration) -> WKWebView {
         configuration.allowsInlineMediaPlayback = true
         configuration.dataDetectorTypes = []
+        configuration.userContentController.addUserScript(TopFade.pageScript)
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         TextSize.follow(webView)
