@@ -289,8 +289,7 @@ for kids, so it stays out of the Kids category.
 - **5.1.2(i), third-party AI.** Before the first question, dictation, or
   bot fill-in goes to a model, the app shows the page's dialog "Before your
   first question", naming who runs the models and where (Gemini on Google
-  Vertex AI, GPT on Microsoft Azure's EU Data Zone, Claude on AWS Bedrock,
-  Qwen on Hetzner, all in the EU), with Not now and Agree and continue, and
+  Vertex AI, GPT on Microsoft Azure's EU Data Zone, Claude on AWS Bedrock, all in the EU), with Not now and Agree and continue, and
   a link to the privacy policy. It's asked once per login and recorded. The
   demo login hasn't agreed, so the reviewer sees it on their first question
   (the Rails app's `docs/model-consent.md`).
