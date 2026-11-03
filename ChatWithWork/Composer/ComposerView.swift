@@ -179,8 +179,9 @@ final class ComposerView: UIView, UITextViewDelegate {
         textHeight = textView.heightAnchor.constraint(equalToConstant: 40)
         NSLayoutConstraint.activate([
             outer.topAnchor.constraint(equalTo: topAnchor, constant: 6),
-            outer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            outer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            // The answer's 16-point margins, so the box's edges line up with its text.
+            outer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            outer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             outer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
             inner.topAnchor.constraint(equalTo: box.topAnchor, constant: 6),
             inner.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 10),
