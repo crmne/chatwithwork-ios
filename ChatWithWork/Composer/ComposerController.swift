@@ -29,6 +29,8 @@ final class ComposerController: NSObject {
 
     private weak var screen: VisitableViewController?
     private let recorder = DictationRecorder()
+    /// The screen stays on while dictation records or transcribes.
+    let awake = ScreenAwake()
     private var startingDictation = false
     private var dictationTask: Task<Void, Never>?
     private var dictationGeneration = 0
@@ -59,6 +61,8 @@ final class ComposerController: NSObject {
         view.onAction = { [weak self] action in self?.send?(action) }
         view.onPlus = { [weak self] in self?.presentAttachSheet() }
         view.onDictate = { [weak self] in self?.startDictating() }
+        view.onModeChange = { [weak self] mode in self?.awake.isWanted = mode != .typing }
+        view.onWindowChange = { [weak self] onScreen in self?.awake.isOnScreen = onScreen }
         view.onStopDictating = { [weak self] in self?.finishDictating() }
         view.onCancelDictating = { [weak self] in self?.cancelDictating() }
         view.onLayout = { [weak self] in self?.reportLayout() }
