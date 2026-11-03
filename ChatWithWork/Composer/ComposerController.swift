@@ -70,7 +70,6 @@ final class ComposerController: NSObject {
         if let screen { KeyboardAvoidance.setOverlay(state.overlay || !state.visible, on: screen) }
         view.update(state)
         view.isHidden = !state.visible
-        if let screen { TopFade.setHidden(!state.visible, on: screen) }
         if !state.visible { view.textView.resignFirstResponder() }
         reportLayout()
         onState?(state)

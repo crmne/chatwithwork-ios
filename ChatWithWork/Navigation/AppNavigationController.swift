@@ -10,7 +10,7 @@ final class AppNavigationController: HotwireNavigationController {
         super.viewDidLoad()
         // Lists (Bots, Projects, Settings) show large titles; every other screen opts out (WebScreen).
         navigationBar.prefersLargeTitles = true
-        // A chat's bar has no surface, so this shows through it (TopFade).
+        // What shows through the bars' glass where no page is under them.
         view.backgroundColor = Palette.canvas
     }
 

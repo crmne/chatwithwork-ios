@@ -141,24 +141,15 @@ If a public page ever renders differently for the apps, add
    the page would start under the bars and have to pad itself with
    `env(safe-area-inset-*)`, which can't follow a collapsing title.
 
-   Chat and new-chat screens also exclude the top navigation bar from their
-   view frame. The page scrolls to questions in document coordinates; an
-   explicit `scrollTop = 0` must start below the bar, including short chats
-   whose entire first exchange fits. Lists retain extended content for
-   their collapsing large titles. The composer still overlays the bottom.
-
-   On those screens the bar has no surface, hairline or button backgrounds:
-   the title and buttons sit on the canvas, and a gradient from the canvas
-   to transparent covers the top 36 points of the web view, so what scrolls
-   up fades out below the title. The app sets `--native-top-bar-height` on
-   `<html>` to `24px` as each document starts, on every page, for the
-   server's rules in `native.css` and `scroll_controller.js`, which keep a
-   chat's start and a new question's place clear of the fade. It's how much
-   of the page the fade covers, not the bar's height, since the page starts
-   below the bar. The `.new-chat` rule stays Android's: that page centers
-   its content. The fade steps aside while a web dialog hides the composer.
-   Older builds leave the variable unset and have a bar with a
-   surface.
+   Chat and new-chat screens run under the system's navigation bar like
+   every other screen: its title and Liquid Glass buttons, and on iOS 26
+   and later its soft scroll edge effect, which fades what scrolls up into
+   the bar right under the title. WebKit's insets keep the page's top, and
+   an explicit `scrollTop = 0`, below the bar, so the page draws no top
+   fade and sets no room for one: the app leaves `--native-top-bar-height`
+   unset, which the server reads as none. (Builds with #30's fade drew
+   their own under a bar with no surface and set it to `24px`.) The composer
+   still overlays the bottom.
 
    Two things the app does to every page: it scales it with the system's
    text size (page zoom, 85% to 120%), so layouts must hold down to about

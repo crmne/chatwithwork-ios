@@ -24,16 +24,6 @@ enum WebScreen {
             controller.navigationItem.largeTitleDisplayMode = .never
         }
 
-        switch AppRoute(url: url).kind {
-        case .newChat, .chat:
-            // The page scrolls to questions and answers in document coordinates.
-            // Put that viewport below the bar so scrollTop = 0 cannot hide its first line.
-            controller.edgesForExtendedLayout.remove(.top)
-            TopFade.install(on: controller)
-        default:
-            break
-        }
-
         KeyboardAvoidance.install(on: controller)
         return controller
     }
@@ -41,7 +31,6 @@ enum WebScreen {
     static func makeWebView(configuration: WKWebViewConfiguration) -> WKWebView {
         configuration.allowsInlineMediaPlayback = true
         configuration.dataDetectorTypes = []
-        configuration.userContentController.addUserScript(TopFade.pageScript)
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         TextSize.follow(webView)
@@ -54,6 +43,12 @@ enum WebScreen {
         webView.scrollView.backgroundColor = Palette.canvas
         // Swiping down the conversation lowers the keyboard, as in Messages.
         webView.scrollView.keyboardDismissMode = .interactive
+        // Every page runs under the system's bar, whose own scroll edge effect
+        // softens what scrolls up into it, starting right under the title.
+        // WebKit insets the page below the bar, so its top still starts clear.
+        if #available(iOS 26.0, *) {
+            webView.scrollView.topEdgeEffect.style = .soft
+        }
         // A new page's zoom reset mustn't collapse the large title.
         TopEdge.follow(webView.scrollView)
         // A long press on a link shouldn't open a browser preview of an app page.
