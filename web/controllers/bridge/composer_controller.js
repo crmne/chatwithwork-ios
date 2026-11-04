@@ -51,8 +51,12 @@ export default class extends BridgeComponent {
     window.addEventListener("model-consent:declined", this.declined = () => this.#connectToApp())
     window.addEventListener("resize", this.resized = () => this.#layout(this.layout))
     // native.css only hides the web composer from sight where the app draws
-    // its own; there VoiceOver and TalkBack mustn't find a second field.
-    if (this.enabled) this.element.setAttribute("aria-hidden", "true")
+    // its own; there VoiceOver and TalkBack mustn't find a second field. The
+    // app names its components once its bridge is ready, which can be after
+    // this connects, so follow the same attribute native.css does.
+    this.drawnByApp = new MutationObserver(() => this.#hideWhereTheAppDrawsIt())
+    this.drawnByApp.observe(document.documentElement, { attributes: true, attributeFilter: [ "data-bridge-components" ] })
+    this.#hideWhereTheAppDrawsIt()
     this.#connectToApp()
   }
 
@@ -64,9 +68,16 @@ export default class extends BridgeComponent {
     window.removeEventListener("model-consent:declined", this.declined)
     window.removeEventListener("resize", this.resized)
     document.documentElement.style.removeProperty("--native-composer-height")
+    this.drawnByApp?.disconnect()
     this.element.removeAttribute("aria-hidden")
     clearTimeout(this.timer)
     super.disconnect()
+  }
+
+  #hideWhereTheAppDrawsIt() {
+    const drawn = (document.documentElement.dataset.bridgeComponents || "").split(" ").includes(this.constructor.component)
+    if (drawn) this.element.setAttribute("aria-hidden", "true")
+    else this.element.removeAttribute("aria-hidden")
   }
 
   #connectToApp() {

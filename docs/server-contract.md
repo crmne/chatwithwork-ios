@@ -1561,7 +1561,7 @@ composer (`#new_message`) carries `bridge--composer`
 hidden by native.css, so every rule it carries still holds: locks, who may
 steer, the queue, files waiting for their scan, the model and web search.
 native.css only hides it from sight, so the controller also sets
-`aria-hidden="true"` on it while connected: VoiceOver and TalkBack find the
+`aria-hidden="true"` on it whenever `data-bridge-components` names the composer: VoiceOver and TalkBack find the
 app's field, never a second, invisible one. A lock's or a flash's line
 (`lockReason`: out of credits, offline, files waiting) sits on its own opaque
 notice above the box, in the box's surface and corners with a hairline edge,
