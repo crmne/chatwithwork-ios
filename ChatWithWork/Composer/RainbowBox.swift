@@ -122,6 +122,8 @@ final class RainbowBox: UIView {
     /// `--rainbow-loop`, twice over: the flow slides it one whole loop.
     private static let rainbowLoop: [CGColor] = [0x44FF9A, 0x44B0FF, 0x8B44FF, 0xFF6644, 0xEBFF70, 0x44FF9A, 0x44B0FF, 0x8B44FF, 0xFF6644, 0xEBFF70, 0x44FF9A]
         .map { UIColor(hexValue: $0).cgColor }
+    /// The box's corners, which the notice above it shares.
+    static let cornerRadius: CGFloat = 20
     private static let flowKey = "flow"
     private static let flowSeconds: CFTimeInterval = 5
     /// `--duration-base`.
@@ -148,7 +150,7 @@ final class RainbowBox: UIView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        layer.cornerRadius = 20
+        layer.cornerRadius = Self.cornerRadius
         layer.cornerCurve = .continuous
         layer.shadowOpacity = 1
         layer.shadowOffset = CGSize(width: 0, height: 20)
@@ -159,7 +161,7 @@ final class RainbowBox: UIView {
         let middle = ComposerGlow.margin + ComposerGlow.drawnHeight / 2
         let rows = ComposerGlow.margin * 2 + ComposerGlow.drawnHeight
         glow.contentsCenter = CGRect(x: 0, y: middle / rows, width: 1, height: 1 / rows)
-        surface.cornerRadius = 20
+        surface.cornerRadius = Self.cornerRadius
         surface.cornerCurve = .continuous
         edgeMask.fillColor = UIColor.clear.cgColor
         edgeMask.strokeColor = UIColor.black.cgColor
@@ -183,7 +185,7 @@ final class RainbowBox: UIView {
             surface.frame = bounds
             edge.frame = bounds
             glow.frame = bounds.insetBy(dx: -ComposerGlow.margin, dy: -ComposerGlow.margin)
-            edgeMask.path = UIBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), cornerRadius: 19).cgPath
+            edgeMask.path = UIBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), cornerRadius: Self.cornerRadius - 1).cgPath
             // box-shadow's -24px spread is a smaller shape, its 50px blur a radius of half that.
             layer.shadowPath = UIBezierPath(roundedRect: bounds.insetBy(dx: 24, dy: 24), cornerRadius: 0).cgPath
             if bounds.width != laidOutWidth {

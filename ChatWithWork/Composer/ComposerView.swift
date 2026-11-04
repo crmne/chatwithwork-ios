@@ -28,6 +28,10 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     private let box = RainbowBox()
     private let lockLabel = UILabel()
+    /// The lock's or a flash's line sits on this: opaque, the box's surface
+    /// and corners with a hairline edge, so the chat scrolling behind it
+    /// never shows through the words.
+    private let notice = UIView()
     // A line shown for a moment in the lock's place (flash), until it times out.
     private var flashing: String?
     private var flashGeneration = 0
@@ -72,7 +76,7 @@ final class ComposerView: UIView, UITextViewDelegate {
     // The conversation is still interactive in the clear gutters around
     // the box, including on an iPad where the composer is a narrow column.
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        box.convert(box.bounds, to: self).contains(point) || (!lockLabel.isHidden && lockLabel.convert(lockLabel.bounds, to: self).contains(point))
+        box.convert(box.bounds, to: self).contains(point) || (!notice.isHidden && notice.convert(notice.bounds, to: self).contains(point))
     }
 
     // MARK: Building
@@ -87,6 +91,16 @@ final class ComposerView: UIView, UITextViewDelegate {
         lockLabel.numberOfLines = 0
         lockLabel.isHidden = true
         lockLabel.accessibilityIdentifier = "composer.lock"
+        lockLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        notice.backgroundColor = Palette.surface
+        notice.layer.cornerRadius = RainbowBox.cornerRadius
+        notice.layer.cornerCurve = .continuous
+        notice.layer.borderWidth = 1
+        notice.layer.borderColor = Palette.line.cgColor
+        notice.isHidden = true
+        notice.accessibilityIdentifier = "composer.notice"
+        notice.addSubview(lockLabel)
 
         chips.axis = .horizontal
         chips.spacing = 6
@@ -168,7 +182,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         box.addSubview(inner)
         box.translatesAutoresizingMaskIntoConstraints = false
 
-        let outer = UIStackView(arrangedSubviews: [lockLabel, box])
+        let outer = UIStackView(arrangedSubviews: [notice, box])
         outer.axis = .vertical
         outer.spacing = 6
         outer.translatesAutoresizingMaskIntoConstraints = false
@@ -183,6 +197,10 @@ final class ComposerView: UIView, UITextViewDelegate {
             outer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             outer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             outer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+            lockLabel.topAnchor.constraint(equalTo: notice.topAnchor, constant: 10),
+            lockLabel.leadingAnchor.constraint(equalTo: notice.leadingAnchor, constant: 14),
+            lockLabel.trailingAnchor.constraint(equalTo: notice.trailingAnchor, constant: -14),
+            lockLabel.bottomAnchor.constraint(equalTo: notice.bottomAnchor, constant: -10),
             inner.topAnchor.constraint(equalTo: box.topAnchor, constant: 6),
             inner.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 10),
             inner.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -8),
@@ -227,7 +245,7 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
-        [plusButton, dictateButton, cancelButton].forEach { $0.layer.borderColor = Palette.line.cgColor }
+        [plusButton, dictateButton, cancelButton, notice].forEach { $0.layer.borderColor = Palette.line.cgColor }
         styleWebSearch()
         sendButton.backgroundColor = Palette.ink
         styleStop()
@@ -329,6 +347,7 @@ final class ComposerView: UIView, UITextViewDelegate {
             lockLabel.text = flashing
         }
         lockLabel.isHidden = lockLabel.text?.isEmpty != false
+        notice.isHidden = lockLabel.isHidden
     }
 
     private func refreshControls() {

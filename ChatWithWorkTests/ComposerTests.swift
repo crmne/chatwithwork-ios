@@ -338,6 +338,33 @@ struct ComposerTests {
         #expect(!line.isHidden && line.text == "Out of credits")
     }
 
+    @Test("the lock's line sits on an opaque notice: the box's surface and corners, with a hairline edge")
+    @MainActor
+    func opaqueNotice() throws {
+        let view = ComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 160))
+        let notice = try #require(view.descendant("composer.notice"))
+        let line = try #require(view.descendant("composer.lock") as? UILabel)
+        #expect(line.superview === notice)
+        view.update(try #require(message("connect", Self.state).data()))
+        #expect(notice.isHidden)
+
+        let locked = Self.state
+            .replacingOccurrences(of: #""locked":false"#, with: #""locked":true"#)
+            .replacingOccurrences(of: #""lockReason":null"#, with: #""lockReason":"Out of credits""#)
+        view.update(try #require(message("state", locked).data()))
+        view.layoutIfNeeded()
+        #expect(!notice.isHidden && line.text == "Out of credits")
+        #expect(notice.layer.cornerRadius == RainbowBox.cornerRadius)
+        #expect(notice.layer.borderWidth == 1)
+        #expect(line.frame.minX > 0 && line.frame.minY > 0)
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let traits = UITraitCollection(userInterfaceStyle: style)
+            let surface = try #require(notice.backgroundColor?.resolvedColor(with: traits))
+            #expect(surface == Palette.surface.resolvedColor(with: traits))
+            #expect(surface.cgColor.alpha == 1)
+        }
+    }
+
     @Test("an earlier expiry cannot dismiss a later flash with the same words")
     @MainActor
     func repeatedFlash() throws {
