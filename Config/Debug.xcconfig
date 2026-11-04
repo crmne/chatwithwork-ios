@@ -7,6 +7,8 @@ CWW_DISPLAY_NAME = CWW Dev
 // The Rails app under devhost. Point a build at a computer on your network
 // with CWW_BASE_URL in Local.xcconfig, or at launch with -CWWBaseURL.
 CWW_BASE_URL = https:/$()/chatwithwork.localhost
+CWW_APP_BOUND_DEV_DOMAIN = chatwithwork.localhost
+CWW_APP_BOUND_LOCAL_DOMAIN = localhost
 
 CWW_APS_ENVIRONMENT = development
 CWW_ASSOCIATED_DOMAIN = staging.chatwithwork.com?mode=developer

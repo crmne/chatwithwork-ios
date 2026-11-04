@@ -45,6 +45,13 @@
 	<string>$(CWW_ENVIRONMENT)</string>
 	<key>CWWPushEnvironment</key>
 	<string>$(CWW_APS_ENVIRONMENT)</string>
+	<key>WKAppBoundDomains</key>
+	<array>
+		<string>chatwithwork.com</string>
+		<string>staging.chatwithwork.com</string>
+		<string>$(CWW_APP_BOUND_DEV_DOMAIN)</string>
+		<string>$(CWW_APP_BOUND_LOCAL_DOMAIN)</string>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>

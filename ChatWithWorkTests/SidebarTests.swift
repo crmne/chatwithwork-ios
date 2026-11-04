@@ -76,6 +76,68 @@ struct SidebarTests {
         #expect(bots.items(in: "all").count == 2)
     }
 
+    @Test("a bot's mark and line come as the web's row draws them, and an older server's bot has neither")
+    func botMarks() throws {
+        let json = """
+        {"count": 1, "attention": true, "next_run": null, "items": [
+          {"id": 5, "name": "Front desk", "url": "/1/bots/5", "group": "needs_you", "project": null, "state": "waiting", "state_label": "Waiting for you", "tone": "attention", "waiting": 1, "working": false, "next_run": null,
+           "line": "Refund for order 1182 waits for you", "line_tone": "attention", "line_when": "9 min", "colour": "#F7C8B2", "face": "waiting"},
+          {"id": 6, "name": "Morning plan", "url": "/1/bots/6", "group": "quiet", "project": null, "state": "idle", "state_label": "Idle", "tone": null, "waiting": 0, "working": false, "next_run": null,
+           "line": "No runs yet", "line_tone": null, "line_when": null, "colour": "#FFFFFF", "face": null},
+          {"id": 7, "name": "Old", "url": "/1/bots/7", "group": "quiet", "project": null, "state": "idle", "state_label": "Idle", "tone": null, "waiting": 0, "working": false, "next_run": null, "face": "winking"}]}
+        """
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let items = try #require(try decoder.decode(SidebarData.Bots.self, from: Data(json.utf8)).items)
+
+        #expect(items[0].line == "Refund for order 1182 waits for you")
+        #expect(items[0].lineTone == "attention")
+        #expect(items[0].lineWhen == "9 min")
+        #expect(items[0].colour == "#F7C8B2")
+        #expect(items[0].markFace == .waiting)
+        #expect(items[1].markFace == nil && items[1].lineWhen == nil, "No face blinks")
+        #expect(items[2].line == nil && items[2].colour == nil, "An older server's bot keeps the one-line row")
+        #expect(items[2].markFace == nil, "A face this build doesn't know blinks")
+    }
+
+    @Test("the mark knows every face the server sends, with the web's eyes", arguments: ["thinking", "writing", "waiting", "happy", "flat"])
+    func botFaces(face: String) throws {
+        let known = try #require(BotMarkShape.Face(rawValue: face))
+        #expect(!known.frames.isEmpty)
+        #expect((known.step != nil) == (known.frames.count == 2), "Only the two-frame faces move")
+    }
+
+    @Test("a sticker's paper is the whole bubble, and its ink only the lines and eyes")
+    func botSticker() {
+        let rect = CGRect(x: 0, y: 0, width: 16, height: 16)
+        let paper = BotMarkShape(layer: .paper).path(in: rect)
+        let ink = BotMarkShape().path(in: rect)
+        #expect(paper.contains(CGPoint(x: 8.5, y: 9.5)), "The inside is paper")
+        #expect(!ink.contains(CGPoint(x: 8.5, y: 9.5)), "The inside has no ink")
+        #expect(ink.contains(CGPoint(x: 4.5, y: 5.5)) && paper.contains(CGPoint(x: 4.5, y: 5.5)), "An eye is ink over paper")
+        #expect(!paper.contains(CGPoint(x: 0.5, y: 0.5)), "Outside the bubble is nothing")
+    }
+
+    @Test("keeps each organization's last sidebar for a launch offline, out of backups, until signing out")
+    @MainActor
+    func cache() throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "sidebar-cache-\(UUID().uuidString)")
+        defer { SidebarCache.clear(in: folder) }
+        let account = try #require(AccountSlug("482139075"))
+        let other = try #require(AccountSlug("731000042"))
+
+        #expect(SidebarCache.load(account, in: folder) == nil)
+        SidebarCache.save(Data(Self.listsJSON.utf8), for: account, in: folder)
+        #expect(SidebarCache.load(account, in: folder)?.organization.name == "Northwind Studio")
+        #expect(SidebarCache.load(other, in: folder) == nil, "Each organization keeps its own")
+        #expect(try folder.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
+
+        let clears = SidebarCache.clears
+        SidebarCache.clear(in: folder)
+        #expect(SidebarCache.load(account, in: folder) == nil)
+        #expect(SidebarCache.clears == clears + 1, "A fetch begun before signing out no longer saves")
+    }
+
     @Test("the bots' search looks in every word of the name and what it does, ignoring case")
     func botSearch() throws {
         let bots = try #require(try SidebarData.decode(Data(Self.listsJSON.utf8)).bots?.items)

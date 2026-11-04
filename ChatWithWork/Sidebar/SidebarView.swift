@@ -700,41 +700,53 @@ struct SidebarView: View {
         }
     }
 
-    /// One bot: its mark (with a live dot while it works), its name, the
-    /// project icon of a shared one, and its one state at the end, as the
-    /// web's bots/_sidebar_bot: how many decisions wait in it, Failed,
-    /// Paused, or when a time next starts it. Working shows on the mark alone.
+    /// One bot, as the web's bots/_sidebar_bot: its mark in its colour with
+    /// its state's face (a live dot on it while it works), beside two lines.
+    /// The first is its name, the project icon of a shared one, and when it
+    /// last did something; the second what it waits on, failed at, works on
+    /// or did last, in its state's ink, ending in how many decisions wait for
+    /// the person in it. From an older server, without `line`, one line
+    /// ending in its one state.
     private func botRow(_ bot: SidebarData.Bots.Item) -> some View {
         let current = currentPath.map { path in
             let mine = AppRoute(path: bot.url).path
             let here = AppRoute(path: path).path
             return here == mine || here.hasPrefix(mine + "/")
         } ?? false
+        let paused = bot.state == "paused"
         return Button { actions.open(bot.url) } label: {
             HStack(spacing: 10) {
-                BotMark(size: 18)
-                    .foregroundStyle(Color(bot.state == "paused" ? Palette.inkFaint : Palette.inkMuted))
-                    .overlay(alignment: .bottomTrailing) {
-                        if bot.working {
-                            Circle().fill(Color(Palette.live))
-                                .frame(width: 7, height: 7)
-                                .overlay(Circle().stroke(Color(Palette.canvasSunken), lineWidth: 1.5))
-                                .offset(x: 2, y: 1)
+                botMark(bot, size: bot.line == nil ? 18 : 28)
+                if let line = bot.line {
+                    VStack(alignment: .leading, spacing: 1) {
+                        HStack(spacing: 6) {
+                            botName(bot, current: current, paused: paused, emphasized: true)
+                            Spacer(minLength: 0)
+                            if let when = bot.lineWhen {
+                                Text(when)
+                                    .font(.system(size: microSize, design: .monospaced))
+                                    .foregroundStyle(Color(Palette.inkFaint))
+                                    .lineLimit(1)
+                                    .fixedSize()
+                            }
+                        }
+                        HStack(spacing: 6) {
+                            Text(line)
+                                .font(.system(size: captionSize))
+                                .foregroundStyle(Color(lineInk(bot.lineTone)))
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                            if bot.waiting > 0 { waitingCount(bot.waiting) }
                         }
                     }
-                Text(bot.name)
-                    .lineLimit(1)
-                    .font(.system(size: rowSize))
-                    .foregroundStyle(Color(current ? Palette.ink : bot.state == "paused" ? Palette.inkFaint : Palette.inkMuted))
-                if bot.project != nil {
-                    Image(systemName: "folder")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color(Palette.inkFaint))
+                } else {
+                    botName(bot, current: current, paused: paused, emphasized: false)
+                    Spacer(minLength: 0)
+                    botState(bot)
                 }
-                Spacer(minLength: 0)
-                botState(bot)
             }
             .padding(.horizontal, 10)
+            .padding(.vertical, bot.line == nil ? 0 : 7)
             .frame(minHeight: 35)
             .background(rowBackground(current: current))
             .contentShape(Rectangle())
@@ -745,6 +757,60 @@ struct SidebarView: View {
         .accessibilityValue(botValue(bot))
         .accessibilityIdentifier("sidebar.bot")
         .accessibilityAddTraits(current ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// A bot's mark: a sticker in its colour with its face, from a server
+    /// that sends them, else in the text colour, blinking.
+    private func botMark(_ bot: SidebarData.Bots.Item, size: CGFloat) -> some View {
+        let colour = UIColor(hex: bot.colour).map(Color.init(uiColor:))
+        return BotMark(size: size, face: bot.markFace, colour: colour)
+            .foregroundStyle(Color(bot.state == "paused" ? Palette.inkFaint : Palette.inkMuted))
+            .overlay(alignment: .bottomTrailing) {
+                if bot.working {
+                    Circle().fill(Color(Palette.live))
+                        .frame(width: 7, height: 7)
+                        .overlay(Circle().stroke(Color(Palette.canvasSunken), lineWidth: 1.5))
+                        .offset(x: 2, y: 1)
+                }
+            }
+    }
+
+    /// Its name, and the project icon of a shared bot.
+    @ViewBuilder
+    private func botName(_ bot: SidebarData.Bots.Item, current: Bool, paused: Bool, emphasized: Bool) -> some View {
+        Text(bot.name)
+            .lineLimit(1)
+            .font(.system(size: rowSize, weight: emphasized ? .medium : .regular))
+            .foregroundStyle(Color(paused ? Palette.inkFaint : current || emphasized ? Palette.ink : Palette.inkMuted))
+        if bot.project != nil {
+            Image(systemName: "folder")
+                .font(.system(size: 12))
+                .foregroundStyle(Color(Palette.inkFaint))
+        }
+    }
+
+    /// How many decisions wait in a bot, at the end of its line: the web's
+    /// `.sidebar__bot-count`, a pill in attention's wash.
+    private func waitingCount(_ count: Int) -> some View {
+        Text("\(count)")
+            .font(.system(size: microSize, weight: .semibold, design: .monospaced))
+            .foregroundStyle(Color(Palette.attentionInk))
+            .padding(.horizontal, 5)
+            .frame(minWidth: 18, minHeight: 18)
+            .background(Capsule().fill(Color(Palette.attentionWash)))
+            .overlay(Capsule().strokeBorder(Color(Palette.attentionEdge), lineWidth: 1))
+            .fixedSize()
+            .accessibilityHidden(true)
+    }
+
+    /// The line's ink in its tone, faint without one.
+    private func lineInk(_ tone: String?) -> UIColor {
+        switch tone {
+        case "attention": Palette.attentionInk
+        case "negative": Palette.negativeInk
+        case "live": Palette.liveInk
+        default: Palette.inkFaint
+        }
     }
 
     @ViewBuilder
@@ -804,6 +870,14 @@ struct SidebarView: View {
 
     private func botValue(_ bot: SidebarData.Bots.Item) -> String {
         var parts = [String]()
+        if let line = bot.line {
+            // As the web's row reads: when, what it says, then what waits.
+            parts = [bot.lineWhen, line].compactMap { $0 }
+            if bot.waiting > 0 {
+                parts.append(bot.waiting == 1 ? String(localized: "1 decision waiting for you") : String(localized: "\(bot.waiting) decisions waiting for you"))
+            }
+            return parts.joined(separator: ", ")
+        }
         if bot.waiting > 0 {
             parts.append(bot.waiting == 1 ? String(localized: "1 decision waiting for you") : String(localized: "\(bot.waiting) decisions waiting for you"))
         } else {

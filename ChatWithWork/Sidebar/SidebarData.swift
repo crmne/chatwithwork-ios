@@ -103,8 +103,26 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
             let waiting: Int
             let working: Bool
             let nextRun: String?
+            /// The line under its name as the web's row says it: what waits,
+            /// that it failed, works or is paused, else what its latest run
+            /// did, in `lineTone` (`attention`, `negative`, `live`, or nil);
+            /// and `lineWhen`, when it last did something ("now", "12 min",
+            /// "Fri"), at the end of its name. Servers from 2026-11-04; nil
+            /// keeps the one-line row.
+            let line: String?
+            let lineTone: String?
+            let lineWhen: String?
+            /// Its mark's paper (`#RRGGBB`, under black lines in both themes)
+            /// and its face (`thinking`, `waiting`, `happy`, `flat`..., nil
+            /// for the blink). Servers from 2026-11-04.
+            let colour: String?
+            let face: String?
 
             var needsYou: Bool { group == "needs_you" }
+
+            /// The face its mark makes, where the server names one this
+            /// build knows.
+            var markFace: BotMarkShape.Face? { face.flatMap(BotMarkShape.Face.init(rawValue:)) }
 
             /// Whether every word is in its name or what it does, ignoring case.
             func matches(_ words: [Substring]) -> Bool {

@@ -29,6 +29,10 @@ enum Palette {
     static let liveInk = UIColor(light: 0x1569B5, dark: 0x44B0FF)
     static let attention = UIColor(light: 0xD99A06, dark: 0xFFC247)
     static let attentionInk = UIColor(light: 0x8A5F00, dark: 0xFFC247)
+    /// A box waiting on someone: attention's wash and edge, as the web's
+    /// `--attention-wash` and `--attention-edge` mix them.
+    static let attentionWash = UIColor(light: 0xF9EFD7, dark: 0x312B20)
+    static let attentionEdge = UIColor(light: 0xD7C089, dark: 0x7B653A)
     static let negative = UIColor(light: 0xF0552F, dark: 0xFF6644)
     static let negativeInk = UIColor(light: 0xC93A17, dark: 0xFF7F61)
 }
