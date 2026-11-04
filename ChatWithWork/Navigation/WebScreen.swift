@@ -31,6 +31,9 @@ enum WebScreen {
     static func makeWebView(configuration: WKWebViewConfiguration) -> WKWebView {
         configuration.allowsInlineMediaPlayback = true
         configuration.dataDetectorTypes = []
+        // The pages' service worker, which keeps opened chats readable
+        // offline, runs only in a web view kept to the app-bound domains.
+        configuration.limitsNavigationsToAppBoundDomains = AppBoundDomains.covers(AppEnvironment.current.baseURL)
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         TextSize.follow(webView)

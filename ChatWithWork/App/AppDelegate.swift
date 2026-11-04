@@ -11,10 +11,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         if LaunchOptions.isUnitTesting { return true }
         if LaunchOptions.resetsState {
             SessionMemory.standard.reset()
+            SidebarCache.clear()
             PushNotifications.shared.hasAsked = false
         }
 
         Appearance.configure()
+        AppBoundDomains.excludeWebDataFromBackup()
         HotwireSetup.configure(for: environment)
         PushNotifications.shared.configure(environment: environment)
         return true

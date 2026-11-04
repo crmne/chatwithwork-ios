@@ -76,6 +76,23 @@ struct SidebarTests {
         #expect(bots.items(in: "all").count == 2)
     }
 
+    @Test("keeps each organization's last sidebar for a launch offline, out of backups, until signing out")
+    func cache() throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "sidebar-cache-\(UUID().uuidString)")
+        defer { SidebarCache.clear(in: folder) }
+        let account = try #require(AccountSlug("482139075"))
+        let other = try #require(AccountSlug("731000042"))
+
+        #expect(SidebarCache.load(account, in: folder) == nil)
+        SidebarCache.save(Data(Self.listsJSON.utf8), for: account, in: folder)
+        #expect(SidebarCache.load(account, in: folder)?.organization.name == "Northwind Studio")
+        #expect(SidebarCache.load(other, in: folder) == nil, "Each organization keeps its own")
+        #expect(try folder.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
+
+        SidebarCache.clear(in: folder)
+        #expect(SidebarCache.load(account, in: folder) == nil)
+    }
+
     @Test("the bots' search looks in every word of the name and what it does, ignoring case")
     func botSearch() throws {
         let bots = try #require(try SidebarData.decode(Data(Self.listsJSON.utf8)).bots?.items)

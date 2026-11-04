@@ -71,6 +71,8 @@ final class SidebarStore {
         self.memory = memory
         botListKey = account.flatMap { memory.botListKey(in: $0) }
         view = memory.sidebarView.flatMap(SidebarView.Half.init(rawValue:)) ?? .chats
+        // The last one shown, until the first fetch lands, or for good offline.
+        data = account.flatMap { SidebarCache.load($0) }
     }
 
     /// The page an organization's new chat opens on, the last time the JSON said.
@@ -100,10 +102,11 @@ final class SidebarStore {
         isLoading = true
         defer { if mine == generation { isLoading = false } }
 
-        switch await Self.fetch(url, environment: environment) {
-        case .success(let fresh):
+        switch await Self.fetchKeeping(url, environment: environment) {
+        case .success(let (fresh, body)):
             guard mine == generation else { return }
             data = fresh
+            if let account { SidebarCache.save(body, for: account) }
             failure = nil
             stale = staleMarks != marks
             if let newChat = fresh.links.newChat, let account { memory.setNewChatPath(newChat, in: account) }
@@ -159,6 +162,11 @@ final class SidebarStore {
     // MARK: Fetching with the web views' session
 
     nonisolated static func fetch(_ url: URL, environment: AppEnvironment) async -> Result<SidebarData, Failure> {
+        await fetchKeeping(url, environment: environment).map(\.0)
+    }
+
+    /// The sidebar and the body it came in, for the cache.
+    nonisolated static func fetchKeeping(_ url: URL, environment: AppEnvironment) async -> Result<(SidebarData, Data), Failure> {
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         await WebSession.authorize(&request)
@@ -172,7 +180,7 @@ final class SidebarStore {
         // A server that redirects signed-out requests to the sign-in page.
         if http.url.map({ AppRoute(url: $0).isSignIn }) == true { return .failure(.signedOut) }
         guard http.statusCode == 200, let data = try? SidebarData.decode(body) else { return .failure(.unavailable) }
-        return .success(data)
+        return .success((data, body))
     }
 }
 

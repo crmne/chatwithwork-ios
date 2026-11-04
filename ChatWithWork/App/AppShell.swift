@@ -231,6 +231,7 @@ final class AppShell: NSObject {
 
         memory.hasSignedIn = false
         memory.lastAccount = nil
+        SidebarCache.clear()
         account = nil
         PushNotifications.shared.forgetKey()
         LiveActivities.shared.endAll()

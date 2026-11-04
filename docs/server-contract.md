@@ -796,6 +796,41 @@ Nothing to do, but worth knowing:
 - `recede_or_redirect_to(url, notice:)`, `refresh_…` and `resume_…` show the
   notice (or `alert`) as a toast.
 
+### Offline chats (2026-11-04)
+
+The pages' service worker keeps the chats someone opens readable offline
+(the Rails app's `docs/offline-chats.md`). WKWebView runs a service worker
+only for app-bound domains, so the app lists them in `WKAppBoundDomains`
+(`chatwithwork.com` and `staging.chatwithwork.com` in every build, and Debug's
+`chatwithwork.localhost` and the playground's `localhost`;
+`CWW_APP_BOUND_*_DOMAIN` in `Config/`) and its web views set
+`limitsNavigationsToAppBoundDomains` whenever the server they load is one of
+them (`AppBoundDomains`). What that means for the pages:
+
+- The main frame loads only the server's own pages. Nothing else needs it:
+  links to other sites leave through the router (an in-app browser, or the
+  system for `mailto:` and other schemes), a Turbo visit redirected to
+  another site goes the same way, provider sign-ins and connections through
+  `bridge--auth-session`, and purchases aren't offered in the app. A plain
+  form (`data-turbo="false"`) whose answer redirects to another site would
+  fail: hand it to the system browser as the provider sign-ins are.
+- Frames of other sites still load (MCP Apps on `chatwithwork-apps.com`),
+  and so do assets from the CDN. The support widget isn't shown in the
+  apps (`show_support_launcher?`).
+- The bridge's scripts run on the bound domains only, which is where its
+  pages are. A build pointed at a server outside the list (a computer on the
+  network) doesn't limit its web views and runs no worker; list its host in
+  `Config/Local.xcconfig` (`CWW_APP_BOUND_LOCAL_DOMAIN`) or the bridge
+  doesn't load there either.
+- The web views' data (`Library/WebKit`, where the encrypted copies live) is
+  kept out of backups.
+- Launched with no connection, the root visit (a new chat, or the last chat
+  within ten minutes) gets what the worker answers: the kept copy, or
+  `/offline.html`. The sidebar shows the last JSON each organization sent
+  (`SidebarCache`: Application Support, unreadable while the phone is
+  locked, out of backups, deleted on signing out), so a chat opened before
+  opens from it as usual and the worker serves its copy.
+
 ## 8. Universal links
 
 Links to chatwithwork.com in emails and messages should open the app.

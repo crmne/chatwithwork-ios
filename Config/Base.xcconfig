@@ -46,3 +46,13 @@ CODE_SIGN_STYLE = Automatic
 // Signing.xcconfig is git-ignored: it holds DEVELOPMENT_TEAM and anything
 // else that identifies an Apple account. Copy Signing.xcconfig.example.
 #include? "Signing.xcconfig"
+
+// The web views' app-bound domains (WKAppBoundDomains in Info.plist), where
+// WebKit runs the pages' service worker, which keeps opened chats readable
+// offline. Every build lists chatwithwork.com and staging.chatwithwork.com;
+// Debug adds its own server and the playground's localhost here. A server
+// elsewhere (Local.xcconfig) needs its host in CWW_APP_BOUND_LOCAL_DOMAIN too,
+// or the bridge's scripts don't run there. In builds that need neither, both
+// repeat chatwithwork.com, which WebKit reads once.
+CWW_APP_BOUND_DEV_DOMAIN = chatwithwork.com
+CWW_APP_BOUND_LOCAL_DOMAIN = chatwithwork.com
