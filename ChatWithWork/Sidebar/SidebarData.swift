@@ -61,8 +61,24 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
             let asker: Asker?
             /// One line saying what's to decide (servers from 2026-10-26).
             let summary: String?
+            /// `question` or `permission` (servers from 2026-11-04).
+            let family: String?
+            /// The web tag's words: "Question", "Permission · runs a command"
+            /// (servers from 2026-11-04).
+            let label: String?
 
             var id: String { url + kind }
+
+            /// What the row says under its summary, as the web's decision
+            /// row's tag: `label`, else the family spelled as the web does.
+            var tag: String? {
+                if let label, !label.isEmpty { return label }
+                return switch family {
+                case "question": String(localized: "Question")
+                case "permission": String(localized: "Permission")
+                default: nil
+                }
+            }
         }
 
         struct Asker: Decodable, Equatable, Sendable {

@@ -405,6 +405,15 @@ struct SidebarView: View {
                                 // Who asks first, as the web's decision row leads with it.
                                 Text(item.asker?.name ?? item.title).lineLimit(1).foregroundStyle(Color(Palette.ink))
                                 Text(waitingLabel(item)).font(.caption).foregroundStyle(Color(Palette.inkMuted)).lineLimit(1)
+                                // Question or Permission, under the summary as the web's tag.
+                                if let tag = item.tag {
+                                    Text(tag)
+                                        .font(.system(size: microSize, design: .monospaced))
+                                        .foregroundStyle(Color(Palette.inkFaint))
+                                        // Wraps rather than cut what the permission does.
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .accessibilityIdentifier("sidebar.waiting.tag")
+                                }
                             }
                             Spacer(minLength: 0)
                         }

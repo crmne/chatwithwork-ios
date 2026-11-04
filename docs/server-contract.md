@@ -1389,10 +1389,12 @@ path of the following page. A signed-out request gets `401`.
     {"key": "tool_call-311", "title": "Launch date in #launch", "url": "/482139075/decisions?decision=tool_call-311",
      "kind": "approval", "decision": "approval", "summary": "Post the launch date in #launch", "chat_url": "/482139075/chats/42",
      "project": "Website relaunch", "since": "2026-10-25T08:14:00Z",
+     "family": "permission", "label": "Permission",
      "asker": {"kind": "chat", "name": "Launch date in #launch", "project": "Website relaunch"}},
     {"key": "tool_call-318", "title": "Refund for order 1182", "url": "/482139075/decisions?decision=tool_call-318",
      "kind": "bot", "decision": "approval", "summary": "Refund order 1182 in full", "chat_url": "/482139075/chats/57",
      "project": "Website relaunch", "since": "2026-10-25T09:02:00Z",
+     "family": "permission", "label": "Permission · runs a command",
      "asker": {"kind": "bot", "name": "Front desk", "project": "Website relaunch"}}]},
   "bots": {"count": 1, "attention": true, "next_run": null,
            "url": "/482139075/bots", "new_url": "/482139075/bots/new", "items": [BOT]},
@@ -1454,6 +1456,18 @@ the server's `Decision#asker`. The list of `waiting.items` (shown only from a
 server without `waiting.url`, in the sidebar's Decisions row) leads each row with `asker.name`, then
 `summary` and the project under it, as the web's decision row does. Without
 `asker` the row is as before.
+
+**Question or Permission (server, 2026-11-04).** Each of `waiting.items`
+also carries `family`, `question` or `permission` (the server's
+`Decision#family`), and `label`, the web tag's words for it ("Question",
+"Permission · runs a command", "Permission · deletes", `DecisionsHelper#decision_kind_label`).
+The row draws `label` on a line of its own under the summary, small, in the
+monospaced face and the faint ink, as the web's decision row and queue show
+their tag (`sidebar.waiting.tag`); without `label` it spells the family
+("Question", "Permission"), and without either the row is as before. Like the
+rest of the row, it shows only from a server without `waiting.url`: with one,
+Decisions opens the web page, which draws the tag itself. Never branch on
+`label`'s words, which may be translated: `family` is the stable key.
 
 **Chats | Bots (server, 2026-10-27).** `bots` also carries `url` (the Bots
 page), `new_url` (New bot) and `items`, the person's bots and the shared ones

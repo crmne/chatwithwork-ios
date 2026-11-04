@@ -197,6 +197,20 @@ struct SidebarTests {
         #expect(old.waiting.url == nil && old.chats[0].actions == nil)
     }
 
+    @Test("tags each decision with the web's words, else its family, as older servers send neither")
+    func decisionTags() throws {
+        let json = Self.json.replacingOccurrences(
+            of: #""kind": "approval", "project": "Website relaunch"}]},"#,
+            with: #""kind": "approval", "project": "Website relaunch", "family": "permission", "label": "Permission · runs a command"}, {"title": "Pick a date", "url": "/482139075/decisions?decision=ask-7", "kind": "question", "project": null, "family": "question"}]},"#)
+        let items = try SidebarData.decode(Data(json.utf8)).waiting.items
+        #expect(items.map(\.family) == ["permission", "question"])
+        #expect(items[0].tag == "Permission · runs a command")
+        #expect(items[1].label == nil && items[1].tag == "Question")
+
+        let old = try SidebarData.decode(Data(Self.json.utf8)).waiting.items[0]
+        #expect(old.family == nil && old.label == nil && old.tag == nil)
+    }
+
     @Test("reads the person's sections, which older servers leave out")
     func sections() throws {
         let sectionsJSON = #""sections": [{"id": 7, "name": "Customers", "collapsed": false, "edit_url": "/482139075/sidebar/sections/7/edit", "collapse_url": "/482139075/sidebar/sections/7/collapse", "position_url": "/482139075/sidebar/sections/7/position", "chats": [{"number": 37, "title": "Initech renewal", "url": "/482139075/chats/37", "state": "processing", "waiting": false, "project": null, "asked_at": "2026-10-25T09:00:00Z", "group": "Today"}]}, {"id": 9, "name": "Hiring", "collapsed": true, "edit_url": "/482139075/sidebar/sections/9/edit", "collapse_url": "/482139075/sidebar/sections/9/collapse", "position_url": "/482139075/sidebar/sections/9/position", "chats": []}], "next": "#
