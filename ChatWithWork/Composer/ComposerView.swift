@@ -49,18 +49,16 @@ final class ComposerView: UIView, UITextViewDelegate {
     private let chips = UIStackView()
     let textView = UITextView()
     private let placeholder = UILabel()
-    private let plusButton = UIButton(type: .system)
-    private let dictateButton = UIButton(type: .system)
-    private let webSearchButton = UIButton(type: .system)
+    private let plusButton = ComposerControl(style: .ghost)
+    private let dictateButton = ComposerControl(style: .ghost)
+    private let webSearchButton = ComposerControl(style: .toggle)
     private let modelButton = UIButton(type: .system)
-    /// Send and Stop are the web's touch `.chat-prompt__send`: a 36pt square with 10pt corners.
-    private static let sendSide: CGFloat = 36
-    private static let sendCornerRadius: CGFloat = 10
-
-    private let stopButton = UIButton(type: .system)
-    private let sendButton = UIButton(type: .system)
+    /// Send and Stop are the web's touch `.chat-prompt__send`, as every
+    /// button in the bar is (ComposerControl).
+    private let stopButton = ComposerControl(style: .primary)
+    private let sendButton = ComposerControl(style: .primary)
     private let dictationLine = DictationLine()
-    private let cancelButton = UIButton(type: .system)
+    private let cancelButton = ComposerControl(style: .ghost)
     private var textHeight: NSLayoutConstraint!
     private var meterTimer: Timer?
     private var recordingStarted: Date?
@@ -135,7 +133,9 @@ final class ComposerView: UIView, UITextViewDelegate {
         textView.adjustsFontForContentSizeCategory = true
         textView.textColor = Palette.ink
         textView.backgroundColor = .clear
-        textView.textContainerInset = UIEdgeInsets(top: 8, left: 2, bottom: 6, right: 2)
+        // The bar's controls reach 6 points from the box's sides (their
+        // squares 10); the words keep their own 17.
+        textView.textContainerInset = UIEdgeInsets(top: 8, left: 6, bottom: 6, right: 6)
         textView.delegate = self
         textView.accessibilityIdentifier = "composer.text"
         textView.accessibilityLabel = String(localized: "Message")
@@ -149,8 +149,6 @@ final class ComposerView: UIView, UITextViewDelegate {
         plusButton.addAction(UIAction { [weak self] _ in self?.onPlus?() }, for: .primaryActionTriggered)
 
         configure(dictateButton, symbol: "mic", label: String(localized: "Dictate"), identifier: "composer.dictate")
-        dictateButton.layer.borderWidth = 0
-        dictateButton.tintColor = Palette.inkMuted
         dictateButton.addAction(UIAction { [weak self] _ in self?.onDictate?() }, for: .primaryActionTriggered)
         dictateButton.isHidden = true
 
@@ -172,17 +170,11 @@ final class ComposerView: UIView, UITextViewDelegate {
         stopButton.accessibilityIdentifier = "composer.stop"
         stopButton.accessibilityLabel = String(localized: "Stop response")
         stopButton.addAction(UIAction { [weak self] _ in self?.stopTapped() }, for: .primaryActionTriggered)
-        stopButton.layer.cornerRadius = Self.sendCornerRadius
-        stopButton.layer.cornerCurve = .continuous
-        stopButton.setImage(UIImage(systemName: "stop.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .bold)), for: .normal)
+        stopButton.setSymbol("stop.fill", pointSize: ComposerControl.stopPointSize, weight: .bold)
         stopButton.isHidden = true
 
         sendButton.accessibilityIdentifier = "composer.send"
         sendButton.addAction(UIAction { [weak self] _ in self?.sendTapped() }, for: .primaryActionTriggered)
-        sendButton.layer.cornerRadius = Self.sendCornerRadius
-        sendButton.layer.cornerCurve = .continuous
-        sendButton.tintColor = Palette.inkInverted
-        sendButton.backgroundColor = Palette.ink
 
         configure(cancelButton, symbol: "xmark", label: String(localized: "Cancel dictation"), identifier: "composer.cancelDictation")
         cancelButton.addAction(UIAction { [weak self] _ in self?.onCancelDictating?() }, for: .primaryActionTriggered)
@@ -195,7 +187,8 @@ final class ComposerView: UIView, UITextViewDelegate {
         let controls = UIStackView(arrangedSubviews: [plusButton, dictateButton, webSearchButton, cancelButton, spacer, modelButton, stopButton, sendButton])
         controls.axis = .horizontal
         controls.alignment = .center
-        controls.spacing = 6
+        // The web's touch bar has no gap: the 44-point targets touch.
+        controls.spacing = 0
 
         let inner = UIStackView(arrangedSubviews: [chipsScroll, textView, dictationLine, controls])
         inner.axis = .vertical
@@ -224,9 +217,9 @@ final class ComposerView: UIView, UITextViewDelegate {
             noticeLine.trailingAnchor.constraint(equalTo: notice.trailingAnchor, constant: -14),
             noticeLine.bottomAnchor.constraint(equalTo: notice.bottomAnchor, constant: -10),
             inner.topAnchor.constraint(equalTo: box.topAnchor, constant: 6),
-            inner.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 10),
-            inner.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -8),
-            inner.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -8),
+            inner.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 6),
+            inner.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -6),
+            inner.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -6),
             chips.topAnchor.constraint(equalTo: chipsScroll.contentLayoutGuide.topAnchor, constant: 4),
             chips.bottomAnchor.constraint(equalTo: chipsScroll.contentLayoutGuide.bottomAnchor),
             chips.leadingAnchor.constraint(equalTo: chipsScroll.contentLayoutGuide.leadingAnchor),
@@ -234,20 +227,8 @@ final class ComposerView: UIView, UITextViewDelegate {
             chipsScroll.heightAnchor.constraint(equalTo: chips.heightAnchor, constant: 4),
             textHeight,
             placeholder.topAnchor.constraint(equalTo: textView.topAnchor, constant: 8),
-            placeholder.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: 7),
-            placeholder.widthAnchor.constraint(lessThanOrEqualTo: textView.widthAnchor, constant: -14),
-            stopButton.widthAnchor.constraint(equalToConstant: Self.sendSide),
-            stopButton.heightAnchor.constraint(equalToConstant: Self.sendSide),
-            sendButton.widthAnchor.constraint(equalToConstant: Self.sendSide),
-            sendButton.heightAnchor.constraint(equalToConstant: Self.sendSide),
-            plusButton.widthAnchor.constraint(equalToConstant: 34),
-            plusButton.heightAnchor.constraint(equalToConstant: 34),
-            dictateButton.widthAnchor.constraint(equalToConstant: 34),
-            dictateButton.heightAnchor.constraint(equalToConstant: 34),
-            webSearchButton.widthAnchor.constraint(equalToConstant: 34),
-            webSearchButton.heightAnchor.constraint(equalToConstant: 34),
-            cancelButton.widthAnchor.constraint(equalToConstant: 34),
-            cancelButton.heightAnchor.constraint(equalToConstant: 34),
+            placeholder.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: 11),
+            placeholder.widthAnchor.constraint(lessThanOrEqualTo: textView.widthAnchor, constant: -22),
             // As tall as the field at rest, so the box doesn't jump.
             dictationLine.heightAnchor.constraint(equalToConstant: 40)
         ])
@@ -255,21 +236,16 @@ final class ComposerView: UIView, UITextViewDelegate {
         refreshControls()
     }
 
-    private func configure(_ button: UIButton, symbol: String, label: String, identifier: String) {
-        button.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold)), for: .normal)
-        button.tintColor = Palette.ink
+    private func configure(_ button: ComposerControl, symbol: String, label: String, identifier: String) {
+        button.setSymbol(symbol)
         button.accessibilityLabel = label
         button.accessibilityIdentifier = identifier
-        button.layer.cornerRadius = 17
-        button.layer.borderWidth = 1
-        button.layer.borderColor = Palette.line.cgColor
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
-        [plusButton, dictateButton, cancelButton, notice].forEach { $0.layer.borderColor = Palette.line.cgColor }
+        notice.layer.borderColor = Palette.line.cgColor
         styleWebSearch()
-        sendButton.backgroundColor = Palette.ink
         styleStop()
         if let state { update(state) }
     }
@@ -309,7 +285,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         })
         let permission = state.permissionModes?.options.first(where: \.selected)
         let symbol = permission?.value == "everything" ? "exclamationmark.octagon" : permission?.value == "edits" ? "pencil" : "plus"
-        plusButton.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold)), for: .normal)
+        plusButton.setSymbol(symbol)
         plusButton.accessibilityValue = permission?.label
         refreshControls()
     }
@@ -389,7 +365,6 @@ final class ComposerView: UIView, UITextViewDelegate {
         plusButton.isEnabled = state?.locked != true && (state?.acceptsFiles != false || state?.permissionModes != nil)
         dictateButton.isHidden = busy || state?.dictation == nil
         dictateButton.isEnabled = state?.locked != true
-        dictateButton.alpha = dictateButton.isEnabled ? 1 : 0.35
         webSearchButton.isHidden = busy || state?.webSearch == nil
         styleWebSearch()
         modelButton.isHidden = busy || state == nil || state?.locked == true || state?.working == true || (state?.models.isEmpty ?? true)
@@ -417,10 +392,12 @@ final class ComposerView: UIView, UITextViewDelegate {
             stopButton.isHidden = buttons?.stop != true
             stopButton.isEnabled = buttons?.stopEnabled == true
         }
-        sendButton.setImage(UIImage(systemName: image, withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .bold)), for: .normal)
-        stopButton.alpha = stopButton.isEnabled ? 1 : 0.35
+        if image == "stop.fill" {
+            sendButton.setSymbol(image, pointSize: ComposerControl.stopPointSize, weight: .bold)
+        } else {
+            sendButton.setSymbol(image, weight: .semibold)
+        }
         styleStop()
-        sendButton.alpha = sendButton.isEnabled ? 1 : 0.35
         box.look = ComposerLook(
             locked: state?.locked == true,
             working: state?.working == true,
@@ -466,18 +443,15 @@ final class ComposerView: UIView, UITextViewDelegate {
         if !webSearch.on, let note = webSearch.note, !note.isEmpty { flash(note) }
     }
 
-    /// On: the live wash and edge, as the web's pressed globe. Off: a
-    /// quiet icon, as on Android and the web. Faint where the model can't search.
+    /// On: ink on a pressed square, as the web's pressed globe. Off: a
+    /// muted icon, as on the web. Faint where the model can't search.
     private func styleWebSearch() {
         let webSearch = state?.webSearch
         let on = webSearch?.on == true
         let inert = webSearch?.disabled == true || state?.locked == true || webSearchPending
         webSearchButton.isEnabled = !webSearchPending
-        webSearchButton.tintColor = on ? Palette.liveInk : Palette.inkMuted
-        webSearchButton.backgroundColor = on ? Palette.live.withAlphaComponent(0.12) : .clear
-        webSearchButton.layer.borderColor = (on ? Palette.live.withAlphaComponent(0.4) : Palette.line).cgColor
-        webSearchButton.layer.borderWidth = on ? 1 : 0
-        webSearchButton.alpha = inert ? 0.35 : 1
+        webSearchButton.isOn = on
+        webSearchButton.isInert = inert
         webSearchButton.accessibilityValue = on ? String(localized: "On") : String(localized: "Off")
         webSearchButton.accessibilityHint = webSearch?.disabled == true ? webSearch?.note : nil
         webSearchButton.accessibilityTraits = inert ? (on ? [.button, .selected, .notEnabled] : [.button, .notEnabled]) : on ? [.button, .selected] : .button
@@ -490,18 +464,9 @@ final class ComposerView: UIView, UITextViewDelegate {
     }
 
     /// Stop alone is the filled button in Send's place; beside Send it steps
-    /// back to an outline, so Send stays the one filled button.
+    /// back to the web's subtle button, so Send stays the one filled button.
     private func styleStop() {
-        if sendButton.isHidden {
-            stopButton.tintColor = Palette.inkInverted
-            stopButton.backgroundColor = Palette.ink
-            stopButton.layer.borderWidth = 0
-        } else {
-            stopButton.tintColor = Palette.ink
-            stopButton.backgroundColor = .clear
-            stopButton.layer.borderWidth = 1
-            stopButton.layer.borderColor = Palette.line.cgColor
-        }
+        stopButton.style = sendButton.isHidden ? .primary : .subtle
     }
 
     /// Words from dictation, after what's typed.
