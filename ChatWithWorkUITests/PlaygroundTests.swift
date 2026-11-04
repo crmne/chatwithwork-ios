@@ -97,6 +97,54 @@ final class PlaygroundTests: XCTestCase {
 
     /// A page the sidebar opened offers the sidebar, by its button and the
     /// left-edge swipe, rather than back to whatever chat was underneath.
+    /// Every lock's line (out of credits, offline, files waiting) sits on the
+    /// notice's opaque surface above the box, over the conversation.
+    @MainActor
+    func testComposerLocksSitOnTheirNotice() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground, "-CWWAskForNotifications", "NO"]
+        app.launch()
+        app.buttons["welcome.signIn"].tap()
+        let signIn = app.webViews.buttons["Sign in"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 20))
+        signIn.tap()
+        let toast = app.descendants(matching: .any)["toast"]
+        if toast.waitForExistence(timeout: 10) { toast.tap() }
+
+        let locks = [
+            ("credits", "You're out of credits."),
+            ("offline", "You're offline."),
+            ("files", "Files can go once this answer finishes"),
+        ]
+        for (kind, words) in locks {
+            try lockChats(kind)
+            openChat(app, titled: "Q3 launch commitments for Acme")
+            let notice = app.descendants(matching: .any)["composer.notice"]
+            let line = app.staticTexts["composer.lock"]
+            let shown = NSPredicate(format: "label BEGINSWITH %@", words)
+            expectation(for: shown, evaluatedWith: line)
+            waitForExpectations(timeout: 20)
+            settle(0.8)
+            keep("composer-lock-\(kind)")
+            XCTAssertTrue(notice.exists, "The \(kind) lock's line sits on the notice")
+            let box = app.descendants(matching: .any)["composer"].firstMatch
+            XCTAssertLessThanOrEqual(notice.frame.maxY, app.textViews["composer.text"].frame.minY,
+                                     "The notice stands above the box")
+            XCTAssertTrue(notice.frame.contains(line.frame), "The line is inside its notice")
+            XCTAssertGreaterThan(app.webViews.firstMatch.frame.maxY, box.frame.minY,
+                                 "The conversation runs behind the composer, so the notice must hide it")
+        }
+    }
+
+    /// Locks every chat's composer in the playground (`/lock`), or none.
+    private func lockChats(_ kind: String) throws {
+        _ = try Data(contentsOf: URL(string: "\(playground)/lock?kind=\(kind)")!)
+    }
+
+    override func tearDownWithError() throws {
+        try? lockChats("none")
+    }
+
     @MainActor
     func testSidebarPageOffersTheSidebar() throws {
         let app = XCUIApplication()
@@ -234,7 +282,11 @@ final class PlaygroundTests: XCTestCase {
         // The native composer rides on the keyboard; the web one stays hidden.
         let composer = app.textViews["composer.text"]
         XCTAssertTrue(composer.waitForExistence(timeout: 10), "The app should draw the composer")
-        XCTAssertFalse(app.webViews.textViews["Message"].isHittable, "The web composer stays out of sight")
+        // native.css keeps the web composer out of sight but in the page, and
+        // the bridge takes it out of the accessibility tree: VoiceOver finds
+        // only the app's field. (Whether XCUITest called the hidden field
+        // hittable depended on the composer's layout, not on what people see.)
+        XCTAssertFalse(app.webViews.textViews["Message"].exists, "The web composer stays out of sight and out of VoiceOver's reach")
         composer.tap()
         composer.typeText("Draft the recap for Priya")
         XCTAssertTrue(app.buttons["composer.send"].isEnabled)

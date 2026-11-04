@@ -28,6 +28,12 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     private let box = RainbowBox()
     private let lockLabel = UILabel()
+    /// The lock's or a flash's line sits on this: opaque, the box's surface
+    /// and corners with a hairline edge, so the chat scrolling behind it
+    /// never shows through the words.
+    private let notice = UIView()
+    /// A lock's padlock before its words, as on the web; flashes go without.
+    private let lockIcon = UIImageView(image: UIImage(systemName: "lock", withConfiguration: UIImage.SymbolConfiguration(textStyle: .footnote)))
     // A line shown for a moment in the lock's place (flash), until it times out.
     private var flashing: String?
     private var flashGeneration = 0
@@ -72,7 +78,7 @@ final class ComposerView: UIView, UITextViewDelegate {
     // The conversation is still interactive in the clear gutters around
     // the box, including on an iPad where the composer is a narrow column.
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        box.convert(box.bounds, to: self).contains(point) || (!lockLabel.isHidden && lockLabel.convert(lockLabel.bounds, to: self).contains(point))
+        box.convert(box.bounds, to: self).contains(point) || (!notice.isHidden && notice.convert(notice.bounds, to: self).contains(point))
     }
 
     // MARK: Building
@@ -87,6 +93,27 @@ final class ComposerView: UIView, UITextViewDelegate {
         lockLabel.numberOfLines = 0
         lockLabel.isHidden = true
         lockLabel.accessibilityIdentifier = "composer.lock"
+
+        lockIcon.tintColor = Palette.inkMuted
+        lockIcon.isHidden = true
+        lockIcon.isAccessibilityElement = false
+        lockIcon.accessibilityIdentifier = "composer.lockIcon"
+        lockIcon.setContentHuggingPriority(.required, for: .horizontal)
+        lockIcon.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let noticeLine = UIStackView(arrangedSubviews: [lockIcon, lockLabel])
+        noticeLine.axis = .horizontal
+        noticeLine.alignment = .center
+        noticeLine.spacing = 8
+        noticeLine.translatesAutoresizingMaskIntoConstraints = false
+
+        notice.backgroundColor = Palette.surface
+        notice.layer.cornerRadius = RainbowBox.cornerRadius
+        notice.layer.cornerCurve = .continuous
+        notice.layer.borderWidth = 1
+        notice.layer.borderColor = Palette.line.cgColor
+        notice.isHidden = true
+        notice.accessibilityIdentifier = "composer.notice"
+        notice.addSubview(noticeLine)
 
         chips.axis = .horizontal
         chips.spacing = 6
@@ -168,7 +195,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         box.addSubview(inner)
         box.translatesAutoresizingMaskIntoConstraints = false
 
-        let outer = UIStackView(arrangedSubviews: [lockLabel, box])
+        let outer = UIStackView(arrangedSubviews: [notice, box])
         outer.axis = .vertical
         outer.spacing = 6
         outer.translatesAutoresizingMaskIntoConstraints = false
@@ -183,6 +210,10 @@ final class ComposerView: UIView, UITextViewDelegate {
             outer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             outer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             outer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+            noticeLine.topAnchor.constraint(equalTo: notice.topAnchor, constant: 10),
+            noticeLine.leadingAnchor.constraint(equalTo: notice.leadingAnchor, constant: 14),
+            noticeLine.trailingAnchor.constraint(equalTo: notice.trailingAnchor, constant: -14),
+            noticeLine.bottomAnchor.constraint(equalTo: notice.bottomAnchor, constant: -10),
             inner.topAnchor.constraint(equalTo: box.topAnchor, constant: 6),
             inner.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 10),
             inner.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -8),
@@ -227,7 +258,7 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
-        [plusButton, dictateButton, cancelButton].forEach { $0.layer.borderColor = Palette.line.cgColor }
+        [plusButton, dictateButton, cancelButton, notice].forEach { $0.layer.borderColor = Palette.line.cgColor }
         styleWebSearch()
         sendButton.backgroundColor = Palette.ink
         styleStop()
@@ -323,12 +354,11 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     /// Why the composer is locked, else the line flashing, else nothing.
     private func showLockOrFlash() {
-        if state?.locked == true, let reason = state?.lockReason, !reason.isEmpty {
-            lockLabel.text = reason
-        } else {
-            lockLabel.text = flashing
-        }
+        let locked = state?.locked == true && state?.lockReason?.isEmpty == false
+        lockLabel.text = locked ? state?.lockReason : flashing
+        lockIcon.isHidden = !locked
         lockLabel.isHidden = lockLabel.text?.isEmpty != false
+        notice.isHidden = lockLabel.isHidden
     }
 
     private func refreshControls() {

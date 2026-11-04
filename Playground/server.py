@@ -517,9 +517,26 @@ def exchange(account, number, index, text, author=None):
             + assistant_message(account, number, message_id + 1, MADE_UP, f"<p>{esc(MADE_UP)}</p>"))
 
 
-def composer(handler, account, number=None, placeholder="Reply to Chat with Work", working=False, project=None, prefill=""):
+# The composer's locks (chats/_form's `.chat-prompt__lock`), each with its
+# icon and the server's words: ChatLock::USAGE_LIMIT_REASON with its link,
+# offline_controller.js's offline lock, and Chat::Queueing's files wait.
+# `?lock=credits|offline|files` on a chat shows one; `/lock?kind=` sets one
+# for every chat until `/lock?kind=none`, so a test can lock the chat the app
+# opens.
+LOCKED = {"kind": None}
+LOCKS = {
+    "credits": ("lock-simple", 'You\'re out of credits. <a href="/{account}/settings?tab=billing">Add credits in Settings</a> to keep going.'),
+    "offline": ("wifi-slash", "You're offline. You can read this chat, and ask once you're back."),
+    "files": ("hourglass-medium", "Files can go once this answer finishes, so they can be checked first. Send them then."),
+}
+
+
+def composer(handler, account, number=None, placeholder="Reply to Chat with Work", working=False, project=None, prefill="", lock=None):
     """The chat form (chats/_form, _model_picker, _submit_button), with a
-    textarea standing in for the Lexxy editor and the contract's haptic."""
+    textarea standing in for the Lexxy editor and the contract's haptic.
+    `lock` is a key of LOCKS, else the one `/lock` set for every chat."""
+    if lock is None:
+        lock = LOCKED["kind"]
     action = f"/{account}/chats/{number}/messages" if number else f"/{account}/messages"
     model_id, provider_key, name, logo, _, rate = MODELS[0]
     ctrl = "⌘" if handler.native_platform == "ios" else "Ctrl"
@@ -559,8 +576,17 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
     menu = "" if working else f"""<ul tabindex="-1" class="dropdown-content menu model-picker__menu z-50" role="listbox" aria-label="Models">{options}
               </ul>"""
     project_field = f'\n      <input type="hidden" name="project_id" value="{project}">' if project else ""
+    lock_line = ""
+    if lock in LOCKS:
+        lock_icon, reason = LOCKS[lock]
+        reason = reason.replace("{account}", account)
+        lock_line = f"""
+        <p class="chat-prompt__lock" role="status">
+          {icon(lock_icon)}
+          <span>{reason}</span>
+        </p>"""
     return f"""
-    <div id="new_message" class="composer rainbow-glow{' composer--working' if working else ''}"
+    <div id="new_message" class="composer rainbow-glow{' composer--working' if working else ''}{' composer--locked' if lock in LOCKS else ''}"
          data-controller="composer chat bridge--haptic bridge--composer" data-bridge-feedback="light"
          data-dictation-url-value="/{account}/dictations">
       <form class="print:hidden" action="{action}" method="post"
@@ -577,6 +603,7 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
             <kbd class="kbd">{ctrl}</kbd><kbd class="kbd">/</kbd>
           </span>
         </div>
+{lock_line}
 
         <div id="permission_modes" data-action="change->composer#update">
           <label><input type="radio" name="permission_mode" value="ask" checked aria-label="Ask for changes" aria-description="You approve each change">Ask for changes</label>
@@ -680,7 +707,7 @@ def share_dialog(handler, number, title):
     </dialog>"""
 
 
-def conversation(handler, account, number):
+def conversation(handler, account, number, lock=None):
     chat = CHATS.get(number)
     if chat is None:
         return None
@@ -766,7 +793,7 @@ def conversation(handler, account, number):
           <div class="conversation__dock-inner">
             <button type="button" class="scroll-button" data-scroll-target="scrollButton" data-action="click->scroll#scrollToBottom"
                     aria-label="Scroll to the latest message" inert>{icon("arrow-down")}</button>
-            <turbo-frame id="chat_form">{composer(handler, account, number, working=processing(handler, number))}
+            <turbo-frame id="chat_form">{composer(handler, account, number, working=processing(handler, number), lock=lock)}
             </turbo-frame>
           </div>
         </div>
@@ -1510,6 +1537,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.proxy_asset(path)
         if path.startswith("/web/"):
             return self.static(REPO / path.lstrip("/"))
+        if path == "/lock":
+            kind = (query.get("kind") or ["none"])[0]
+            with STATE_LOCK:
+                LOCKED["kind"] = kind if kind in LOCKS else None
+            return self.send(200, LOCKED["kind"] or "none", "text/plain; charset=utf-8")
         if path.startswith("/playground/"):
             return self.static(ROOT / path.removeprefix("/playground/"))
         if path in ("/configurations/ios_v1.json", "/configurations/ios_v2.json"):
@@ -1568,7 +1600,7 @@ class Handler(BaseHTTPRequestHandler):
         elif (m := re.fullmatch(r"/chats/(\d+)", rest)) and int(m.group(1)) in BOT_CHATS:
             page = bot_chat_page(self, account, int(m.group(1)))
         elif m := re.fullmatch(r"/chats/(\d+)", rest):
-            page = conversation(self, account, int(m.group(1)))
+            page = conversation(self, account, int(m.group(1)), (query.get("lock") or [None])[0])
         elif m := re.fullmatch(r"/chats/(\d+)/edit", rest):
             page = rename_form(self, account, int(m.group(1)))
         elif m := re.fullmatch(r"/chats/(\d+)/files/([\w-]+)", rest):
