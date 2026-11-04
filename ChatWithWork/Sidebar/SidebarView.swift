@@ -410,7 +410,8 @@ struct SidebarView: View {
                                     Text(tag)
                                         .font(.system(size: microSize, design: .monospaced))
                                         .foregroundStyle(Color(Palette.inkFaint))
-                                        .lineLimit(1)
+                                        // Wraps rather than cut what the permission does.
+                                        .fixedSize(horizontal: false, vertical: true)
                                         .accessibilityIdentifier("sidebar.waiting.tag")
                                 }
                             }
