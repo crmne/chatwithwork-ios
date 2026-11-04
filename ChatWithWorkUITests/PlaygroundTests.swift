@@ -282,7 +282,11 @@ final class PlaygroundTests: XCTestCase {
         // The native composer rides on the keyboard; the web one stays hidden.
         let composer = app.textViews["composer.text"]
         XCTAssertTrue(composer.waitForExistence(timeout: 10), "The app should draw the composer")
-        XCTAssertFalse(app.webViews.textViews["Message"].isHittable, "The web composer stays out of sight")
+        // native.css keeps the web composer out of sight but in the page, and
+        // the bridge takes it out of the accessibility tree: VoiceOver finds
+        // only the app's field. (Whether XCUITest called the hidden field
+        // hittable depended on the composer's layout, not on what people see.)
+        XCTAssertFalse(app.webViews.textViews["Message"].exists, "The web composer stays out of sight and out of VoiceOver's reach")
         composer.tap()
         composer.typeText("Draft the recap for Priya")
         XCTAssertTrue(app.buttons["composer.send"].isEnabled)
