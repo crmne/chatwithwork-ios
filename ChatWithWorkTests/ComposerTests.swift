@@ -330,12 +330,15 @@ struct ComposerTests {
         view.flash("Searches leave the EU.")
         view.update(try #require(message("state", Self.state).data()))
         #expect(!line.isHidden && line.text == "Searches leave the EU.")
+        let padlock = try #require(view.descendant("composer.lockIcon"))
+        #expect(padlock.isHidden, "A flash isn't a lock: no padlock")
 
         let locked = Self.state
             .replacingOccurrences(of: #""locked":false"#, with: #""locked":true"#)
             .replacingOccurrences(of: #""lockReason":null"#, with: #""lockReason":"Out of credits""#)
         view.update(try #require(message("state", locked).data()))
         #expect(!line.isHidden && line.text == "Out of credits")
+        #expect(!padlock.isHidden)
     }
 
     @Test("the lock's line sits on an opaque notice: the box's surface and corners, with a hairline edge")
@@ -344,7 +347,8 @@ struct ComposerTests {
         let view = ComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 160))
         let notice = try #require(view.descendant("composer.notice"))
         let line = try #require(view.descendant("composer.lock") as? UILabel)
-        #expect(line.superview === notice)
+        #expect(line.isDescendant(of: notice))
+        let padlock = try #require(view.descendant("composer.lockIcon"))
         view.update(try #require(message("connect", Self.state).data()))
         #expect(notice.isHidden)
 
@@ -354,9 +358,14 @@ struct ComposerTests {
         view.update(try #require(message("state", locked).data()))
         view.layoutIfNeeded()
         #expect(!notice.isHidden && line.text == "Out of credits")
+        #expect(!padlock.isHidden, "A lock shows its padlock, as on the web")
         #expect(notice.layer.cornerRadius == RainbowBox.cornerRadius)
         #expect(notice.layer.borderWidth == 1)
-        #expect(line.frame.minX > 0 && line.frame.minY > 0)
+        // Inset inside the notice, after its padlock.
+        let inNotice = line.convert(line.bounds, to: notice)
+        let padlockInNotice = padlock.convert(padlock.bounds, to: notice)
+        #expect(inNotice.minX > padlockInNotice.maxX, "\(inNotice) after \(padlockInNotice)")
+        #expect(inNotice.minY > 0, "\(inNotice)")
         for style in [UIUserInterfaceStyle.light, .dark] {
             let traits = UITraitCollection(userInterfaceStyle: style)
             let surface = try #require(notice.backgroundColor?.resolvedColor(with: traits))
