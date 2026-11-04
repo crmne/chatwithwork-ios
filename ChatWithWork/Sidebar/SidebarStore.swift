@@ -99,6 +99,7 @@ final class SidebarStore {
         generation += 1
         let mine = generation
         let marks = staleMarks
+        let clears = SidebarCache.clears
         isLoading = true
         defer { if mine == generation { isLoading = false } }
 
@@ -106,7 +107,10 @@ final class SidebarStore {
         case .success(let (fresh, body)):
             guard mine == generation else { return }
             data = fresh
-            if let account { SidebarCache.save(body, for: account) }
+            // Not if signing out cleared the cache while this was on its way.
+            if let account, clears == SidebarCache.clears, memory.hasSignedIn || LaunchOptions.assumesSignedIn {
+                SidebarCache.save(body, for: account)
+            }
             failure = nil
             stale = staleMarks != marks
             if let newChat = fresh.links.newChat, let account { memory.setNewChatPath(newChat, in: account) }

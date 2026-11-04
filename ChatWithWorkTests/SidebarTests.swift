@@ -119,6 +119,7 @@ struct SidebarTests {
     }
 
     @Test("keeps each organization's last sidebar for a launch offline, out of backups, until signing out")
+    @MainActor
     func cache() throws {
         let folder = FileManager.default.temporaryDirectory.appending(path: "sidebar-cache-\(UUID().uuidString)")
         defer { SidebarCache.clear(in: folder) }
@@ -131,8 +132,10 @@ struct SidebarTests {
         #expect(SidebarCache.load(other, in: folder) == nil, "Each organization keeps its own")
         #expect(try folder.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
 
+        let clears = SidebarCache.clears
         SidebarCache.clear(in: folder)
         #expect(SidebarCache.load(account, in: folder) == nil)
+        #expect(SidebarCache.clears == clears + 1, "A fetch begun before signing out no longer saves")
     }
 
     @Test("the bots' search looks in every word of the name and what it does, ignoring case")

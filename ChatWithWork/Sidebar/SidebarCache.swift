@@ -28,11 +28,18 @@ nonisolated enum SidebarCache {
         }
     }
 
-    /// Forgets every organization's.
-    static func clear(in folder: URL? = folder) {
+    /// Forgets every organization's, and every save of a fetch that began
+    /// before (`clears`).
+    @MainActor static func clear(in folder: URL? = folder) {
+        clears += 1
         guard let folder else { return }
         try? FileManager.default.removeItem(at: folder)
     }
+
+    /// How many times it was cleared: a fetch notes it when it starts and
+    /// saves only if it hasn't changed, so an answer that lands after signing
+    /// out never writes the signed-out person's sidebar back.
+    @MainActor static var clears = 0
 
     static let folder: URL? = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
         .appending(path: "Sidebar", directoryHint: .isDirectory)
