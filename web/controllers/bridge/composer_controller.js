@@ -50,9 +50,9 @@ export default class extends BridgeComponent {
     window.addEventListener("model-consent:given", this.consented = () => this.#changed())
     window.addEventListener("model-consent:declined", this.declined = () => this.#connectToApp())
     window.addEventListener("resize", this.resized = () => this.#layout(this.layout))
-    // native.css only hides the web composer from sight; the app's composer
-    // stands for it, so VoiceOver and TalkBack mustn't find a second field.
-    this.element.setAttribute("aria-hidden", "true")
+    // native.css only hides the web composer from sight where the app draws
+    // its own; there VoiceOver and TalkBack mustn't find a second field.
+    if (this.enabled) this.element.setAttribute("aria-hidden", "true")
     this.#connectToApp()
   }
 

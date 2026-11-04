@@ -525,7 +525,7 @@ def exchange(account, number, index, text, author=None):
 # opens.
 LOCKED = {"kind": None}
 LOCKS = {
-    "credits": ("lock-simple", 'You\'re out of credits. <a href="/1000001/settings?tab=billing">Add credits in Settings</a> to keep going.'),
+    "credits": ("lock-simple", 'You\'re out of credits. <a href="/{account}/settings?tab=billing">Add credits in Settings</a> to keep going.'),
     "offline": ("wifi-slash", "You're offline. You can read this chat, and ask once you're back."),
     "files": ("hourglass-medium", "Files can go once this answer finishes, so they can be checked first. Send them then."),
 }
@@ -534,7 +534,9 @@ LOCKS = {
 def composer(handler, account, number=None, placeholder="Reply to Chat with Work", working=False, project=None, prefill="", lock=None):
     """The chat form (chats/_form, _model_picker, _submit_button), with a
     textarea standing in for the Lexxy editor and the contract's haptic.
-    `lock` is a key of LOCKS."""
+    `lock` is a key of LOCKS, else the one `/lock` set for every chat."""
+    if lock is None:
+        lock = LOCKED["kind"]
     action = f"/{account}/chats/{number}/messages" if number else f"/{account}/messages"
     model_id, provider_key, name, logo, _, rate = MODELS[0]
     ctrl = "⌘" if handler.native_platform == "ios" else "Ctrl"
@@ -577,6 +579,7 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
     lock_line = ""
     if lock in LOCKS:
         lock_icon, reason = LOCKS[lock]
+        reason = reason.replace("{account}", account)
         lock_line = f"""
         <p class="chat-prompt__lock" role="status">
           {icon(lock_icon)}
@@ -1597,7 +1600,7 @@ class Handler(BaseHTTPRequestHandler):
         elif (m := re.fullmatch(r"/chats/(\d+)", rest)) and int(m.group(1)) in BOT_CHATS:
             page = bot_chat_page(self, account, int(m.group(1)))
         elif m := re.fullmatch(r"/chats/(\d+)", rest):
-            page = conversation(self, account, int(m.group(1)), (query.get("lock") or [LOCKED["kind"]])[0])
+            page = conversation(self, account, int(m.group(1)), (query.get("lock") or [None])[0])
         elif m := re.fullmatch(r"/chats/(\d+)/edit", rest):
             page = rename_form(self, account, int(m.group(1)))
         elif m := re.fullmatch(r"/chats/(\d+)/files/([\w-]+)", rest):
