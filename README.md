@@ -167,7 +167,11 @@ python3 Playground/server.py            # http://localhost:8765
 python3 Playground/server.py --open     # every request signed in
 ```
 
-then run the app with `-CWWBaseURL http://localhost:8765`, or run the UI
+A chat's composer locks with `?lock=credits`, `offline` or `files` on its
+URL, or every chat's until `/lock?kind=none` with `/lock?kind=offline` (and
+the others), the way the UI tests open a locked chat.
+
+Then run the app with `-CWWBaseURL http://localhost:8765`, or run the UI
 tests, whose `PlaygroundTests` sign in, use the sidebar, open a chat, use its
 menus and the composer, switch the sidebar to its bots, and visit Bots and
 Settings.
