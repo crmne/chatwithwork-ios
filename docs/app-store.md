@@ -34,6 +34,29 @@ repository).
 
 ## Building and uploading
 
+### November 4, 2026 submission
+
+iOS 1.1.2, build 10044, went to App Review on November 4, 2026 at about
+18:40 Europe/Berlin, with **Manually release this version** selected, so
+approval won't publish it by itself. It replaced 1.1.0 (build 10031), which
+had waited since October 30 without a review: that submission was canceled
+(the version became Developer Rejected), the same version was renamed 1.1.2
+and given build 10044, then submitted again, which starts the queue over.
+A version's build has to match its version string, and nothing else replaces
+a build while it waits. The listing's description, keywords, promotional
+text and review notes were set from main first (the old ones still promised
+free daily answers and named Qwen, both gone since November 1), and the
+synthetic review login was refreshed on production just before.
+
+Build 10044 is Xcode Cloud's archive of
+[#35](https://github.com/crmne/chatwithwork-ios/pull/35): on top of 1.1.0 it
+reads opened chats offline, draws each bot in its colour with its face, keeps
+the system bar on a chat, and sets every line above the composer (out of
+credits, offline, files waiting) on an opaque notice. Export compliance:
+no non-exempt encryption. A first version has no What's New, so
+`release_notes.txt` stays the first release's words, now naming offline
+chats and the bots' colours.
+
 ### October 29, 2026 submission
 
 iOS 1.1.0, build 10028, was submitted to App Review on October 29, 2026.
