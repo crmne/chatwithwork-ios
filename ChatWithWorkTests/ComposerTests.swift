@@ -374,6 +374,19 @@ struct ComposerTests {
         }
     }
 
+    @Test("turning web search on says where searches go, on the notice")
+    @MainActor
+    func webSearchNote() throws {
+        let view = ComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 160))
+        view.onAction = { _ in }
+        view.update(try #require(message("connect", Self.state).data()))
+        let globe = try #require(view.descendant("composer.webSearch") as? UIButton)
+        let notice = try #require(view.descendant("composer.notice"))
+        let line = try #require(view.descendant("composer.lock") as? UILabel)
+        globe.sendActions(for: .primaryActionTriggered)
+        #expect(!notice.isHidden && line.text == "Searches leave the EU.")
+    }
+
     @Test("an earlier expiry cannot dismiss a later flash with the same words")
     @MainActor
     func repeatedFlash() throws {
