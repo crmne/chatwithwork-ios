@@ -1049,13 +1049,15 @@ def waiting_decisions(handler, account):
     """What waits for the person, as NativeSidebarHelper#native_sidebar_waiting
     lists it: the change in the first chat, then each waiting bot's run."""
     waiting = [{"key": "chat-42", "title": CHATS[42]["title"], "url": f"/{account}/decisions?decision=chat-42", "kind": "approval",
-                "decision": "approval", "summary": "A change to approve", "chat_url": f"/{account}/chats/42", "project": CHATS[42]["project"],
+                "decision": "approval", "summary": "A change to approve", "family": "permission", "label": "Permission",
+                "chat_url": f"/{account}/chats/42", "project": CHATS[42]["project"],
                 "asker": {"kind": "chat", "name": CHATS[42]["title"], "project": CHATS[42]["project"]}}] \
         if handler.session.get("approval", "waiting") == "waiting" and 42 in CHATS else []
     for number, chat in BOT_CHATS.items():
         bot = BOTS[chat["bot"]]
         waiting.append({"key": f"bot_chat-{number}", "title": chat["title"], "url": f"/{account}/decisions?decision=bot_chat-{number}",
-                        "kind": "bot", "decision": "approval", "summary": "A reply to approve", "chat_url": f"/{account}/chats/{number}",
+                        "kind": "bot", "decision": "approval", "summary": "A reply to approve", "family": "permission", "label": "Permission",
+                        "chat_url": f"/{account}/chats/{number}",
                         "project": bot["project"], "asker": {"kind": "bot", "name": bot["name"], "project": bot["project"]}})
     return waiting
 
