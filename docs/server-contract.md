@@ -1310,6 +1310,22 @@ build from now on keeps working on a server without them.
 - With no `bots.lists` (an older server) the Bots view keeps its card in the
   selector's place, opening the Bots page.
 
+**Bots' colours and faces (2026-11-04).** Each `BOT` also carries its mark
+and the web row's second line: `colour`, the paper of its mark (`#RRGGBB`,
+`Bot::Colours`), `face` (`thinking`, `writing`, `waiting`, `happy`, `flat`,
+or null for the blink; `BotsHelper#bot_face`), `line` (what waits for the
+person, that it failed, works now or is paused, else what its latest run did,
+else when it first runs), `line_tone` (`attention`, `negative`, `live`, or
+null), and `line_when` ("now", "12 min", "08:00", "Fri", or null). The app
+draws each bot as the web's `bots/_sidebar_bot`: its mark as a sticker as
+tall as both lines, the whole bubble in `colour` under black lines and eyes
+in both themes, with `face` in place of the blink (thinking and writing
+moving in two steps, still under Reduce Motion) and the live dot while it
+works; beside it the name (a shared bot's project icon) with `line_when` at
+its end in mono, and under it `line` in its tone's ink, ending in `waiting`
+as a count in attention's wash. Without `line` (an older server) the row
+stays one line ending in its state.
+
 **Instructions and order (2026-10-29, replaced above).** Optional
 `links.instructions` opens the same notes as the chosen web chat list,
 including its project when applicable. Older servers can omit the link.

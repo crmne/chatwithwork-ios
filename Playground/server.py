@@ -100,14 +100,18 @@ PROJECTS = {
     3: {"name": "Onboarding", "hq": False, "all_access": True, "summary": "All-Access · 3 people", "audience": "3 people", "chats": 3},
 }
 # The person's bots, as the apps' Bots list gets them (NativeSidebarHelper#native_sidebar_bot):
-# those that need them first, each with its state in the web's words and tone.
+# those that need them first, each with its state in the web's words and tone, the line under its
+# name (line, line_tone, line_when), and its mark: colour (Bot::Colours' paper) and face (bot_face).
 BOTS = {
     5: {"name": "Front desk", "summary": "Answers the website's chat, hands refunds to you.", "group": "needs_you", "project": "Acme launch",
-        "state": "waiting", "state_label": "Waiting for you", "tone": "attention", "waiting": 1, "working": False, "next_run": None},
+        "state": "waiting", "state_label": "Waiting for you", "tone": "attention", "waiting": 1, "working": False, "next_run": None,
+        "line": "Refund for order 1182 waits for you", "line_tone": "attention", "line_when": "9 min", "colour": "#F7C8B2", "face": "waiting"},
     3: {"name": "Monday Drive digest", "summary": "Every Monday at 8:30, tells you what changed in Drive.", "group": "quiet", "project": None,
-        "state": "next", "state_label": "Next 08:30", "tone": "positive", "waiting": 0, "working": False, "next_run": "08:30"},
+        "state": "next", "state_label": "Next 08:30", "tone": "positive", "waiting": 0, "working": False, "next_run": "08:30",
+        "line": "Sent the digest: 4 files changed", "line_tone": None, "line_when": "Mon", "colour": "#C3DCC0", "face": "happy"},
     2: {"name": "Inbox triage", "summary": "Sorts new mail in Demo requests.", "group": "quiet", "project": None,
-        "state": "working", "state_label": "Working now", "tone": "live", "waiting": 0, "working": True, "next_run": None},
+        "state": "working", "state_label": "Working now", "tone": "live", "waiting": 0, "working": True, "next_run": None,
+        "line": "Working now", "line_tone": "live", "line_when": "now", "colour": "#C2D5EE", "face": "thinking"},
 }
 # Bots' own chats, where a run waits for the person: not in the person's
 # sidebar, as on the server, but where a bot's decision opens.
