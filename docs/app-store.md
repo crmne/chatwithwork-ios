@@ -37,7 +37,7 @@ repository).
 ### November 4, 2026 submission
 
 iOS 1.1.2, build 10044, went to App Review on November 4, 2026 at about
-18:40 Europe/Berlin, with **Manually release this version** selected, so
+18:30 Europe/Berlin, with **Manually release this version** selected, so
 approval won't publish it by itself. It replaced 1.1.0 (build 10031), which
 had waited since October 30 without a review: that submission was canceled
 (the version became Developer Rejected), the same version was renamed 1.1.2
