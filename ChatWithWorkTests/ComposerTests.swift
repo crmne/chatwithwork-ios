@@ -389,7 +389,7 @@ struct ComposerTests {
 
     @Test("a flash shows after states arrived during an animation")
     @MainActor
-    func flashAfterAnimatedStates() throws {
+    func flashAfterAnimatedStates() async throws {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
         let view = ComposerView(frame: CGRect(x: 0, y: 600, width: 390, height: 160))
         window.addSubview(view)
@@ -397,10 +397,12 @@ struct ComposerTests {
         view.onAction = { _ in }
         let state: ComposerState = try #require(message("state", Self.state).data())
         view.update(try #require(message("connect", Self.state).data()))
-        // A stack view counts each hide made inside an animation; one show
-        // afterwards used to leave the notice hidden.
-        UIView.animate(withDuration: 0.4) {
-            for _ in 0..<3 { view.update(state) }
+        // A stack view counts each hide made inside an animation, past its
+        // end: one show afterwards used to leave the notice hidden.
+        await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+            UIView.animate(withDuration: 0.1, animations: {
+                for _ in 0..<3 { view.update(state) }
+            }, completion: { _ in done.resume() })
         }
         let notice = try #require(view.descendant("composer.notice"))
         let line = try #require(view.descendant("composer.lock") as? UILabel)
