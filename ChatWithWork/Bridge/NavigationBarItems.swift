@@ -50,21 +50,9 @@ enum NavigationBarItems {
         set(close, slot: .close, side: .leading, on: viewController)
     }
 
-    /// Buttons on this screen sit straight on the page, without the glass
-    /// iOS 26 and later put behind bar buttons. Each keeps its tap target.
-    static func setBare(on viewController: UIViewController) {
-        let store = Store.of(viewController)
-        store.bare = true
-        apply(store, to: viewController.navigationItem)
-    }
-
     private static func apply(_ store: Store, to navigationItem: UINavigationItem) {
         let leading = (store.items[.leading] ?? [:]).sorted { $0.key < $1.key }.map(\.value)
         let trailing = (store.items[.trailing] ?? [:]).sorted { $0.key < $1.key }.map(\.value)
-
-        if store.bare, #available(iOS 26.0, *) {
-            (leading + trailing).forEach { $0.hidesSharedBackground = true }
-        }
 
         navigationItem.leftItemsSupplementBackButton = true
         navigationItem.setLeftBarButtonItems(leading.isEmpty ? nil : leading, animated: true)
@@ -73,7 +61,6 @@ enum NavigationBarItems {
 
     private final class Store {
         var items: [Side: [Slot: UIBarButtonItem]] = [:]
-        var bare = false
 
         private nonisolated(unsafe) static var key: UInt8 = 0
 
