@@ -356,9 +356,13 @@ final class ComposerView: UIView, UITextViewDelegate {
     private func showLockOrFlash() {
         let locked = state?.locked == true && state?.lockReason?.isEmpty == false
         lockLabel.text = locked ? state?.lockReason : flashing
-        lockIcon.isHidden = !locked
-        lockLabel.isHidden = lockLabel.text?.isEmpty != false
-        notice.isHidden = lockLabel.isHidden
+        let quiet = lockLabel.text?.isEmpty != false
+        // Only on a change: a stack view counts every hide made inside an
+        // animation (states arrive inside one in the app), and then one show
+        // can't undo them, so a later flash stayed hidden.
+        lockIcon.setHidden(!locked)
+        lockLabel.setHidden(quiet)
+        notice.setHidden(quiet)
     }
 
     private func refreshControls() {
@@ -751,5 +755,13 @@ private final class Waveform: UIView {
 extension UIColor {
     convenience init(hexValue: UInt32) {
         self.init(red: CGFloat((hexValue >> 16) & 0xFF) / 255, green: CGFloat((hexValue >> 8) & 0xFF) / 255, blue: CGFloat(hexValue & 0xFF) / 255, alpha: 1)
+    }
+}
+
+private extension UIView {
+    /// Sets `isHidden` only when it changes. A view arranged in a stack view
+    /// hidden again inside an animation needs as many shows to come back.
+    func setHidden(_ hidden: Bool) {
+        if isHidden != hidden { isHidden = hidden }
     }
 }

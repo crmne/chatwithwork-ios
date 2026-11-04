@@ -387,6 +387,31 @@ struct ComposerTests {
         #expect(!notice.isHidden && line.text == "Searches leave the EU.")
     }
 
+    @Test("a flash shows after states arrived during an animation")
+    @MainActor
+    func flashAfterAnimatedStates() async throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let view = ComposerView(frame: CGRect(x: 0, y: 600, width: 390, height: 160))
+        window.addSubview(view)
+        window.isHidden = false
+        view.onAction = { _ in }
+        let state: ComposerState = try #require(message("state", Self.state).data())
+        view.update(try #require(message("connect", Self.state).data()))
+        // A stack view counts each hide made inside an animation, past its
+        // end: one show afterwards used to leave the notice hidden.
+        await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+            UIView.animate(withDuration: 0.1, animations: {
+                for _ in 0..<3 { view.update(state) }
+            }, completion: { _ in done.resume() })
+        }
+        let notice = try #require(view.descendant("composer.notice"))
+        let line = try #require(view.descendant("composer.lock") as? UILabel)
+        let globe = try #require(view.descendant("composer.webSearch") as? UIButton)
+        globe.sendActions(for: .primaryActionTriggered)
+        #expect(line.text == "Searches leave the EU.")
+        #expect(!notice.isHidden && !line.isHidden)
+    }
+
     @Test("an earlier expiry cannot dismiss a later flash with the same words")
     @MainActor
     func repeatedFlash() throws {

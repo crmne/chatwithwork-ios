@@ -392,9 +392,10 @@ final class PlaygroundTests: XCTestCase {
         // A bot's row opens its page over the chat.
         app.buttons["Monday Drive digest"].tap()
         XCTAssertTrue(app.webViews.staticTexts["Every Monday at 8:30, tells you what changed in Drive."].waitForExistence(timeout: 20), "A bot should open from its row")
-        app.navigationBars.buttons.element(boundBy: 0).tap()
 
-        // Back to the chats for the rest.
+        // Back to the chats for the rest, through the sidebar button the bot's
+        // page keeps in place of back (#21).
+        XCTAssertTrue(app.buttons["shell.sidebar"].waitForExistence(timeout: 5))
         app.buttons["shell.sidebar"].tap()
         let chatsHalf = app.buttons["sidebar.switch.chats"]
         XCTAssertTrue(chatsHalf.waitForExistence(timeout: 10))
