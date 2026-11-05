@@ -82,6 +82,14 @@ struct PathConfigurationTests {
         #expect(properties(path).queryStringPresentation == .replace)
     }
 
+    @Test("pushes a chat a page opens, which says where from, with back to that page", arguments: [
+        "/1000001/chats/42?from=bot", "/1000001/chats/42?from=decisions", "/1000001/chats/43?from=chat"
+    ])
+    func drillDownChats(path: String) {
+        #expect(properties(path).context == .default)
+        #expect(properties(path).presentation == .default)
+    }
+
     @Test("pushes a Settings tab over the Settings list it shares a path with")
     func settingsTab() {
         let tab = properties("/1000001/settings?tab=connectors")
