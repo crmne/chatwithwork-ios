@@ -432,14 +432,16 @@ def activity(activity_id, services, title, *, details=None, steps="", opened=Fal
 
 def approval_card(account, number):
     """A change waiting for its driver (messages/tool_calls/_approval), with
-    the haptics the contract adds to its two forms."""
+    the haptics the contract adds to its two forms. Deny's reason sits in the
+    footer, hidden until the web's approval_deny_controller.js opens it, which
+    the playground doesn't load: Deny sends at once, as without the script."""
     return f"""
               <turbo-frame id="message_14">
                 <section id="tool_call_{RECAP_CALL}" class="approval" aria-labelledby="approval_summary_tool_call_9">
                   <header class="approval__header">
                     <span class="avatar-stack"><span class="avatar-stack__item" title="Slack">{provider("slack", alt="Slack")}</span></span>
                     <div class="approval__heading">
-                      <p class="approval__kicker">Needs your approval · Slack</p>
+                      <p class="approval__kicker">Needs your permission · Slack</p>
                       <h3 id="approval_summary_tool_call_9" class="approval__summary">Post a message to #acme-launch</h3>
                     </div>
                   </header>
@@ -454,16 +456,9 @@ def approval_card(account, number):
                     </div>
                   </div>
 
-                  <form id="denial_tool_call_9" class="approval__reason" method="post" action="/{account}/chats/{number}/tool_calls/9/denial"
+                  <form id="denial_tool_call_9" class="hidden" method="post" action="/{account}/chats/{number}/tool_calls/9/denial"
                         data-turbo-frame="_top" data-controller="bridge--haptic" data-bridge-feedback="warning"
-                        data-action="turbo:submit-start->bridge--haptic#vibrate">
-                    <details>
-                      <summary>Deny with a reason</summary>
-                      <label class="sr-only" for="denial_reason_tool_call_9">Why you're denying it</label>
-                      <input type="text" name="reason" id="denial_reason_tool_call_9" maxlength="500" class="input input-sm"
-                             placeholder="Say what to do instead (optional)" autocomplete="off">
-                    </details>
-                  </form>
+                        data-action="turbo:submit-start->bridge--haptic#vibrate"></form>
 
                   <form id="approval_form_tool_call_9" class="approval__actions" method="post" action="/{account}/chats/{number}/tool_calls/9/approval"
                         data-turbo-frame="_top" data-controller="bridge--haptic" data-bridge-feedback="success"
@@ -473,9 +468,16 @@ def approval_card(account, number):
                       <span>Allow “Post message” in Slack for the rest of this chat</span>
                     </label>
 
+                    <div class="approval__reason" data-approval-deny-target="reason" hidden>
+                      <label class="sr-only" for="denial_reason_tool_call_9">Why you're denying it</label>
+                      <input type="text" name="reason" id="denial_reason_tool_call_9" form="denial_tool_call_9" maxlength="500" class="input input-sm"
+                             placeholder="Reason (optional)" autocomplete="off" enterkeyhint="send"
+                             data-approval-deny-target="field" data-action="keydown.esc->approval-deny#close">
+                    </div>
                     <div class="approval__buttons">
-                      <button type="submit" form="denial_tool_call_9" class="btn btn-sm btn-subtle">Deny</button>
-                      <button type="submit" class="btn btn-sm btn-primary">Approve</button>
+                      <button type="button" class="btn btn-sm btn-ghost" data-approval-deny-target="cancel" data-action="approval-deny#close" hidden>Cancel</button>
+                      <button type="submit" form="denial_tool_call_9" class="btn btn-sm btn-subtle" data-approval-deny-target="deny" data-action="approval-deny#deny">Deny</button>
+                      <button type="submit" class="btn btn-sm btn-primary approval__approve">Approve</button>
                     </div>
                   </form>
                 </section>
