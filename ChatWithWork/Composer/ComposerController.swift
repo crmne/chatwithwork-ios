@@ -133,10 +133,15 @@ final class ComposerController: NSObject {
         guard let screen, let state = view.state else { return }
         view.textView.resignFirstResponder()
 
-        let options = AttachOptions(acceptsFiles: state.acceptsFiles, permissionModes: state.permissionModes)
+        let options = AttachOptions(
+            acceptsFiles: state.acceptsFiles,
+            permissionModes: state.permissionModes,
+            webSearch: view.webSearchFolded ? state.webSearch : nil
+        )
         let sizing = AttachSheetSizing()
         var host: UIHostingController<AttachSheet>!
         host = UIHostingController(rootView: AttachSheet(options: options, heightChanged: sizing.update) { [weak self] choice in
+            if case .webSearch = choice { self?.handle(choice); return }
             host.dismiss(animated: true) { self?.handle(choice) }
         })
         host.view.backgroundColor = Palette.surface
@@ -160,6 +165,10 @@ final class ComposerController: NSObject {
         case .permissionMode(let value):
             guard view.state?.canSelectPermissionMode(value) == true else { return }
             send?(.permissionMode(value: value))
+        case .webSearch(let on):
+            guard let webSearch = view.state?.webSearch, view.state?.locked != true, !webSearch.disabled || !on else { return }
+            UISelectionFeedbackGenerator().selectionChanged()
+            send?(.webSearch(on: on))
         case .recent(let asset):
             Task {
                 if let image = await RecentPhotos.data(asset), let file = ComposerFiles.photo(image) { attach([file]) }

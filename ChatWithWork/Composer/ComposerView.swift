@@ -3,8 +3,10 @@ import UIKit
 /// The composer the app draws over a chat: the words, the files on their
 /// way, and the web's controls, each one tap away as in the web's bar: "+"
 /// (the attach sheet), the microphone, the web search globe, the model, and
-/// Send. While an answer works, Stop, with Send beside it once there are
-/// words to steer with. While dictation listens or transcribes, its line
+/// Send. While an answer works, Stop in its turning ring, with Send beside it,
+/// subtle, once there are words to steer with. On a narrow phone the globe
+/// folds into "+", as the web's folding bar does, and "+" wears a small
+/// globe while web search is on. While dictation listens or transcribes, its line
 /// takes the field's place (DictationLine), since nobody types meanwhile.
 /// Floats over the conversation, above the keyboard.
 /// It only shows what the web composer's state says and reports what the
@@ -50,11 +52,16 @@ final class ComposerView: UIView, UITextViewDelegate {
     let textView = UITextView()
     private let placeholder = UILabel()
     private let plusButton = ComposerControl(style: .ghost)
+    /// `.chat-prompt__attach-badge`: a small globe on "+" while web search
+    /// is on and the globe is folded into it.
+    private let plusBadge = UIView()
+    private let controlsRow = UIStackView()
     private let dictateButton = ComposerControl(style: .ghost)
     private let webSearchButton = ComposerControl(style: .toggle)
     private let modelButton = UIButton(type: .system)
     /// Send and Stop are the web's touch `.chat-prompt__send`, as every
-    /// button in the bar is (ComposerControl).
+    /// button in the bar is (ComposerControl). Stop is always the ink
+    /// square; Send beside it is the subtle one.
     private let stopButton = ComposerControl(style: .primary)
     private let sendButton = ComposerControl(style: .primary)
     private let dictationLine = DictationLine()
@@ -74,8 +81,20 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        if webSearchFolded != foldedWhenRefreshed { refreshControls() }
         onLayout?()
     }
+
+    /// The web's folding bar (`.chat-prompt__bar--folding`) puts its globe
+    /// in "+" below 24rem. That bar also holds the permission mode's button,
+    /// which the app keeps in "+", so the app's globe folds 44 points
+    /// narrower: the model keeps the room the web leaves it. An iPhone SE's
+    /// or mini's bar is 331 points; other iPhones keep the globe.
+    static let webSearchFoldsBelow: CGFloat = 384 - 44
+    /// The bar's width: the box's 16-point margins and 6-point padding.
+    private var barWidth: CGFloat { bounds.width - 2 * 16 - 2 * 6 }
+    var webSearchFolded: Bool { bounds.width > 0 && barWidth < Self.webSearchFoldsBelow }
+    private var foldedWhenRefreshed: Bool?
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -147,6 +166,7 @@ final class ComposerView: UIView, UITextViewDelegate {
 
         configure(plusButton, symbol: "plus", label: String(localized: "Add"), identifier: "composer.plus")
         plusButton.addAction(UIAction { [weak self] _ in self?.onPlus?() }, for: .primaryActionTriggered)
+        buildPlusBadge()
 
         configure(dictateButton, symbol: "mic", label: String(localized: "Dictate"), identifier: "composer.dictate")
         dictateButton.addAction(UIAction { [weak self] _ in self?.onDictate?() }, for: .primaryActionTriggered)
@@ -186,7 +206,8 @@ final class ComposerView: UIView, UITextViewDelegate {
 
         let spacer = UIView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let controls = UIStackView(arrangedSubviews: [plusButton, dictateButton, webSearchButton, cancelButton, spacer, modelButton, stopButton, sendButton])
+        let controls = controlsRow
+        [plusButton, dictateButton, webSearchButton, cancelButton, spacer, modelButton, sendButton, stopButton].forEach(controls.addArrangedSubview)
         controls.axis = .horizontal
         controls.alignment = .center
         // The web's touch bar has no gap: the 44-point targets touch.
@@ -238,6 +259,28 @@ final class ComposerView: UIView, UITextViewDelegate {
         refreshControls()
     }
 
+    /// 14 points of surface in a 1-point strong line, the filled globe in
+    /// ink, on "+"'s top right corner, a point past its 44-point target.
+    private func buildPlusBadge() {
+        plusBadge.isUserInteractionEnabled = false
+        plusBadge.isHidden = true
+        plusBadge.frame = CGRect(x: ComposerControl.target - 14, y: -2, width: 16, height: 16)
+        plusBadge.layer.cornerRadius = 8
+        plusBadge.layer.borderWidth = 1
+        let globe = UIImageView(image: UIImage(named: "GlobeFill")?.withRenderingMode(.alwaysTemplate))
+        globe.frame = CGRect(x: 3, y: 3, width: 10, height: 10)
+        globe.tintColor = Palette.ink
+        plusBadge.addSubview(globe)
+        plusBadge.accessibilityIdentifier = "composer.plus.webSearch"
+        plusButton.addSubview(plusBadge)
+        stylePlusBadge()
+    }
+
+    private func stylePlusBadge() {
+        plusBadge.backgroundColor = Palette.surface
+        plusBadge.layer.borderColor = Palette.lineStrong.resolvedColor(with: traitCollection).cgColor
+    }
+
     private func configure(_ button: ComposerControl, symbol: String, label: String, identifier: String) {
         button.setSymbol(symbol)
         button.accessibilityLabel = label
@@ -247,6 +290,7 @@ final class ComposerView: UIView, UITextViewDelegate {
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         notice.layer.borderColor = Palette.line.cgColor
+        stylePlusBadge()
         styleWebSearch()
         styleStop()
         if let state { update(state) }
@@ -288,7 +332,6 @@ final class ComposerView: UIView, UITextViewDelegate {
         let permission = state.permissionModes?.options.first(where: \.selected)
         let symbol = permission?.value == "everything" ? "exclamationmark.octagon" : permission?.value == "edits" ? "pencil" : "plus"
         plusButton.setSymbol(symbol)
-        plusButton.accessibilityValue = permission?.label
         refreshControls()
     }
 
@@ -364,10 +407,18 @@ final class ComposerView: UIView, UITextViewDelegate {
         placeholder.isHidden = !textView.text.isEmpty
         cancelButton.isHidden = !busy
         plusButton.isHidden = busy
-        plusButton.isEnabled = state?.locked != true && (state?.acceptsFiles != false || state?.permissionModes != nil)
         dictateButton.isHidden = busy || state?.dictation == nil
         dictateButton.isEnabled = state?.locked != true
-        webSearchButton.isHidden = busy || state?.webSearch == nil
+        let folded = webSearchFolded
+        foldedWhenRefreshed = folded
+        webSearchButton.isHidden = busy || state?.webSearch == nil || folded
+        // "+" opens while it holds anything, the folded globe's switch included.
+        plusButton.isEnabled = state?.locked != true && (state?.acceptsFiles != false || state?.permissionModes != nil || (folded && state?.webSearch != nil))
+        plusBadge.isHidden = !(folded && state?.webSearch?.on == true)
+        let permission = state?.permissionModes?.options.first(where: \.selected)?.label
+        let search = plusBadge.isHidden ? nil : String(localized: "Web search on")
+        let value = [permission, search].compactMap { $0 }.joined(separator: ", ")
+        plusButton.accessibilityValue = value.isEmpty ? nil : value
         styleWebSearch()
         modelButton.isHidden = busy || state == nil || state?.locked == true || state?.working == true || (state?.models.isEmpty ?? true)
 
@@ -465,10 +516,13 @@ final class ComposerView: UIView, UITextViewDelegate {
         onAction?(.stop)
     }
 
-    /// Stop alone is the filled button in Send's place; beside Send it steps
-    /// back to the web's subtle button, so Send stays the one filled button.
+    /// As the web draws them: Stop is the ink square in its turning ring
+    /// while the answer runs, and Send beside it steps back to the subtle
+    /// button (`.chat-prompt__queue`). On its own, Send is the ink square.
     private func styleStop() {
-        stopButton.style = sendButton.isHidden ? .primary : .subtle
+        stopButton.style = .primary
+        stopButton.showsRing = !stopButton.isHidden
+        sendButton.style = stopButton.isHidden ? .primary : .subtle
     }
 
     /// Words from dictation, after what's typed.

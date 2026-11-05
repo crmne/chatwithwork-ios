@@ -59,11 +59,39 @@ struct ComposerControlTests {
         #expect(control.layer.sublayers?.contains { $0 is CAShapeLayer && !$0.isHidden } == false, "Faint, it doesn't")
     }
 
-    @Test("stop beside send is the subtle button: surface with a strong hairline")
+    @Test("send beside stop is the subtle button: the surface, its hairline hidden as on the web's touch bar")
     func subtle() {
         let (control, plate) = laidOut(.subtle)
         #expect(control.colors.plate == Palette.surface)
-        #expect(control.colors.edge == Palette.lineStrong)
-        #expect(plate.layer.borderWidth == 1)
+        #expect(control.colors.icon == Palette.ink)
+        #expect(control.colors.edge == nil)
+        #expect(plate.layer.borderWidth == 0)
+    }
+
+    @Test("UIKit never dims the icon a second time: only colors decides its ink, pressed or disabled")
+    func noDoubleDimming() {
+        let (control, _) = laidOut(.primary)
+        control.setSymbol("arrow.up")
+        #expect(control.image(for: .normal) == nil && control.image(for: .disabled) == nil && control.image(for: .highlighted) == nil)
+        #expect(control.iconImage != nil)
+        control.isEnabled = false
+        #expect(control.subviews.compactMap { $0 as? UIImageView }.first { $0.image == control.iconImage }?.tintColor == Palette.ink.withAlphaComponent(0.1))
+        control.isEnabled = true
+        control.isHighlighted = true
+        #expect(control.subviews.compactMap { $0 as? UIImageView }.first { $0.image == control.iconImage }?.tintColor == Palette.inkInverted)
+    }
+
+    @Test("stop's ring is the web's: 40 points across, 2 thick, 13-point corners, grey while stopping")
+    func ring() throws {
+        let (control, _) = laidOut(.primary)
+        control.showsRing = true
+        control.layoutIfNeeded()
+        let ring = try #require(control.ringView)
+        #expect(ring.frame == CGRect(x: 2, y: 2, width: 40, height: 40))
+        #expect(!ring.stopping && ring.alpha == 1)
+        control.isEnabled = false
+        #expect(ring.stopping && ring.alpha == 0.5)
+        control.showsRing = false
+        #expect(control.ringView == nil)
     }
 }

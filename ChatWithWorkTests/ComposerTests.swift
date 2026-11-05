@@ -321,6 +321,64 @@ struct ComposerTests {
         #expect(dictate.isHidden && globe.isHidden)
     }
 
+    @Test("while an answer runs, Stop is the ink square in its turning ring and Send beside it is subtle")
+    @MainActor
+    func stopInRingSendSubtle() throws {
+        let view = ComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 120))
+        view.update(try #require(message("connect", Self.state).data()))
+        let stop = try #require(view.descendant("composer.stop") as? ComposerControl)
+        let send = try #require(view.descendant("composer.send") as? ComposerControl)
+        #expect(!stop.isHidden && !send.isHidden)
+        #expect(stop.style == .primary && stop.showsRing)
+        #expect(send.style == .subtle)
+        #expect(stop.ringView?.stopping == false)
+
+        // Stopping, the ring greys, as the web's disabled stop.
+        let stopping = Self.state.replacingOccurrences(of: #""stopping":false"#, with: #""stopping":true"#)
+        view.update(try #require(message("state", stopping).data()))
+        #expect(stop.ringView?.stopping == true)
+
+        // Once the answer ends, Send is the ink square again, and the ring goes.
+        let idle = Self.state.replacingOccurrences(of: #""working":true"#, with: #""working":false"#)
+        view.update(try #require(message("state", idle).data()))
+        #expect(stop.isHidden && !stop.showsRing && stop.ringView == nil)
+        #expect(send.style == .primary)
+    }
+
+    @Test("on a narrow phone the globe folds into +, which wears a small globe while web search is on")
+    @MainActor
+    func foldedGlobe() throws {
+        // An iPhone SE's or mini's 375 points leave a 331-point bar.
+        let view = ComposerView(frame: CGRect(x: 0, y: 0, width: 375, height: 120))
+        view.update(try #require(message("connect", Self.state).data()))
+        let globe = try #require(view.descendant("composer.webSearch"))
+        let plus = try #require(view.descendant("composer.plus"))
+        let badge = try #require(view.descendant("composer.plus.webSearch"))
+        #expect(view.webSearchFolded)
+        #expect(globe.isHidden && badge.isHidden)
+
+        let on = Self.state.replacingOccurrences(of: #""webSearch":{"on":false"#, with: #""webSearch":{"on":true"#)
+        view.update(try #require(message("state", on).data()))
+        #expect(globe.isHidden && !badge.isHidden)
+        #expect(plus.accessibilityValue == "Web search on")
+
+        // "+" still opens for the switch where the page takes no files, unless it's locked.
+        let plusButton = try #require(plus as? UIButton)
+        let noFiles = on.replacingOccurrences(of: #""acceptsFiles":true"#, with: #""acceptsFiles":false"#)
+        view.update(try #require(message("state", noFiles).data()))
+        #expect(plusButton.isEnabled)
+        let lockedNoFiles = noFiles.replacingOccurrences(of: #""locked":false"#, with: #""locked":true"#)
+        view.update(try #require(message("state", lockedNoFiles).data()))
+        #expect(!plusButton.isEnabled)
+        view.update(try #require(message("state", on).data()))
+
+        // Wide enough again, the globe comes back to the bar and the badge goes.
+        view.frame.size.width = 402
+        view.layoutIfNeeded()
+        #expect(!view.webSearchFolded)
+        #expect(!globe.isHidden && badge.isHidden)
+    }
+
     @Test("a flashed line stays through the page's next state, and a lock replaces it")
     @MainActor
     func flashOutlastsState() throws {
