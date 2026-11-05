@@ -645,6 +645,38 @@ click.
   bridge_url: shared_chat_url(token), bridge_title: @chat.display_title }`,
   rendered only when `native_app&.supports?(:share)`.
 
+### Beside a chat (`chats/panels/show`, server 2026-11-05)
+
+The web's side panel (agents, side chats, the chat's details) as a page of
+its own, `/chats/<n>/beside`, since the chat screen has no room beside it.
+
+- The `.*` rule pushes it over the chat with back to it, a drill-down. It
+  shows the panel's tabs one at a time (`?tab=`: Agents once the chat has
+  some, Side chats, Details); another tab replaces the page
+  (`query_string_presentation: replace`). It's kept live by the chat's
+  broadcasts and never shown to guests.
+- Its rows open their chats with `?from=chat`, so the `from=` rule pushes
+  them over it with back to it. New side chat is a form that goes to the
+  new side chat.
+- In sidebar builds the app draws New chat itself, so the chat's bar
+  `button` opens this page. Bar buttons carry no badge, so the symbol is
+  the count of agents and side chats: `N.circle` to 50, `.fill` while one
+  works or waits for an approval, `sidebar.right` at none, titled "Side
+  chats and more, N" for VoiceOver. The server replaces that button over
+  the chat's stream as the count changes. Where the bar's one button is
+  something else (a bot's Setup or Make bot, a try's) and in the tab
+  builds, "Side chats and more" is the chat menu's first item instead.
+- Nothing in the app changes for it.
+
+### Decisions (`decisions/index`)
+
+A place, replacing the root. Deciding never leaves it: approvals answer with
+Turbo Streams, and a form that leaves the board's frame redirects back to
+the page's own address, which the board keeps in Turbo's history, so the
+page refreshes in place instead of stacking a copy. A decision's "Open chat"
+links to `/chats/<n>?from=decisions`, which the `from=` rule pushes over
+Decisions with back to it; any other link to a chat replaces the root.
+
 ### New chat (`chats/new`)
 
 In sidebar builds it's the shell's root, where the app opens; in tab builds
