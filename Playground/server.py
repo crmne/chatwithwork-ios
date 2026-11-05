@@ -433,13 +433,12 @@ def activity(activity_id, services, title, *, details=None, steps="", opened=Fal
 def approval_card(account, number):
     """A change waiting for its driver (messages/tool_calls/_approval), with
     the haptics the contract adds to its two forms. Deny's reason sits in the
-    footer, hidden until the web's approval_deny_controller.js opens it, which
-    the playground doesn't load: Deny sends at once, as without the script.
-    The envelope leaves out To, which the summary says (the web drops a row
+    footer, hidden until Deny's first press opens it (playground.js stands in
+    for the web's approval_deny_controller.js). The envelope leaves out To, which the summary says (the web drops a row
     its card's line already says)."""
     return f"""
               <turbo-frame id="message_14">
-                <section id="tool_call_{RECAP_CALL}" class="approval" aria-labelledby="approval_summary_tool_call_9">
+                <section id="tool_call_{RECAP_CALL}" class="approval" aria-labelledby="approval_summary_tool_call_9" data-controller="approval-deny">
                   <header class="approval__header">
                     <span class="avatar-stack"><span class="avatar-stack__item" title="Slack">{provider("slack", alt="Slack")}</span></span>
                     <div class="approval__heading">
@@ -608,7 +607,19 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
         </div>
 {lock_line}
 
-        <div id="composer_menu" class="menu chat-prompt__menu" role="menu" aria-label="Add files and more" hidden>
+        <div class="chat-prompt__bar">
+          <button type="button" hidden data-dictation-target="button" aria-label="Dictate"></button>
+          <span class="chat-prompt__more" data-controller="composer-menu">
+            <button type="button" class="btn btn-ghost btn-sm btn-square tooltip chat-prompt__attach"
+                    aria-label="Add files and more" aria-haspopup="menu" aria-expanded="false" aria-controls="composer_menu" data-tip="Add files and more"
+                    data-composer-menu-target="button" data-action="composer-menu#toggle">
+              <span class="chat-prompt__spinner" aria-hidden="true"></span>
+              {icon("plus", "size-4")}
+            </button>
+        <div id="composer_menu" class="menu chat-prompt__menu" role="menu" aria-label="Add files and more" hidden
+             data-composer-menu-target="menu" data-action="keydown.esc->composer-menu#close">
+          <label class="chat-prompt__web-search" hidden><input type="checkbox" name="web_search"> Web search
+            <span class="chat-prompt__menu-note">Searches leave the EU: Google or Bing see the query.</span></label>
           <div id="permission_modes" class="chat-prompt__modes" role="group" aria-labelledby="permission_modes_label" data-action="change->composer#update">
             <span class="chat-prompt__menu-heading" id="permission_modes_label">Changes</span>
             <label class="chat-prompt__mode chat-prompt__mode--ask">
@@ -631,15 +642,7 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
             </label>
           </div>
         </div>
-        <div class="chat-prompt__bar">
-          <button type="button" hidden data-dictation-target="button" aria-label="Dictate"></button>
-          <label class="chat-prompt__web-search" hidden><input type="checkbox" name="web_search"> Web search</label>
-          <span class="chat-prompt__menu-note" hidden>Searches leave the EU: Google or Bing see the query.</span>
-          <button type="button" class="btn btn-ghost btn-sm btn-square tooltip chat-prompt__attach"
-                  aria-label="Attach files" data-tip="Attach files">
-            <span class="chat-prompt__spinner" aria-hidden="true"></span>
-            {icon("paperclip", "size-4")}
-          </button>
+          </span>
 
           <div class="model-picker tooltip" data-tip="{esc(rate)}" data-controller="model-select">
             <input type="hidden" name="model" value="{esc(model_id)}" data-model-select-target="model">
