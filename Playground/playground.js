@@ -100,12 +100,13 @@ application.register("chat", class extends Controller {
 })
 
 // The composer's + menu, like the web app's composer-menu: its button opens
-// and closes it, Escape or a click elsewhere closes it.
+// and closes it, Escape closes it and returns to the button, and a click
+// elsewhere closes it and leaves focus where it went.
 application.register("composer-menu", class extends Controller {
   static targets = ["button", "menu"]
 
   connect() {
-    this.outside = event => { if (!this.element.contains(event.target)) this.close() }
+    this.outside = event => { if (!this.element.contains(event.target)) this.#show(false) }
     document.addEventListener("click", this.outside)
   }
 

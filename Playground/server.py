@@ -438,7 +438,7 @@ def approval_card(account, number):
     its card's line already says)."""
     return f"""
               <turbo-frame id="message_14">
-                <section id="tool_call_{RECAP_CALL}" class="approval" aria-labelledby="approval_summary_tool_call_9" data-controller="approval-deny">
+                <section id="tool_call_{RECAP_CALL}" class="approval" aria-labelledby="approval_summary_tool_call_9" data-controller="approval-deny" data-action="keydown.esc->approval-deny#close">
                   <header class="approval__header">
                     <span class="avatar-stack"><span class="avatar-stack__item" title="Slack">{provider("slack", alt="Slack")}</span></span>
                     <div class="approval__heading">
@@ -609,7 +609,7 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
 
         <div class="chat-prompt__bar">
           <button type="button" hidden data-dictation-target="button" aria-label="Dictate"></button>
-          <span class="chat-prompt__more" data-controller="composer-menu">
+          <span class="chat-prompt__more" data-controller="composer-menu" data-action="keydown.esc->composer-menu#close">
             <button type="button" class="btn btn-ghost btn-sm btn-square tooltip chat-prompt__attach"
                     aria-label="Add files and more" aria-haspopup="menu" aria-expanded="false" aria-controls="composer_menu" data-tip="Add files and more"
                     data-composer-menu-target="button" data-action="composer-menu#toggle">
@@ -617,7 +617,7 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
               {icon("plus", "size-4")}
             </button>
         <div id="composer_menu" class="menu chat-prompt__menu" role="menu" aria-label="Add files and more" hidden
-             data-composer-menu-target="menu" data-action="keydown.esc->composer-menu#close">
+             data-composer-menu-target="menu">
           <label class="chat-prompt__web-search" hidden><input type="checkbox" name="web_search"> Web search
             <span class="chat-prompt__menu-note">Searches leave the EU: Google or Bing see the query.</span></label>
           <div id="permission_modes" class="chat-prompt__modes" role="group" aria-labelledby="permission_modes_label" data-action="change->composer#update">
