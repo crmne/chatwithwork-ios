@@ -19,6 +19,10 @@ final class ComposerView: UIView, UITextViewDelegate {
     var onAction: ((ComposerAction) -> Void)?
     var onPlus: (() -> Void)?
     var onDictate: (() -> Void)?
+    /// Told when dictation starts, moves on, or ends (`mode`).
+    var onModeChange: ((Mode) -> Void)?
+    /// Told when the composer joins or leaves a window.
+    var onWindowChange: ((Bool) -> Void)?
     var onStopDictating: (() -> Void)?
     var onCancelDictating: (() -> Void)?
     var onLayout: (() -> Void)?
@@ -73,6 +77,11 @@ final class ComposerView: UIView, UITextViewDelegate {
     override func layoutSubviews() {
         super.layoutSubviews()
         onLayout?()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        onWindowChange?(window != nil)
     }
 
     // The conversation is still interactive in the clear gutters around
@@ -307,6 +316,7 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     func setMode(_ mode: Mode) {
         self.mode = mode
+        onModeChange?(mode)
         meterTimer?.invalidate()
         meterTimer = nil
         switch mode {
