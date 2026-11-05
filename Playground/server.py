@@ -434,7 +434,9 @@ def approval_card(account, number):
     """A change waiting for its driver (messages/tool_calls/_approval), with
     the haptics the contract adds to its two forms. Deny's reason sits in the
     footer, hidden until the web's approval_deny_controller.js opens it, which
-    the playground doesn't load: Deny sends at once, as without the script."""
+    the playground doesn't load: Deny sends at once, as without the script.
+    The envelope leaves out To, which the summary says (the web drops a row
+    its card's line already says)."""
     return f"""
               <turbo-frame id="message_14">
                 <section id="tool_call_{RECAP_CALL}" class="approval" aria-labelledby="approval_summary_tool_call_9">
@@ -449,7 +451,6 @@ def approval_card(account, number):
                   <div class="approval__preview">
                     <div class="approval__letter">
                       <dl class="approval__envelope">
-                        <div><dt>To</dt><dd>#acme-launch</dd></div>
                         <div><dt>As</dt><dd>You, from your Slack account</dd></div>
                       </dl>
                       <div class="approval__body">{esc(RECAP)}</div>
@@ -607,10 +608,28 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
         </div>
 {lock_line}
 
-        <div id="permission_modes" data-action="change->composer#update">
-          <label><input type="radio" name="permission_mode" value="ask" checked aria-label="Ask for changes" aria-description="You approve each change">Ask for changes</label>
-          <label><input type="radio" name="permission_mode" value="edits" aria-label="Allow edits" aria-description="Deleting or overwriting still asks">Allow edits</label>
-          <label><input type="radio" name="permission_mode" value="everything" aria-label="Allow everything" aria-description="Nothing asks, deletes included">Allow everything</label>
+        <div id="composer_menu" class="menu chat-prompt__menu" role="menu" aria-label="Add files and more" hidden>
+          <div id="permission_modes" class="chat-prompt__modes" role="group" aria-labelledby="permission_modes_label" data-action="change->composer#update">
+            <span class="chat-prompt__menu-heading" id="permission_modes_label">Changes</span>
+            <label class="chat-prompt__mode chat-prompt__mode--ask">
+              <input type="radio" name="permission_mode" value="ask" checked class="sr-only" role="menuitemradio" aria-label="Ask for changes" aria-description="You approve each change">
+              {icon("hand-palm", "size-4")}
+              <span class="chat-prompt__menu-label">Ask for changes <span class="chat-prompt__menu-note">You approve each change</span></span>
+              <span class="chat-prompt__mode-check" aria-hidden="true">{icon("check", "size-3.5")}</span>
+            </label>
+            <label class="chat-prompt__mode chat-prompt__mode--edits">
+              <input type="radio" name="permission_mode" value="edits" class="sr-only" role="menuitemradio" aria-label="Allow edits" aria-description="Deleting or overwriting still asks">
+              {icon("pencil-simple", "size-4")}
+              <span class="chat-prompt__menu-label">Allow edits <span class="chat-prompt__menu-note">Deleting or overwriting still asks</span></span>
+              <span class="chat-prompt__mode-check" aria-hidden="true">{icon("check", "size-3.5")}</span>
+            </label>
+            <label class="chat-prompt__mode chat-prompt__mode--everything">
+              <input type="radio" name="permission_mode" value="everything" class="sr-only" role="menuitemradio" aria-label="Allow everything" aria-description="Nothing asks, deletes included">
+              {icon("warning-octagon", "size-4")}
+              <span class="chat-prompt__menu-label">Allow everything <span class="chat-prompt__menu-note">Nothing asks, deletes included</span></span>
+              <span class="chat-prompt__mode-check" aria-hidden="true">{icon("check", "size-3.5")}</span>
+            </label>
+          </div>
         </div>
         <div class="chat-prompt__bar">
           <button type="button" hidden data-dictation-target="button" aria-label="Dictate"></button>
