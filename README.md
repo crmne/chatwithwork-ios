@@ -134,8 +134,9 @@ docs/             the server contract and design notes
   sidebar is SwiftUI, drawn from the server's `/native/sidebar` JSON, fetched
   with the web views' own cookies (`SidebarStore`), with a Chats | Bots
   switch near its top, and Decisions, a button of its own, just before
-  it. Bots, projects and other
-  pages are pushed over the chat; Settings and forms are sheets.
+  it. Everything the sidebar opens is a place that replaces the root
+  screen, with the sidebar button and no back; only drill-downs (a bot from
+  Bots) are pushed, and forms are sheets.
 - **Web screens** are plain `HotwireWebViewController`s configured from
   outside (`WebScreen`), never subclassed: a subclass recreating the bridge
   delegate is what crashed Cluster Headache Tracker's app. The web view

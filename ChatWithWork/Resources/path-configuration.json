@@ -7,7 +7,8 @@
       ],
       "properties": {
         "context": "default",
-        "pull_to_refresh_enabled": true
+        "pull_to_refresh_enabled": true,
+        "query_string_presentation": "replace"
       }
     },
     {
@@ -58,23 +59,25 @@
     },
     {
       "patterns": [
-        "/settings(\\?|$)"
+        "/settings\\?"
       ],
       "properties": {
-        "context": "modal",
-        "modal_style": "large",
-        "modal_dismiss_gesture_enabled": true,
-        "pull_to_refresh_enabled": true
+        "context": "default",
+        "pull_to_refresh_enabled": true,
+        "query_string_presentation": "default"
       }
     },
     {
       "patterns": [
+        "/decisions(\\?|$)",
+        "/bots(\\?|$)",
         "/chats(\\?|$)",
         "/projects(\\?|$)",
-        "/bots(\\?|$)"
+        "/settings$"
       ],
       "properties": {
         "context": "default",
+        "presentation": "replace_root",
         "pull_to_refresh_enabled": true
       }
     },

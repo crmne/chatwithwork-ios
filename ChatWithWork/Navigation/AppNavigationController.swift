@@ -29,8 +29,8 @@ final class AppNavigationController: HotwireNavigationController {
     }
 
     override func setViewControllers(_ viewControllers: [UIViewController], animated: Bool) {
-        // A chat replacing the root (the path configuration's replace_root)
-        // fades in, rather than sliding in as if pushed.
+        // A place replacing the root (the path configuration's replace_root,
+        // or the sidebar's Places) fades in, rather than sliding in as if pushed.
         let replacesRoot = animated && viewControllers.count == 1 && !self.viewControllers.isEmpty && self.viewControllers.first !== viewControllers.first
         if replacesRoot {
             let fade = CATransition()
@@ -38,14 +38,12 @@ final class AppNavigationController: HotwireNavigationController {
             fade.type = .fade
             view.layer.add(fade, forKey: kCATransition)
         }
-        viewControllers.filter { !self.viewControllers.contains($0) }.forEach { shell?.noteNewScreen($0) }
         super.setViewControllers(viewControllers, animated: animated && !replacesRoot)
         installCloseButtonWhenPresented()
         decorate()
     }
 
     override func pushViewController(_ viewController: UIViewController, animated: Bool) {
-        shell?.noteNewScreen(viewController)
         super.pushViewController(viewController, animated: animated)
         decorate()
     }
