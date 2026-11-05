@@ -134,7 +134,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         textView.textColor = Palette.ink
         textView.backgroundColor = .clear
         // The bar's controls reach 6 points from the box's sides (their
-        // squares 10); the words keep their own 17.
+        // squares 11); the words keep their own 17.
         textView.textContainerInset = UIEdgeInsets(top: 8, left: 6, bottom: 6, right: 6)
         textView.delegate = self
         textView.accessibilityIdentifier = "composer.text"
@@ -153,6 +153,8 @@ final class ComposerView: UIView, UITextViewDelegate {
         dictateButton.isHidden = true
 
         configure(webSearchButton, symbol: "globe", label: String(localized: "Search the web"), identifier: "composer.webSearch")
+        // The web's own globe, Phosphor's bold one (icon_tag "globe").
+        webSearchButton.setIcon("Globe")
         webSearchButton.addAction(UIAction { [weak self] _ in self?.webSearchTapped() }, for: .primaryActionTriggered)
         webSearchButton.isHidden = true
 

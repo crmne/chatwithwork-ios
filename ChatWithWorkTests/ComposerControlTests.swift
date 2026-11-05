@@ -3,7 +3,8 @@ import UIKit
 @testable import ChatWithWork
 
 /// The composer's buttons are the web's touch buttons: 44-point targets
-/// painting 36-point squares with 10-point corners, never circles.
+/// painting 34-point squares with 9-point corners (the globe's 5), never
+/// circles.
 @MainActor
 @Suite("Composer controls")
 struct ComposerControlTests {
@@ -15,13 +16,13 @@ struct ComposerControlTests {
         return (control, plate)
     }
 
-    @Test("every style paints a 36-point square with 10-point corners inside a 44-point target")
+    @Test("every style paints a 34-point square inside a 44-point target, with 9-point corners and the globe's 5")
     func geometry() {
         for style in [ComposerControl.Style.ghost, .toggle, .primary, .subtle] {
             let (control, plate) = laidOut(style)
             #expect(control.bounds.size == CGSize(width: 44, height: 44))
-            #expect(plate.frame == CGRect(x: 4, y: 4, width: 36, height: 36))
-            #expect(plate.layer.cornerRadius == 10)
+            #expect(plate.frame == CGRect(x: 5, y: 5, width: 34, height: 34))
+            #expect(plate.layer.cornerRadius == (style == .toggle ? 5 : 9))
         }
     }
 
@@ -52,8 +53,10 @@ struct ComposerControlTests {
         control.isOn = true
         #expect(control.colors.plate == Palette.ink.withAlphaComponent(0.1))
         #expect(control.colors.icon == Palette.ink)
+        #expect(control.layer.sublayers?.contains { $0 is CAShapeLayer && !$0.isHidden } == true, "On, the inset shadow shows")
         control.isInert = true
         #expect(control.colors.icon == Palette.inkFaint)
+        #expect(control.layer.sublayers?.contains { $0 is CAShapeLayer && !$0.isHidden } == false, "Faint, it doesn't")
     }
 
     @Test("stop beside send is the subtle button: surface with a strong hairline")
