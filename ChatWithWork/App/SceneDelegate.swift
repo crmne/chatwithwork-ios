@@ -40,8 +40,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         let link = connectionOptions.userActivities.first(where: { $0.activityType == NSUserActivityTypeBrowsingWeb })?.webpageURL
         let appLink = connectionOptions.urlContexts.first?.url
+        // A notification that launched the app: the shell starts on its page.
+        let launch = connectionOptions.notificationResponse.flatMap { response in
+            PushNotifications.shared.takeLaunch(path: response.notification.request.content.userInfo["path"] as? String,
+                                                identifier: response.notification.request.identifier)
+        }
         let start = {
-            shell.start()
+            shell.start(at: launch)
             if let link { shell.open(link) }
             if let appLink { shell.openAppLink(appLink) }
         }

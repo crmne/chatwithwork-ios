@@ -46,6 +46,8 @@ final class PushNotifications: NSObject {
     private var waitingForToken: [CheckedContinuation<String?, Never>] = []
     /// A notification tapped before the shell was ready to open it.
     private var pendingURL: URL?
+    /// The notification the app launched onto (`takeLaunch`).
+    private var launchIdentifier: String?
 
     func configure(environment: AppEnvironment, defaults: UserDefaults = .standard) {
         self.environment = environment
@@ -223,7 +225,25 @@ final class PushNotifications: NSObject {
         return isShowing?(url) ?? false
     }
 
-    fileprivate func open(path: String?) {
+    /// The page of the notification that launched the app, from the
+    /// scene's connection options, for the shell to start on. The same tap
+    /// reaches the delegate too; that one then opens nothing more.
+    func takeLaunch(path: String?, identifier: String) -> URL? {
+        guard let url = NotificationRoute.url(path: path, environment: environment) else { return nil }
+        if pendingURL == url {
+            // The delegate heard it first and kept it for the shell.
+            pendingURL = nil
+        } else {
+            launchIdentifier = identifier
+        }
+        return url
+    }
+
+    fileprivate func open(path: String?, identifier: String? = nil) {
+        if let identifier, identifier == launchIdentifier {
+            launchIdentifier = nil
+            return
+        }
         guard let url = NotificationRoute.url(path: path, environment: environment) else { return }
         if let onOpen {
             onOpen(url)
@@ -258,8 +278,9 @@ extension PushNotifications: UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping @Sendable () -> Void
     ) {
         let path = response.notification.request.content.userInfo["path"] as? String
+        let identifier = response.notification.request.identifier
         PushNotifications.onMain {
-            PushNotifications.shared.open(path: path)
+            PushNotifications.shared.open(path: path, identifier: identifier)
             completionHandler()
         }
     }

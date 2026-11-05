@@ -53,6 +53,40 @@ struct PushNotificationsTests {
         }
     }
 
+    @Test("the notification that launched the app opens nothing more when its tap arrives")
+    func launchTapOpensOnce() async throws {
+        var opened: [URL] = []
+        push.onOpen = { opened.append($0) }
+        let launch = try response(path: "/482139075/chats/42")
+
+        let url = push.takeLaunch(path: "/482139075/chats/42", identifier: launch.notification.request.identifier)
+        #expect(url == environment.url(path: "/482139075/chats/42"))
+        _ = await tap(launch)
+        #expect(opened.isEmpty)
+
+        // The next notification's tap opens as usual.
+        _ = await tap(try response(path: "/482139075/chats/43"))
+        #expect(opened == [environment.url(path: "/482139075/chats/43")])
+    }
+
+    @Test("a launch tap the delegate heard first isn't opened twice")
+    func delegateHeardFirst() async throws {
+        let launch = try response(path: "/482139075/chats/42")
+        _ = await tap(launch)
+
+        let url = push.takeLaunch(path: "/482139075/chats/42", identifier: launch.notification.request.identifier)
+        #expect(url != nil)
+        var opened: [URL] = []
+        push.onOpen = { opened.append($0) }
+        #expect(opened.isEmpty)
+    }
+
+    @Test("a launch notification with no page of ours starts the shell as usual")
+    func launchWithoutPage() {
+        #expect(push.takeLaunch(path: nil, identifier: "a") == nil)
+        #expect(push.takeLaunch(path: "//evil.example/x", identifier: "b") == nil)
+    }
+
     @Test("a tap opens the chat and finishes on the main thread")
     func tapOpensChat() async throws {
         var opened: [URL] = []

@@ -152,6 +152,9 @@ docs/             the server contract and design notes
   visit's render), Hotwire shows the web view and the page has moved to its
   place in the chat. A failed visit removes it, and it never stays past 10
   seconds.
+- **A notification that launches the app** starts the navigator on its page:
+  `SceneDelegate` reads it from the connection options and `AppShell` starts
+  the shell in that page's organization, without loading New chat first.
 - **Bridge components**: Joe Masilotti's `alert`, `review-prompt` and `theme`
   as they are; iOS versions of `button`, `menu`, `search`, `form`, `share`,
   `toast` and `haptic` with his messages, which share the navigation bar

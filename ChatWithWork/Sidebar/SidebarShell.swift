@@ -148,9 +148,24 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         }
     }
 
-    /// Starts the navigator at the new chat, or reopens a chat left moments
-    /// ago that is still answering or waiting for the person.
-    func start() {
+    /// Starts the navigator at `url` when a notification launched the app
+    /// onto it, else at the new chat, or reopens a chat left moments ago
+    /// that is still answering or waiting for the person.
+    func start(at url: URL? = nil) {
+        if let url {
+            let properties = navigator.session.pathConfiguration?.properties(for: url) ?? PathProperties()
+            if let place = Self.startingPlace(url, properties: properties) {
+                // The page's own screen first, its visit started at once:
+                // New chat loading first only to be replaced cost a whole page load.
+                navigator.route(place)
+            } else {
+                // A form comes up over the shell's usual start.
+                navigator.start()
+                navigator.route(url)
+            }
+            return
+        }
+
         guard let (path, at) = memory.lastChat, Date().timeIntervalSince(at) < 10 * 60,
               AppRoute(path: path).account == account, AppRoute(path: path).isChat
         else {
@@ -171,6 +186,13 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
                 self.navigator.route(self.environment.url(path: chat.url))
             }
         }
+    }
+
+    /// The visit that starts the navigator on `url`, as the place at its
+    /// root; none for a page that comes up as a form (a modal).
+    nonisolated static func startingPlace(_ url: URL, properties: PathProperties) -> VisitProposal? {
+        guard properties.context != .modal else { return nil }
+        return VisitProposal(url: url, options: VisitOptions(action: .advance), properties: Places.opening(properties))
     }
 
     // MARK: What the screens put in their bars

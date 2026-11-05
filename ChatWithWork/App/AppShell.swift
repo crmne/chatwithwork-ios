@@ -37,16 +37,24 @@ final class AppShell: NSObject {
         super.init()
     }
 
-    func start() {
+    /// Puts up the first screen: `url`'s page, when a notification launched
+    /// the app, or the shell's usual start.
+    func start(at url: URL? = nil) {
         LiveActivities.shared.isSignedIn = { [weak self] in
             if case .signedIn = self?.state { true } else { false }
         }
 
+        let url = url.flatMap { environment.owns($0) ? $0 : nil }
         if memory.hasSignedIn || LaunchOptions.assumesSignedIn {
-            showSignedIn(account: memory.lastAccount, animated: false)
+            // Straight into the page's organization and onto the page, rather
+            // than loading New chat first only to replace it.
+            let account = url.flatMap { AppRoute(url: $0).account } ?? memory.lastAccount
+            if account != memory.lastAccount { memory.lastAccount = account }
+            showSignedIn(account: account, startingAt: url, animated: false)
             PushNotifications.shared.refreshRegistrationIfAuthorized()
         } else {
             showSignedOut(reason: .firstLaunch, animated: false)
+            if let url { pendingURL = url }
         }
 
         PushNotifications.shared.onOpen = { [weak self] url in
@@ -170,7 +178,7 @@ final class AppShell: NSObject {
 
     // MARK: Signed in
 
-    private func showSignedIn(account: AccountSlug?, continuingTo url: URL? = nil, animated: Bool = true) {
+    private func showSignedIn(account: AccountSlug?, continuingTo url: URL? = nil, startingAt start: URL? = nil, animated: Bool = true) {
         let shell = SidebarShell(environment: environment, account: account, navigatorDelegate: self, memory: memory)
         self.account = account
         state = .signedIn(shell)
@@ -178,7 +186,7 @@ final class AppShell: NSObject {
         // In the window before the first page loads, so the page starts under
         // the bars at their real height.
         replaceRoot(with: shell, animated: animated)
-        shell.start()
+        shell.start(at: start)
 
         if let url {
             route(url, in: shell)
