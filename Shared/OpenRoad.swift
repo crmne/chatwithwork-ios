@@ -79,6 +79,8 @@ nonisolated struct OpenRoad: Equatable {
     let heardAt: Date?
     /// The words, as sent where they came from the server.
     let message: String
+    /// A person's chat: Chat with Work's logo where the bot would stand.
+    let showsLogo: Bool
 
     init(state: ChatActivityAttributes.ContentState, startedAt: Date, isStale: Bool, now: Date = .now) {
         let start = state.startedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) } ?? startedAt
@@ -87,6 +89,7 @@ nonisolated struct OpenRoad: Equatable {
 
         steps = max(state.steps ?? 0, 0)
         message = state.line
+        showsLogo = state.showsLogo
         heardAt = heard
         isLegacy = state.trail == nil
         ticks = Self.ticks(trail: state.trail, pace: state.pace, steps: steps)

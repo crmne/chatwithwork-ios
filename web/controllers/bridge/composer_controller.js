@@ -204,6 +204,7 @@ export default class extends BridgeComponent {
       run: element.dataset.liveRun || null,
       revision: element.dataset.liveRevision ? Number(element.dataset.liveRevision) : null,
       startedAt: element.dataset.liveStartedAt ? Number(element.dataset.liveStartedAt) : null,
+      mark: element.dataset.liveMark || null,
       models: [ ...element.querySelectorAll(".model-picker__option") ].map(option => ({
         name: option.dataset.modelSelectNameParam,
         rate: option.dataset.modelSelectRateParam || null,

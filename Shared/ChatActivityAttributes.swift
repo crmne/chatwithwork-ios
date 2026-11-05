@@ -18,7 +18,9 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
     /// stands. Older servers send those, and the optionals after them, not
     /// at all. `service` and `services` are built-in keys, or `mcp` and
     /// `computer`, never a name a person gave one. `pace` says how long each
-    /// step of `trail` took, a digit each.
+    /// step of `trail` took, a digit each. `mark` says who's at work: `chat`,
+    /// a person's chat, draws Chat with Work's logo, and `bot`, or an older
+    /// server's nothing, the bot.
     struct ContentState: Codable, Hashable, Sendable {
         var phase: String
         var message: String?
@@ -35,9 +37,10 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
         var pace: String?
         var agents: Int?
         var heardAt: Int64?
+        var mark: String?
 
         enum CodingKeys: String, CodingKey {
-            case phase, message, step, steps, run, revision, service, services, trail, pace, agents
+            case phase, message, step, steps, run, revision, service, services, trail, pace, agents, mark
             case recentSteps = "recent_steps"
             case startedAt = "started_at"
             case waitingSince = "waiting_since"
@@ -47,6 +50,9 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
         static let answering = ContentState(phase: "answering", message: nil)
 
         var isWorking: Bool { phase == "answering" }
+
+        /// A person's chat, whose Live Activity is Chat with Work's logo, not the bot.
+        var showsLogo: Bool { mark == "chat" }
 
         var needsAttention: Bool { phase == "approval_waiting" || phase == "input_requested" }
 

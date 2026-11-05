@@ -26,6 +26,7 @@ final class LiveActivities {
     #if DEBUG
         /// Synthetic system-surface previews, with no token or server registration.
         /// `-CWWLiveActivityPreview search|approval_waiting|answered|failed|stale`.
+        /// `-CWWLiveActivityMark chat` draws the logo a person's chat shows.
         /// Synthetic content for every state of Open Road. `*_bare` is what an
         /// end push carries today; `legacy` what an older server sends.
         static func previewState(_ scenario: String, now: Date) -> (state: ChatActivityAttributes.ContentState, age: TimeInterval) {
@@ -71,7 +72,8 @@ final class LiveActivities {
                     await activity.end(nil, dismissalPolicy: .immediate)
                 }
                 let now = Date()
-                let (state, age) = previewState(scenario.replacingOccurrences(of: "minimal_", with: ""), now: now)
+                var (state, age) = previewState(scenario.replacingOccurrences(of: "minimal_", with: ""), now: now)
+                state.mark = UserDefaults.standard.string(forKey: "CWWLiveActivityMark")
                 let organization = scenario == "long" ? "Northwind Studio International Operations" : "Northwind Studio"
                 let attributes = ChatActivityAttributes(organization: organization, path: "/1000001/chats/99999", startedAt: now.addingTimeInterval(-age))
                 let content = ActivityContent(state: state, staleDate: now.addingTimeInterval(scenario == "stale" ? 10 : 3600))
@@ -114,7 +116,7 @@ final class LiveActivities {
         guard isSignedIn(), let chatURL, case .chat = AppRoute(url: chatURL).kind else { return }
         let path = chatURL.path(percentEncoded: false)
         if state.working {
-            start(for: path, run: state.liveRun, csrfToken: state.csrfToken)
+            start(for: path, run: state.liveRun, mark: state.mark, csrfToken: state.csrfToken)
         } else if isInFront(), !state.waiting {
             // A wait keeps its activity: the answer goes on after it, and iOS
             // can't start another from the background.
@@ -140,7 +142,7 @@ final class LiveActivities {
         }
     }
 
-    private func start(for path: String, run: LiveRun?, csrfToken: String?) {
+    private func start(for path: String, run: LiveRun?, mark: String?, csrfToken: String?) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
         let activities = Activity<ChatActivityAttributes>.activities.filter { $0.attributes.path == path }
@@ -154,15 +156,16 @@ final class LiveActivities {
             if let activity = activities.first(where: { $0.id == id }) { watch(activity, run: run, csrfToken: csrfToken) }
         case .start(let replacing):
             for activity in activities where replacing.contains(activity.id) { end(activity) }
-            request(for: path, run: run, csrfToken: csrfToken)
+            request(for: path, run: run, mark: mark, csrfToken: csrfToken)
         }
     }
 
-    private func request(for path: String, run: LiveRun?, csrfToken: String?) {
+    private func request(for path: String, run: LiveRun?, mark: String?, csrfToken: String?) {
         let attributes = ChatActivityAttributes(organization: organizationName() ?? "Chat with Work", path: path, startedAt: run?.startedAt ?? Date(), run: run?.id)
         var state = ChatActivityAttributes.ContentState.answering
         state.run = run?.id
         state.revision = run?.revision
+        state.mark = mark
         let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(60 * 60))
         let activity: Activity<ChatActivityAttributes>
         do {

@@ -63,6 +63,8 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     let run: String?
     let revision: Int64?
     let startedAt: Int64?
+    /// Who's at work on that answer, for the Live Activity this app starts: `chat` or `bot`.
+    let mark: String?
     let models: [Model]
     let permissionModes: PermissionModes?
     let webSearch: WebSearch?
@@ -95,6 +97,7 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
         run = try values.decodeIfPresent(String.self, forKey: .run)
         revision = try values.decodeIfPresent(Int64.self, forKey: .revision)
         startedAt = try values.decodeIfPresent(Int64.self, forKey: .startedAt)
+        mark = try values.decodeIfPresent(String.self, forKey: .mark)
         models = try values.decodeIfPresent([Model].self, forKey: .models) ?? []
         permissionModes = try values.decodeIfPresent(PermissionModes.self, forKey: .permissionModes)
         webSearch = try values.decodeIfPresent(WebSearch.self, forKey: .webSearch)
@@ -105,7 +108,7 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case overlay, visible, placeholder, text, locked, lockReason, working, stopping, waiting, run, revision, startedAt, models, permissionModes, webSearch, dictation, csrfToken, attachments, acceptsFiles
+        case overlay, visible, placeholder, text, locked, lockReason, working, stopping, waiting, run, mark, revision, startedAt, models, permissionModes, webSearch, dictation, csrfToken, attachments, acceptsFiles
     }
 
     /// Whether Send can go now: words or files, nothing still uploading, and

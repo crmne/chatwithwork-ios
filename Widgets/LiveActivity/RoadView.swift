@@ -32,7 +32,7 @@ struct RoadView: View {
     private var botColor: Color { road.stage == .stale ? Color(red: 0x80 / 255, green: 0x88 / 255, blue: 0x9D / 255) : .white }
 
     private func placedBot(x: CGFloat) -> some View {
-        BotMark(face: road.face, tool: road.tool, size: bot, mode: botMode, color: botColor, eyes: ground)
+        BotMark(face: road.face, tool: road.tool, size: bot, mode: botMode, color: botColor, eyes: ground, logo: road.showsLogo)
             .id(road.face.rawValue + (road.tool?.rawValue ?? ""))
             .transition(.opacity)
             .offset(x: x, y: botTop(bot))
@@ -176,7 +176,7 @@ struct RoadView: View {
             }
             stops(trailEnd)
             ForEach(lanes.indices, id: \.self) { index in
-                BotMark(face: faces[index], size: small, mode: botMode, eyes: ground)
+                BotMark(face: faces[index], size: small, mode: botMode, eyes: ground, logo: road.showsLogo)
                     .offset(x: end + 2, y: lanes[index] - small * 15 / 16 + 0.5)
                 dots(from: end + small + 12, to: w, y: lanes[index] + 0.5)
             }
@@ -264,12 +264,15 @@ struct RoadView: View {
             Bars(rects: ticks(head - 4)).fill(dimmed ? Road.dim : Road.positive)
             stops(head - 4)
             placedBot(x: head)
-            Image("Mark")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 36, height: 36)
-                .offset(x: destination, y: base - 35)
-                .transition(.opacity)
+            // The road ends at the logo: where the logo already walks it, once is enough.
+            if !road.showsLogo {
+                Image("Mark")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
+                    .offset(x: destination, y: base - 35)
+                    .transition(.opacity)
+            }
         }
     }
 

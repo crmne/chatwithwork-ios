@@ -66,8 +66,10 @@ nonisolated struct PixelShape: Shape {
     }
 }
 
-/// The bot, on the card's dark ground or the Island's black. `line` is the
-/// outline, for Always-On and for a card gone quiet.
+/// Who's at work, on the card's dark ground or the Island's black: the bot,
+/// whose `line` is the outline, for Always-On and for a card gone quiet, or in
+/// a person's chat (`logo`) Chat with Work's logo in its place, in its own
+/// white and black, with no faces, since the words say the state.
 struct BotMark: View {
     enum Mode { case solid, line }
 
@@ -77,6 +79,7 @@ struct BotMark: View {
     var mode: Mode = .solid
     var color: Color = .white
     var eyes: Color = Road.canvas
+    var logo = false
     @Environment(\.displayScale) private var scale
 
     /// Whole device pixels a square, so edges stay sharp: 8 at 42 2/3pt on @3x.
@@ -89,11 +92,13 @@ struct BotMark: View {
     var body: some View {
         let side = square * 16
         ZStack(alignment: .topLeading) {
-            switch mode {
-            case .solid:
+            switch logo ? nil : mode {
+            case nil:
+                Image("Mark").resizable().scaledToFit().frame(width: side, height: side)
+            case .solid?:
                 PixelShape(rects: BotPixels.body, square: square).fill(color)
                 PixelShape(rects: BotPixels.face(face), square: square).fill(eyes)
-            case .line:
+            case .line?:
                 PixelShape(rects: BotPixels.outline + BotPixels.face(face), square: square).fill(color)
             }
             if let tool {
