@@ -432,14 +432,17 @@ def activity(activity_id, services, title, *, details=None, steps="", opened=Fal
 
 def approval_card(account, number):
     """A change waiting for its driver (messages/tool_calls/_approval), with
-    the haptics the contract adds to its two forms."""
+    the haptics the contract adds to its two forms. Deny's reason sits in the
+    footer, hidden until Deny's first press opens it (playground.js stands in
+    for the web's approval_deny_controller.js). The envelope leaves out To, which the summary says (the web drops a row
+    its card's line already says)."""
     return f"""
               <turbo-frame id="message_14">
-                <section id="tool_call_{RECAP_CALL}" class="approval" aria-labelledby="approval_summary_tool_call_9">
+                <section id="tool_call_{RECAP_CALL}" class="approval" aria-labelledby="approval_summary_tool_call_9" data-controller="approval-deny" data-action="keydown.esc->approval-deny#close">
                   <header class="approval__header">
                     <span class="avatar-stack"><span class="avatar-stack__item" title="Slack">{provider("slack", alt="Slack")}</span></span>
                     <div class="approval__heading">
-                      <p class="approval__kicker">Needs your approval · Slack</p>
+                      <p class="approval__kicker">Needs your permission · Slack</p>
                       <h3 id="approval_summary_tool_call_9" class="approval__summary">Post a message to #acme-launch</h3>
                     </div>
                   </header>
@@ -447,23 +450,15 @@ def approval_card(account, number):
                   <div class="approval__preview">
                     <div class="approval__letter">
                       <dl class="approval__envelope">
-                        <div><dt>To</dt><dd>#acme-launch</dd></div>
                         <div><dt>As</dt><dd>You, from your Slack account</dd></div>
                       </dl>
                       <div class="approval__body">{esc(RECAP)}</div>
                     </div>
                   </div>
 
-                  <form id="denial_tool_call_9" class="approval__reason" method="post" action="/{account}/chats/{number}/tool_calls/9/denial"
+                  <form id="denial_tool_call_9" class="hidden" method="post" action="/{account}/chats/{number}/tool_calls/9/denial"
                         data-turbo-frame="_top" data-controller="bridge--haptic" data-bridge-feedback="warning"
-                        data-action="turbo:submit-start->bridge--haptic#vibrate">
-                    <details>
-                      <summary>Deny with a reason</summary>
-                      <label class="sr-only" for="denial_reason_tool_call_9">Why you're denying it</label>
-                      <input type="text" name="reason" id="denial_reason_tool_call_9" maxlength="500" class="input input-sm"
-                             placeholder="Say what to do instead (optional)" autocomplete="off">
-                    </details>
-                  </form>
+                        data-action="turbo:submit-start->bridge--haptic#vibrate"></form>
 
                   <form id="approval_form_tool_call_9" class="approval__actions" method="post" action="/{account}/chats/{number}/tool_calls/9/approval"
                         data-turbo-frame="_top" data-controller="bridge--haptic" data-bridge-feedback="success"
@@ -473,9 +468,16 @@ def approval_card(account, number):
                       <span>Allow “Post message” in Slack for the rest of this chat</span>
                     </label>
 
+                    <div class="approval__reason" data-approval-deny-target="reason" hidden>
+                      <label class="sr-only" for="denial_reason_tool_call_9">Why you're denying it</label>
+                      <input type="text" name="reason" id="denial_reason_tool_call_9" form="denial_tool_call_9" maxlength="500" class="input input-sm"
+                             placeholder="Reason (optional)" autocomplete="off" enterkeyhint="send"
+                             data-approval-deny-target="field" data-action="keydown.esc->approval-deny#close">
+                    </div>
                     <div class="approval__buttons">
-                      <button type="submit" form="denial_tool_call_9" class="btn btn-sm btn-subtle">Deny</button>
-                      <button type="submit" class="btn btn-sm btn-primary">Approve</button>
+                      <button type="button" class="btn btn-sm btn-ghost" data-approval-deny-target="cancel" data-action="approval-deny#close" hidden>Cancel</button>
+                      <button type="submit" form="denial_tool_call_9" class="btn btn-sm btn-subtle" data-approval-deny-target="deny" data-action="approval-deny#deny">Deny</button>
+                      <button type="submit" class="btn btn-sm btn-primary approval__approve">Approve</button>
                     </div>
                   </form>
                 </section>
@@ -605,20 +607,42 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
         </div>
 {lock_line}
 
-        <div id="permission_modes" data-action="change->composer#update">
-          <label><input type="radio" name="permission_mode" value="ask" checked aria-label="Ask for changes" aria-description="You approve each change">Ask for changes</label>
-          <label><input type="radio" name="permission_mode" value="edits" aria-label="Allow edits" aria-description="Deleting or overwriting still asks">Allow edits</label>
-          <label><input type="radio" name="permission_mode" value="everything" aria-label="Allow everything" aria-description="Nothing asks, deletes included">Allow everything</label>
-        </div>
         <div class="chat-prompt__bar">
           <button type="button" hidden data-dictation-target="button" aria-label="Dictate"></button>
-          <label class="chat-prompt__web-search" hidden><input type="checkbox" name="web_search"> Web search</label>
-          <span class="chat-prompt__menu-note" hidden>Searches leave the EU: Google or Bing see the query.</span>
-          <button type="button" class="btn btn-ghost btn-sm btn-square tooltip chat-prompt__attach"
-                  aria-label="Attach files" data-tip="Attach files">
-            <span class="chat-prompt__spinner" aria-hidden="true"></span>
-            {icon("paperclip", "size-4")}
-          </button>
+          <span class="chat-prompt__more" data-controller="composer-menu" data-action="keydown.esc->composer-menu#close">
+            <button type="button" class="btn btn-ghost btn-sm btn-square tooltip chat-prompt__attach"
+                    aria-label="Add files and more" aria-haspopup="menu" aria-expanded="false" aria-controls="composer_menu" data-tip="Add files and more"
+                    data-composer-menu-target="button" data-action="composer-menu#toggle">
+              <span class="chat-prompt__spinner" aria-hidden="true"></span>
+              {icon("plus", "size-4")}
+            </button>
+        <div id="composer_menu" class="menu chat-prompt__menu" role="menu" aria-label="Add files and more" hidden
+             data-composer-menu-target="menu">
+          <label class="chat-prompt__web-search" hidden><input type="checkbox" name="web_search"> Web search
+            <span class="chat-prompt__menu-note">Searches leave the EU: Google or Bing see the query.</span></label>
+          <div id="permission_modes" class="chat-prompt__modes" role="group" aria-labelledby="permission_modes_label" data-action="change->composer#update">
+            <span class="chat-prompt__menu-heading" id="permission_modes_label">Changes</span>
+            <label class="chat-prompt__mode chat-prompt__mode--ask">
+              <input type="radio" name="permission_mode" value="ask" checked class="sr-only" role="menuitemradio" aria-label="Ask for changes" aria-description="You approve each change">
+              {icon("hand-palm", "size-4")}
+              <span class="chat-prompt__menu-label">Ask for changes <span class="chat-prompt__menu-note">You approve each change</span></span>
+              <span class="chat-prompt__mode-check" aria-hidden="true">{icon("check", "size-3.5")}</span>
+            </label>
+            <label class="chat-prompt__mode chat-prompt__mode--edits">
+              <input type="radio" name="permission_mode" value="edits" class="sr-only" role="menuitemradio" aria-label="Allow edits" aria-description="Deleting or overwriting still asks">
+              {icon("pencil-simple", "size-4")}
+              <span class="chat-prompt__menu-label">Allow edits <span class="chat-prompt__menu-note">Deleting or overwriting still asks</span></span>
+              <span class="chat-prompt__mode-check" aria-hidden="true">{icon("check", "size-3.5")}</span>
+            </label>
+            <label class="chat-prompt__mode chat-prompt__mode--everything">
+              <input type="radio" name="permission_mode" value="everything" class="sr-only" role="menuitemradio" aria-label="Allow everything" aria-description="Nothing asks, deletes included">
+              {icon("warning-octagon", "size-4")}
+              <span class="chat-prompt__menu-label">Allow everything <span class="chat-prompt__menu-note">Nothing asks, deletes included</span></span>
+              <span class="chat-prompt__mode-check" aria-hidden="true">{icon("check", "size-3.5")}</span>
+            </label>
+          </div>
+        </div>
+          </span>
 
           <div class="model-picker tooltip" data-tip="{esc(rate)}" data-controller="model-select">
             <input type="hidden" name="model" value="{esc(model_id)}" data-model-select-target="model">

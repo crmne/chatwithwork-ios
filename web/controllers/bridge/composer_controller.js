@@ -217,7 +217,7 @@ export default class extends BridgeComponent {
       webSearch: webSearch ? {
         on: webSearch.checked,
         disabled: webSearch.disabled,
-        note: element.querySelector(".chat-prompt__menu-note")?.textContent.trim() || null
+        note: webSearch.closest(".chat-prompt__web-search")?.querySelector(".chat-prompt__menu-note")?.textContent.trim() || null
       } : null,
       dictation: dictation ? { url: element.dataset.dictationUrlValue } : null,
       csrfToken: document.querySelector("meta[name=csrf-token]")?.content || null,

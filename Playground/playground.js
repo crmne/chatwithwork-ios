@@ -99,6 +99,73 @@ application.register("chat", class extends Controller {
   }
 })
 
+// The composer's + menu, like the web app's composer-menu: its button opens
+// and closes it, Escape closes it and returns to the button, and a click
+// elsewhere closes it and leaves focus where it went.
+application.register("composer-menu", class extends Controller {
+  static targets = ["button", "menu"]
+
+  connect() {
+    this.outside = event => { if (!this.element.contains(event.target)) this.#show(false) }
+    document.addEventListener("click", this.outside)
+  }
+
+  disconnect() {
+    document.removeEventListener("click", this.outside)
+  }
+
+  toggle() {
+    this.#show(this.menuTarget.hidden)
+  }
+
+  close() {
+    if (!this.menuTarget.hidden) {
+      this.#show(false)
+      this.buttonTarget.focus()
+    }
+  }
+
+  #show(open) {
+    this.menuTarget.hidden = !open
+    this.buttonTarget.setAttribute("aria-expanded", open)
+  }
+})
+
+// Deny on an approval card, like the web app's approval-deny: its first
+// press opens "Reason (optional)", the next denies with it; Escape or Cancel
+// closes it again.
+application.register("approval-deny", class extends Controller {
+  static targets = ["reason", "field", "cancel", "deny"]
+
+  deny(event) {
+    if (this.open) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    this.#toggle(true)
+    this.fieldTarget.focus()
+  }
+
+  close(event) {
+    if (!this.open) return
+    event?.preventDefault()
+    this.fieldTarget.value = ""
+    this.#toggle(false)
+    this.denyTarget.focus()
+  }
+
+  get open() {
+    return this.element.classList.contains("approval--denying")
+  }
+
+  #toggle(open) {
+    this.element.classList.toggle("approval--denying", open)
+    this.reasonTarget.hidden = !open
+    this.cancelTarget.hidden = !open
+    this.denyTarget.classList.toggle("btn-subtle", !open)
+    this.denyTarget.classList.toggle("btn-subtle-negative", open)
+  }
+})
+
 // Opens a <dialog> by id, like the web app's modal-opener.
 application.register("modal-opener", class extends Controller {
   static values = { dialogId: String }
