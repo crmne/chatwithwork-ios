@@ -34,6 +34,16 @@ repository).
 
 ## Building and uploading
 
+### Build 10048 in TestFlight (November 5, 2026)
+
+Xcode Cloud built 1.1.2 build 10048 from
+[#37](https://github.com/crmne/chatwithwork-ios/pull/37) (each decision in
+the sidebar's list tagged Question or Permission, shown only from a server
+without the Decisions page) on top of
+[#36](https://github.com/crmne/chatwithwork-ios/pull/36). It went to the
+Internal and Public beta groups. App Review still holds build 10044, which
+nothing replaced; 10048's changes follow as an update after approval.
+
 ### November 4, 2026 submission
 
 iOS 1.1.2, build 10044, went to App Review on November 4, 2026 at about
