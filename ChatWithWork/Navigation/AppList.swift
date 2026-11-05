@@ -2,8 +2,8 @@ import Foundation
 
 /// The lists the shell knows by their path: the places a sidebar row or a
 /// link from outside leads to. None is a tab any more (the sidebar replaced
-/// the tab bar); they're pushed over the chat, or, for Settings, shown in a
-/// sheet (the path configuration decides).
+/// the tab bar); each replaces the root screen (the path configuration's
+/// `replace_root`, Places).
 nonisolated enum AppList: String, CaseIterable, Sendable {
     case chats
     case projects

@@ -3,14 +3,14 @@ import SwiftUI
 import UIKit
 
 /// The signed-in shell for one organization: a single navigator whose root
-/// is always a chat (the path configuration's `replace_root` for
-/// `/chats/new` and `/chats/<number>`), and the sidebar, which slides in from
-/// the left and pushes the chat aside. Bots, projects and the other pages
-/// are pushed over the chat; Settings and forms come up as sheets.
+/// is the place on screen (a chat, Decisions, Bots, Settings, or whatever
+/// else the sidebar opened: Places), and the sidebar, which slides in from
+/// the left and pushes the root aside. Drill-downs from a place (a bot from
+/// Bots) are pushed over it with back; forms come up as sheets.
 ///
 /// Opened by the bar's sidebar button or a swipe from the screen's left
-/// edge, on the chat and on what the sidebar itself opened; closed by a tap
-/// or a swipe on the chat, or by picking something.
+/// edge, on the root; closed by a tap or a swipe on the screen, or by
+/// picking something.
 /// Rebuilt, not patched, when the session or the organization changes
 /// (AppShell).
 final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
@@ -33,8 +33,6 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     private var panStart: CGFloat = 0
     nonisolated(unsafe) private var pollTask: Task<Void, Never>?
     nonisolated(unsafe) private var foregroundObserver: NSObjectProtocol?
-    private let sidebarOpening = SidebarOpening()
-    private let openedFromSidebar = NSHashTable<UIViewController>.weakObjects()
 
     var isOpen: Bool { progress > 0.5 }
 
@@ -177,20 +175,11 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
 
     // MARK: What the screens put in their bars
 
-    /// Asked once for each new main-stack screen: whether the sidebar opened it.
-    func noteNewScreen(_ viewController: UIViewController) {
-        if sidebarOpening.take(viewController.routedURL) {
-            openedFromSidebar.add(viewController)
-        }
-    }
-
-    /// The sidebar button on the leading side of a root screen and of what
-    /// the sidebar opened, in place of back, and New chat on the trailing
-    /// side of every main-stack screen.
+    /// The sidebar button on the leading side of the root screen, the place
+    /// on screen, where back would be, and New chat on the trailing side of
+    /// every main-stack screen.
     func decorate(_ viewController: UIViewController, isRoot: Bool) {
-        let isSidebarPage = openedFromSidebar.contains(viewController)
-        if isSidebarPage { viewController.navigationItem.hidesBackButton = true }
-        if isRoot || isSidebarPage {
+        if isRoot {
             let sidebar = UIBarButtonItem(image: UIImage(systemName: "sidebar.left"), primaryAction: UIAction { [weak self] _ in self?.toggle() })
             sidebar.accessibilityLabel = String(localized: "Open sidebar")
             sidebar.accessibilityIdentifier = "shell.sidebar"
@@ -250,11 +239,13 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         }
     }
 
+    /// What the sidebar opens is a place: the root screen, never pushed over
+    /// what was there (Places).
     private func open(path: String) {
         setOpen(false, animated: true)
         let url = environment.url(path: path)
-        sidebarOpening.opening(url)
-        navigator.route(url)
+        let properties = navigator.session.pathConfiguration?.properties(for: url) ?? PathProperties()
+        navigator.route(VisitProposal(url: url, options: VisitOptions(action: .advance), properties: Places.opening(properties)))
     }
 
     func startNewChat() {
@@ -393,13 +384,12 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         }
     }
 
-    /// The edge swipe opens the sidebar only on a root screen with nothing
-    /// over it; elsewhere the edge is the back swipe.
+    /// The edge swipe opens the sidebar only on the root screen with nothing
+    /// over it; on a drill-down the edge is the back swipe.
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         guard gestureRecognizer is UIScreenEdgePanGestureRecognizer else { return true }
         let main = navigator.rootViewController
-        let offersSidebar = main.viewControllers.count <= 1 || main.topViewController.map(openedFromSidebar.contains) == true
-        return offersSidebar && main.presentedViewController == nil && progress == 0
+        return main.viewControllers.count <= 1 && main.presentedViewController == nil && progress == 0
     }
 }
 

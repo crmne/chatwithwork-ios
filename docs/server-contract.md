@@ -411,13 +411,14 @@ anchoring unless written):
 
 | Pattern | Context | Presentation | Pull to refresh | Notes |
 |---|---|---|---|---|
-| `.*` | default (push) | | on | |
+| `.*` | default (push) | | on | `query_string_presentation: replace`: a visit to the page on screen with another query (a bot's tabs, a form redirecting back) replaces it rather than stacking a copy |
 | `/new(\?\|$)`, `/edit(\?\|$)` | modal (`large` sheet) | | off | every new and edit form |
 | `^/users/sign_in`, `^/users/sign_up`, `^/users(\?\|$)`, `^/users/password…`, `^/users/confirmation…`, `^/users/unlock…` | modal | | off | the sign-in pages |
 | `/chats/new(\?\|$)`, `/chats/\d+(\?\|#\|$)` | default | `replace_root` | off | a chat is always the one screen; nothing stacks under it |
+| `/chats/\d+\?(.*&)?from=` | default | `default` (push) | off | a chat a page opens about something on it (a bot's "Change it in a chat", its runs, Decisions' "Open chat", a side chat), pushed with back to that page |
 | `^/shared/` | default | | off | |
-| `/settings(\?\|$)` | modal (`large` sheet) | | on | swipe down dismisses; its sections push inside the sheet |
-| `/chats(\?\|$)`, `/projects(\?\|$)`, `/bots(\?\|$)` | default | | on | pushed over the chat |
+| `/settings\?` | default | | on | a Settings tab, pushed over the Settings list (`query_string_presentation: default`, since the list and its tabs share `/settings`) |
+| `/decisions(\?\|$)`, `/bots(\?\|$)`, `/chats(\?\|$)`, `/projects(\?\|$)`, `/settings$` | default | `replace_root` | on | the places: Decisions, Bots, the chat lists, Projects, the Settings list |
 | `/chats/\d+/files/` | modal (`full`) | | off | a chat's file in its viewer, over the chat ([A file](#a-file-chatsfilesshow)) |
 
 v1, for the tab builds, opened `/chats/new` as a sheet, pushed chats, and
@@ -644,6 +645,38 @@ click.
   bridge_url: shared_chat_url(token), bridge_title: @chat.display_title }`,
   rendered only when `native_app&.supports?(:share)`.
 
+### Beside a chat (`chats/panels/show`, server 2026-11-05)
+
+The web's side panel (agents, side chats, the chat's details) as a page of
+its own, `/chats/<n>/beside`, since the chat screen has no room beside it.
+
+- The `.*` rule pushes it over the chat with back to it, a drill-down. It
+  shows the panel's tabs one at a time (`?tab=`: Agents once the chat has
+  some, Side chats, Details); another tab replaces the page
+  (`query_string_presentation: replace`). It's kept live by the chat's
+  broadcasts and never shown to guests.
+- Its rows open their chats with `?from=chat`, so the `from=` rule pushes
+  them over it with back to it. New side chat is a form that goes to the
+  new side chat.
+- In sidebar builds the app draws New chat itself, so the chat's bar
+  `button` opens this page. Bar buttons carry no badge, so the symbol is
+  the count of agents and side chats: `N.circle` to 50, `.fill` while one
+  works or waits for an approval, `sidebar.right` at none, titled "Side
+  chats and more, N" for VoiceOver. The server replaces that button over
+  the chat's stream as the count changes. Where the bar's one button is
+  something else (a bot's Setup or Make bot, a try's) and in the tab
+  builds, "Side chats and more" is the chat menu's first item instead.
+- Nothing in the app changes for it.
+
+### Decisions (`decisions/index`)
+
+A place, replacing the root. Deciding never leaves it: approvals answer with
+Turbo Streams, and a form that leaves the board's frame redirects back to
+the page's own address, which the board keeps in Turbo's history, so the
+page refreshes in place instead of stacking a copy. A decision's "Open chat"
+links to `/chats/<n>?from=decisions`, which the `from=` rule pushes over
+Decisions with back to it; any other link to a chat replaces the root.
+
 ### New chat (`chats/new`)
 
 In sidebar builds it's the shell's root, where the app opens; in tab builds
@@ -791,7 +824,7 @@ Nothing to do, but worth knowing:
   and Print. A chat's files themselves open in their viewer (above).
 - In tab builds, a link to another tab's list (`/482139075/projects` from a
   chat) switches tabs instead of pushing a copy of the list. Sidebar builds
-  push it over the chat.
+  replace the root with it, as with every place.
 - A link into another organization rebuilds the shell there.
 - `recede_or_redirect_to(url, notice:)`, `refresh_…` and `resume_…` show the
   notice (or `alert`) as a toast.
@@ -1342,16 +1375,25 @@ is the server's switch for anything that differs.
   launched again within ten minutes of leaving a chat that is still answering
   or waiting, on that chat. `/chats/new` and `/chats/<number>` replace the root
   (path configuration v2), so switching chats never stacks screens and the
-  web view, shared by every screen, never reloads the app. Bots, projects and
-  other pages are pushed over the chat; Settings and every form are sheets.
-- **The bar.** The sidebar button on the leading side of the root and of a
-  page the sidebar opened, in place of back (`sidebar.left`), and what you
-  reach from that page gets back. New chat on the trailing side of every main
+  web view, shared by every screen, never reloads the app. Everything the
+  sidebar opens is a place, never a step (Carmine, 2026-11-05): a chat, New
+  chat, Decisions, Bots, a bot, Projects, a project, Settings,
+  Instructions. A place replaces the root (`replace_root` in the path
+  configuration, and `Places` for what the configuration pushes elsewhere,
+  like a bot from Bots), so places never stack and there's no back to an
+  earlier one. Only drill-downs are pushed over a place, with back to it (a
+  bot from Bots, a Settings tab from the Settings list); every form is a
+  sheet. Deciding on Decisions never navigates: the board keeps its address
+  in Turbo's history, so a form that redirects back to it refreshes it in
+  place.
+- **The bar.** The sidebar button on the leading side of the root, the place
+  on screen, in place of back (`sidebar.left`); what you drill down to from
+  it gets back. New chat on the trailing side of every main
   screen (`square.and.pencil`), and the page's own `button`, `menu`, `form` and
   `share` beside them. A page's `button` with `nativeAction: "new-chat"` is
   left out.
 - **The sidebar** slides in from the left and pushes the chat aside, opened by
-  the bar's button or a swipe from the screen's left edge (on a root screen or a page the sidebar opened
+  the bar's button or a swipe from the screen's left edge (on the root screen
   with nothing over it), closed by a tap or a swipe on the chat, or by picking
   something. Top to bottom: Decisions (below), the Chats | Bots switch (below), the list selector (`list`; its menu lists `lists`,
   then All projects… and New project) with New chat as a square plus beside it,

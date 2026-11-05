@@ -27,8 +27,10 @@ Live Wire design system and the chat UI. Read the README here first, then
   `HotwireNavigationController` is fine (it's meant for it).
 - `AppShell` owns the window's root. Changes of session or organization
   rebuild the `SidebarShell` rather than patching it.
-- There are no tabs. One navigator's root is always a chat (`replace_root`
-  in the path configuration), the native sidebar beside it is drawn from the
+- There are no tabs. One navigator's root is always a place (a chat,
+  Decisions, Bots, Settings: `replace_root` in the path configuration, and
+  whatever the sidebar opens, `Places`), never with a back button; only
+  drill-downs from it are pushed. The native sidebar beside it is drawn from the
   server's `/native/sidebar` JSON, and its data comes with the web views' own
   cookies, never a token of the app's.
 - Navigation bar buttons go through `NavigationBarItems`, one slot per

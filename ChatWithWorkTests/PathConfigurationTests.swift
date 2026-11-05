@@ -63,17 +63,39 @@ struct PathConfigurationTests {
         #expect(!properties("/shared/abc").pullToRefreshEnabled)
     }
 
-    @Test("shows Settings as a sheet, its sections pushed inside it", arguments: ["/1000001/settings", "/1000001/settings?tab=connectors"])
-    func settings(path: String) {
-        #expect(properties(path).context == .modal)
-        #expect(properties(path).modalDismissGestureEnabled)
+    @Test("makes every place the one screen at the root, with pull to refresh", arguments: [
+        "/1000001/decisions", "/1000001/decisions?decision=t7&view=now", "/1000001/bots", "/1000001/bots?list=mine",
+        "/1000001/chats", "/1000001/chats?list=recent", "/1000001/projects", "/1000001/settings"
+    ])
+    func places(path: String) {
+        #expect(properties(path).context == .default)
+        #expect(properties(path).presentation == .replaceRoot)
+        #expect(properties(path).pullToRefreshEnabled)
     }
 
-    @Test("pushes lists over the chat, with pull to refresh", arguments: ["/1000001/chats", "/1000001/projects", "/1000001/bots"])
-    func lists(path: String) {
+    @Test("pushes a drill-down, and replaces it with another query of its own", arguments: [
+        "/1000001/bots/7", "/1000001/bots/7?tab=setup", "/1000001/projects/3", "/1000001/triggers/4", "/1000001/settings/connected_services"
+    ])
+    func drillDowns(path: String) {
         #expect(properties(path).context == .default)
         #expect(properties(path).presentation == .default)
-        #expect(properties(path).pullToRefreshEnabled)
+        #expect(properties(path).queryStringPresentation == .replace)
+    }
+
+    @Test("pushes a chat a page opens, which says where from, with back to that page", arguments: [
+        "/1000001/chats/42?from=bot", "/1000001/chats/42?from=decisions", "/1000001/chats/43?from=chat"
+    ])
+    func drillDownChats(path: String) {
+        #expect(properties(path).context == .default)
+        #expect(properties(path).presentation == .default)
+    }
+
+    @Test("pushes a Settings tab over the Settings list it shares a path with")
+    func settingsTab() {
+        let tab = properties("/1000001/settings?tab=connectors")
+        #expect(tab.context == .default)
+        #expect(tab.presentation == .default)
+        #expect(tab.queryStringPresentation == .default)
     }
 
     @Test("opens a chat's files in their viewer, full screen over the chat", arguments: [
