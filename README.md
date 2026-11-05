@@ -144,6 +144,14 @@ docs/             the server contract and design notes
   conversation and its clear gutters showing the chat behind it, its page zoom
   follows the system text size, and its title follows the page's `<title>`
   whenever it changes. Files open in Quick Look.
+- **A chat's skeleton** (`ChatSkeleton`) shows the shape of a chat from the
+  moment its screen appears: question bubbles and answer lines with one shimmer
+  sweeping across them (still under Reduce Motion), a title bone, and the
+  composer at rest, in the same layout as the Android app's. It crossfades out
+  once the page has painted (`PagePaint`: first contentful paint, or a Turbo
+  visit's render), Hotwire shows the web view and the page has moved to its
+  place in the chat. A failed visit removes it, and it never stays past 10
+  seconds.
 - **Bridge components**: Joe Masilotti's `alert`, `review-prompt` and `theme`
   as they are; iOS versions of `button`, `menu`, `search`, `form`, `share`,
   `toast` and `haptic` with his messages, which share the navigation bar

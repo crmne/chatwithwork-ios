@@ -10,6 +10,10 @@ enum Palette {
     static let surface = UIColor(light: 0xFFFFFF, dark: 0x0F121A)
     static let surfaceRaised = UIColor(light: 0xFFFFFF, dark: 0x141824)
     static let surfaceHover = UIColor(light: 0xF1F4F8, dark: 0x161B27)
+    static let surfaceSelected = UIColor(light: 0xE7EBF2, dark: 0x1A2030)
+    /// A loading skeleton's sweeping light, one step lighter than its
+    /// `surfaceSelected` bones: `surface` in light, `lineStrong` in dark.
+    static let skeletonShine = UIColor(light: 0xFFFFFF, dark: 0x2A3144)
 
     // Ink
     static let ink = UIColor(light: 0x0A0D14, dark: 0xE9ECF4)

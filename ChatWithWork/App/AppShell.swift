@@ -352,6 +352,8 @@ extension AppShell: NavigatorDelegate {
     }
 
     func visitableDidFailRequest(_ visitable: Visitable, error: HotwireNativeError, retryHandler: RetryBlock?) {
+        // A chat that didn't load shows why, not its shape.
+        ChatSkeleton.dismiss(on: visitable.visitableViewController, animated: false)
         if error.statusCode == 401 {
             switch state {
             case .signedIn:

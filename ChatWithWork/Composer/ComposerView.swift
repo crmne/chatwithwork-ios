@@ -64,6 +64,12 @@ final class ComposerView: UIView, UITextViewDelegate {
     /// square; Send beside it is the subtle one.
     private let stopButton = ComposerControl(style: .primary)
     private let sendButton = ComposerControl(style: .primary)
+    /// The box at rest, one empty line: its 6pt top, the 40pt text, 2pt, the
+    /// row of 44pt controls and its 6pt bottom. A chat's loading skeleton
+    /// draws its placeholder this tall (ChatSkeleton).
+    nonisolated static let restingBoxHeight: CGFloat = 6 + 40 + 2 + 44 + 6
+    /// Between the box and the bottom of the safe area.
+    nonisolated static let restingBottomGap: CGFloat = 8
     private let dictationLine = DictationLine()
     private let cancelButton = ComposerControl(style: .ghost)
     private var textHeight: NSLayoutConstraint!

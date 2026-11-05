@@ -25,6 +25,7 @@ enum WebScreen {
         }
 
         KeyboardAvoidance.install(on: controller)
+        ChatSkeleton.attach(to: controller, url: url)
         return controller
     }
 
@@ -34,6 +35,8 @@ enum WebScreen {
         // The pages' service worker, which keeps opened chats readable
         // offline, runs only in a web view kept to the app-bound domains.
         configuration.limitsNavigationsToAppBoundDomains = AppBoundDomains.covers(AppEnvironment.current.baseURL)
+
+        PagePaint.install(in: configuration)
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         TextSize.follow(webView)
@@ -108,6 +111,47 @@ enum PinchZoom {
     static func reset(_ webView: WKWebView?) {
         guard let scrollView = webView?.scrollView, scrollView.zoomScale > scrollView.minimumZoomScale + 0.001 else { return }
         scrollView.setZoomScale(scrollView.minimumZoomScale, animated: false)
+    }
+}
+
+/// Tells the app when a page has painted, so a chat's skeleton can go
+/// (ChatSkeleton): a page loaded from scratch says so at its first
+/// contentful paint, a Turbo visit in the frame after it renders. Each
+/// message carries the page's path.
+enum PagePaint {
+    static let handlerName = "cwwPagePaint"
+
+    static let script = """
+    (() => {
+      const say = () => {
+        try { window.webkit.messageHandlers.\(handlerName).postMessage({ path: location.pathname }) } catch (_) {}
+      }
+      const afterFrame = () => requestAnimationFrame(() => requestAnimationFrame(say))
+      let painted = false
+      const paint = () => { if (!painted) { painted = true; say() } }
+      if (window.PerformanceObserver && (PerformanceObserver.supportedEntryTypes || []).includes("paint")) {
+        new PerformanceObserver((list) => {
+          if (list.getEntries().some((entry) => entry.name === "first-contentful-paint")) paint()
+        }).observe({ type: "paint", buffered: true })
+      } else {
+        addEventListener("DOMContentLoaded", () => requestAnimationFrame(() => requestAnimationFrame(paint)))
+      }
+      addEventListener("turbo:render", afterFrame)
+    })()
+    """
+
+    static func install(in configuration: WKWebViewConfiguration) {
+        let controller = configuration.userContentController
+        controller.addUserScript(WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        controller.add(Handler(), name: handlerName)
+    }
+
+    private final class Handler: NSObject, WKScriptMessageHandler {
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard let path = (message.body as? [String: Any])?["path"] as? String,
+                  let webView = message.webView, let screen = webView.visitableViewController else { return }
+            ChatSkeleton.pagePainted(path: path, webView: webView, on: screen)
+        }
     }
 }
 
