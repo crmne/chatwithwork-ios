@@ -40,6 +40,10 @@ enum Palette {
     static let attentionEdge = UIColor(light: 0xD7C089, dark: 0x7B653A)
     static let negative = UIColor(light: 0xF0552F, dark: 0xFF6644)
     static let negativeInk = UIColor(light: 0xC93A17, dark: 0xFF7F61)
+    /// `--negative-wash` and `--negative-edge`, the web's `color-mix` worked out
+    /// (oklab: 10% negative in surface, 45% negative in line).
+    static let negativeWash = UIColor(light: 0xFFEFEB, dark: 0x241B20)
+    static let negativeEdge = UIColor(light: 0xEAA59A, dark: 0x7C4340)
 }
 
 // Nonisolated: UIKit and SwiftUI resolve dynamic colors on whatever thread

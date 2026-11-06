@@ -176,6 +176,135 @@ final class ComposerControl: UIButton {
     }
 }
 
+/// The chosen permission mode in the bar, after the globe, while it isn't
+/// Ask first: a symbol and a short word on a fully rounded plate, 34 points
+/// tall in the bar's 44-point target. Allow edits is quiet, Allow everything
+/// wears the web's negative tokens so it's hard to miss. A mode this build
+/// doesn't know shows the server's own label. It only names what the page
+/// says is chosen; the sheet it opens does the choosing.
+final class ComposerModePill: UIButton {
+    struct Look: Equatable {
+        let symbol: String?
+        let title: String
+        let loud: Bool
+
+        init(_ option: ComposerState.PermissionModes.Option) {
+            switch option.value {
+            case "edits":
+                self.symbol = "pencil"
+                self.title = String(localized: "Edits")
+                self.loud = false
+            case "everything":
+                self.symbol = "exclamationmark.octagon"
+                self.title = String(localized: "Everything")
+                self.loud = true
+            default:
+                self.symbol = nil
+                self.title = option.label
+                self.loud = false
+            }
+        }
+    }
+
+    static let plateHeight: CGFloat = 34
+    /// A long label from a newer server truncates here, so Send stays.
+    static let widest: CGFloat = 150
+    /// Follows Dynamic Type up to this, where it still sits on the plate.
+    private static let largestPointSize: CGFloat = 17
+
+    private let plate = UIView()
+    private let symbol = UIImageView()
+    private let label = UILabel()
+    private(set) var look: Look?
+
+    init() {
+        super.init(frame: .zero)
+        accessibilityIdentifier = "composer.mode"
+        translatesAutoresizingMaskIntoConstraints = false
+
+        plate.isUserInteractionEnabled = false
+        plate.translatesAutoresizingMaskIntoConstraints = false
+        plate.layer.cornerRadius = Self.plateHeight / 2
+        plate.layer.cornerCurve = .continuous
+        plate.layer.borderWidth = 1
+        addSubview(plate)
+
+        label.font = scaledFont
+        label.adjustsFontForContentSizeCategory = true
+        label.lineBreakMode = .byTruncatingTail
+        label.setContentCompressionResistancePriority(.required - 1, for: .horizontal)
+        label.setContentHuggingPriority(.required, for: .horizontal)
+        symbol.contentMode = .center
+        symbol.setContentCompressionResistancePriority(.required, for: .horizontal)
+        symbol.setContentHuggingPriority(.required, for: .horizontal)
+
+        let row = UIStackView(arrangedSubviews: [symbol, label])
+        row.axis = .horizontal
+        row.alignment = .center
+        row.spacing = 4
+        row.isUserInteractionEnabled = false
+        row.translatesAutoresizingMaskIntoConstraints = false
+        plate.addSubview(row)
+
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(equalToConstant: ComposerControl.target),
+            widthAnchor.constraint(lessThanOrEqualToConstant: Self.widest),
+            plate.heightAnchor.constraint(equalToConstant: Self.plateHeight),
+            plate.centerYAnchor.constraint(equalTo: centerYAnchor),
+            plate.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            plate.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
+            row.centerYAnchor.constraint(equalTo: plate.centerYAnchor),
+            row.leadingAnchor.constraint(equalTo: plate.leadingAnchor, constant: 10),
+            row.trailingAnchor.constraint(equalTo: plate.trailingAnchor, constant: -10)
+        ])
+        registerForTraitChanges([UITraitUserInterfaceStyle.self, UITraitPreferredContentSizeCategory.self]) { (pill: ComposerModePill, _: UITraitCollection) in
+            pill.restyle()
+        }
+        restyle()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private var scaledFont: UIFont {
+        UIFontMetrics(forTextStyle: .footnote).scaledFont(for: .systemFont(ofSize: 13, weight: .medium), maximumPointSize: Self.largestPointSize, compatibleWith: traitCollection)
+    }
+
+    /// Names the chosen mode, as the server labels it for VoiceOver.
+    func show(_ option: ComposerState.PermissionModes.Option) {
+        let look = Look(option)
+        accessibilityLabel = String(localized: "Changes: \(option.label)")
+        guard look != self.look else { return }
+        self.look = look
+        label.text = look.title
+        symbol.image = look.symbol.flatMap { UIImage(systemName: $0) }
+        symbol.isHidden = look.symbol == nil
+        restyle()
+    }
+
+    /// What the plate shows now.
+    var colors: (ink: UIColor, fill: UIColor, edge: UIColor) {
+        look?.loud == true
+            ? (Palette.negativeInk, Palette.negativeWash, Palette.negativeEdge)
+            : (Palette.inkMuted, .clear, Palette.lineStrong)
+    }
+
+    override var isHighlighted: Bool { didSet { restyle() } }
+    override var isEnabled: Bool { didSet { restyle() } }
+
+    private func restyle() {
+        let colors = colors
+        plate.backgroundColor = colors.fill
+        plate.layer.borderColor = colors.edge.resolvedColor(with: traitCollection).cgColor
+        // Locked, it steps back as the bar's other controls do.
+        plate.alpha = !isEnabled ? 0.4 : isHighlighted ? 0.7 : 1
+        symbol.tintColor = colors.ink
+        symbol.preferredSymbolConfiguration = UIImage.SymbolConfiguration(font: scaledFont)
+        label.textColor = colors.ink
+        transform = isHighlighted ? CGAffineTransform(translationX: 0, y: 0.5) : .identity
+    }
+}
+
 /// `.chat-prompt__ring` on a touch screen: a 2-point ring 40 points across
 /// with 13-point corners, a point outside stop's square, where the web's
 /// conic rainbow (`--rainbow-conic`) turns once every 2.4 seconds. While the

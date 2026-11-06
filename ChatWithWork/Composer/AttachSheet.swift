@@ -13,13 +13,19 @@ struct AttachOptions {
     var webSearch: ComposerState.WebSearch? = nil
     var canScan: Bool = VNDocumentCameraViewController.isSupported
     var hasCamera: Bool = UIImagePickerController.isSourceTypeAvailable(.camera)
+
+    /// The sheet behind the bar's mode pill: the Changes section alone.
+    static func changes(_ modes: ComposerState.PermissionModes?) -> AttachOptions {
+        AttachOptions(acceptsFiles: false, permissionModes: modes)
+    }
 }
 
 /// The "+" sheet: recent photos (where the person lets the app see their
 /// library), then Camera, Photos, Files, Scan, web search when the bar has
-/// no room for its globe, and the page’s permission modes. Dictation is one
-/// tap away in the composer's bar, and tools and models live elsewhere, so
-/// "+" never becomes a drawer of everything. (On the web, "+" holds only
+/// no room for its globe, and the page’s permission modes under "Changes".
+/// The bar's mode pill opens the same sheet with only that section. Dictation
+/// is one tap away in the composer's bar, and tools and models live elsewhere,
+/// so "+" never becomes a drawer of everything. (On the web, "+" holds only
 /// what its bar has no room for; on a narrow phone that's the globe.)
 struct AttachSheet: View {
     enum Choice {
@@ -52,8 +58,8 @@ struct AttachSheet: View {
                     }
                 }
 
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 160 : 72), spacing: 8)], spacing: 8) {
-                    if options.acceptsFiles {
+                if options.acceptsFiles {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 160 : 72), spacing: 8)], spacing: 8) {
                         if options.hasCamera { tile("Camera", "camera", .camera, id: "attach.camera") }
                         tile("Photos", "photo.on.rectangle", .photos, id: "attach.photos")
                         tile("Files", "doc", .files, id: "attach.files")
@@ -71,6 +77,7 @@ struct AttachSheet: View {
                                 HStack(alignment: .top, spacing: 10) {
                                     Image(systemName: option.value == "everything" ? "exclamationmark.octagon" : option.value == "edits" ? "pencil" : "hand.raised")
                                         .frame(width: permissionIconWidth)
+                                        .foregroundStyle(Color(option.value == "everything" ? Palette.negativeInk : Palette.inkMuted))
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(option.label).foregroundStyle(Color(Palette.ink))
                                         if let description = option.description {
@@ -82,6 +89,8 @@ struct AttachSheet: View {
                                 .padding(.vertical, 8)
                                 .foregroundStyle(Color(Palette.inkMuted))
                                 .contentShape(Rectangle())
+                                // Off here: the server's description says why.
+                                .opacity(option.disabled ? 0.5 : 1)
                             }
                             .buttonStyle(.plain)
                             .disabled(option.disabled)
