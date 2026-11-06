@@ -17,6 +17,8 @@ nonisolated enum AppList: String, CaseIterable, Sendable {
 nonisolated enum AppPath {
     /// The new chat page, where the app opens.
     static let newChat = "/chats/new"
+    static let newBot = "/bots/new"
+    static let decisions = "/decisions"
 
     /// `path` inside `account` when the shell knows it; the server redirects
     /// the unprefixed form into the organization the person used last.

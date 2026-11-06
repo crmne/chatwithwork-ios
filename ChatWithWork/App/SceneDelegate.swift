@@ -45,10 +45,17 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             PushNotifications.shared.takeLaunch(path: response.notification.request.content.userInfo["path"] as? String,
                                                 identifier: response.notification.request.identifier)
         }
+        let quickAction = connectionOptions.shortcutItem.flatMap { Shortcut(rawValue: $0.type) }
+        let receiver: (Shortcut) -> Void = { [weak self] in self?.shell?.open($0) }
         let start = {
-            shell.start(at: launch)
+            if let shortcut = quickAction ?? ShortcutInbox.take() {
+                shell.start(opening: shortcut)
+            } else {
+                shell.start(at: launch)
+            }
             if let link { shell.open(link) }
             if let appLink { shell.openAppLink(appLink) }
+            ShortcutInbox.receiver = receiver
         }
 
         if LaunchOptions.resetsState {
@@ -61,6 +68,17 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         } else {
             start()
         }
+    }
+
+    func sceneDidDisconnect(_ scene: UIScene) {
+        ShortcutInbox.receiver = nil
+    }
+
+    /// A Home Screen quick action while the app is running.
+    func windowScene(_ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {
+        guard let shortcut = Shortcut(rawValue: shortcutItem.type) else { return completionHandler(false) }
+        shell?.open(shortcut)
+        completionHandler(true)
     }
 
     /// The app's own links: a widget, a Live Activity, the share extension.

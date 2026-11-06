@@ -312,7 +312,8 @@ for kids, so it stays out of the Kids category.
   checkout or links, and calls to buy credits are hidden in the apps.
 - **4.2, minimum functionality.** Native tabs, sheets, menus, alerts,
   toasts, haptics, search, the share sheet, Quick Look, push notifications,
-  and universal links, around the web app's pages.
+  universal links, App Shortcuts and quick actions, around the web app's
+  pages.
 - **4.8, sign in with Apple.** Not required: since 2026-10-27 the server
   offers the iPhone and iPad app no other company's sign-in (no Google,
   Microsoft, Slack, or Dropbox), only email and a password, or a passkey

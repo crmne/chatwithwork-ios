@@ -29,6 +29,9 @@ final class AppShell: NSObject {
     private var account: AccountSlug?
     /// A link that arrived while signed out, opened once signed in.
     private var pendingURL: URL?
+    /// The page a shortcut just opened, which signing in again comes back to
+    /// if its visit finds the session gone.
+    private var shortcutPage: URL?
 
     init(window: UIWindow, environment: AppEnvironment, memory: SessionMemory = .standard) {
         self.window = window
@@ -68,6 +71,47 @@ final class AppShell: NSObject {
             self.pendingURL = nil
             open(pendingURL)
         }
+    }
+
+    // MARK: Shortcuts
+
+    /// Puts up the first screen for a shortcut that launched the app: its page
+    /// when that's a place, rather than loading New chat or the chat left a
+    /// moment ago first; a form comes up over the shell's usual start.
+    func start(opening shortcut: Shortcut) {
+        switch shortcut {
+        case .newChat:
+            ComposerController.focusesOnConnect = true
+            start(at: environment.url(path: memory.lastAccount.flatMap { memory.newChatPath(in: $0) } ?? shortcut.path(in: memory.lastAccount)))
+        case .decisions:
+            start(at: page(for: shortcut))
+        case .newBot:
+            start()
+            open(shortcut)
+        }
+    }
+
+    /// Opens a shortcut's page in the organization on screen.
+    func open(_ shortcut: Shortcut, attempt: Int = 0) {
+        // Launched by the shortcut: let the shell put up its first screen first.
+        if case .signedIn(let shell) = state, shell.navigator.rootViewController.viewControllers.isEmpty, attempt < 20 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in self?.open(shortcut, attempt: attempt + 1) }
+            return
+        }
+        if shortcut == .newChat {
+            ComposerController.focusesOnConnect = true
+            openAppLink(AppLink.newChat())
+        } else {
+            open(page(for: shortcut))
+        }
+    }
+
+    private func page(for shortcut: Shortcut) -> URL {
+        var chosen: String?
+        if shortcut == .newBot, case .signedIn(let shell) = state { chosen = shell.store.newBotPath }
+        let url = environment.url(path: shortcut.path(in: account ?? currentAccount ?? memory.lastAccount, chosen: chosen))
+        shortcutPage = url
+        return url
     }
 
     // MARK: Opening links
@@ -365,6 +409,7 @@ extension AppShell: NavigatorDelegate {
         if error.statusCode == 401 {
             switch state {
             case .signedIn:
+                if let shortcutPage { pendingURL = shortcutPage }
                 later { $0.showSignedOut(reason: .sessionExpired) }
             case .signedOut(let flow):
                 later { _ in flow.presentSignIn() }
@@ -396,6 +441,7 @@ extension AppShell: NavigatorDelegate {
                 shell.sidebarChanged()
             }
             if let current = shell.navigator.session.webView.url { shell.noteVisit(current) }
+            shortcutPage = nil
 
         case .signedOut(let flow):
             if let location = flow.navigator.modalSession.webView.url, signsIn(AppRoute(url: location)) {
