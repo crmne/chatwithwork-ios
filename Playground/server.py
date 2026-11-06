@@ -587,9 +587,12 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
           {icon(lock_icon)}
           <span>{reason}</span>
         </p>"""
+    # Who's at work on the answer, for the Live Activity the app starts (docs/server-contract.md).
+    live_mark = ('data-live-mark="bot"' if number in BOT_CHATS else 'data-live-mark="chat"') if working else ""
     return f"""
     <div id="new_message" class="composer rainbow-glow{' composer--working' if working else ''}{' composer--locked' if lock in LOCKS else ''}"
          data-controller="composer chat bridge--haptic bridge--composer" data-bridge-feedback="light"
+         {live_mark}
          data-dictation-url-value="/{account}/dictations">
       <form class="print:hidden" action="{action}" method="post"
             data-action="submit->composer#submit turbo:submit-start->bridge--haptic#vibrate turbo:submit-end->composer#reset">

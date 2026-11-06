@@ -315,7 +315,7 @@ private struct LargeTextCard: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .center, spacing: 12) {
-                    BotMark(face: road.face, tool: road.tool, size: 42 + 2.0 / 3.0, mode: road.stage == .stale ? .line : .solid)
+                    BotMark(face: road.face, tool: road.tool, size: 42 + 2.0 / 3.0, mode: road.stage == .stale ? .line : .solid, logo: road.showsLogo)
                     Spacer(minLength: 0)
                     ActivityClock(clock: road.clock, font: Road.clock, color: road.isWaiting ? Road.attention : Road.ink)
                 }
@@ -358,7 +358,7 @@ private struct SmallCard: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            BotMark(face: road.face, size: 32, mode: road.stage == .stale ? .line : .solid)
+            BotMark(face: road.face, size: 32, mode: road.stage == .stale ? .line : .solid, logo: road.showsLogo)
             VStack(alignment: .leading, spacing: 2) {
                 Text(road.headline)
                     .font(Road.bandAction)
@@ -407,7 +407,7 @@ private struct CompactLeading: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            BotMark(face: road.stage == .agents ? .focus : road.face, size: 24, mode: road.stage == .stale ? .line : .solid, color: road.stage == .stale ? Road.inkMuted : .white, eyes: .black)
+            BotMark(face: road.stage == .agents ? .focus : road.face, size: 24, mode: road.stage == .stale ? .line : .solid, color: road.stage == .stale ? Road.inkMuted : .white, eyes: .black, logo: road.showsLogo)
             if road.stage == .agents, let count = road.compactAgents {
                 Text(verbatim: count)
                     .font(Road.compactClock)
@@ -499,11 +499,11 @@ private struct MinimalBot: View {
     var body: some View {
         Group {
             if road.stage == .decision || road.stage == .input {
-                BotMark(face: road.face, size: 20, eyes: .black)
+                BotMark(face: road.face, size: 20, eyes: .black, logo: road.showsLogo)
                     .padding(1)
                     .background(Circle().stroke(Road.attention, lineWidth: 2).padding(-2))
             } else {
-                BotMark(face: road.face, size: 22, mode: road.stage == .stale ? .line : .solid, color: road.stage == .stale ? Road.inkMuted : .white, eyes: .black)
+                BotMark(face: road.face, size: 22, mode: road.stage == .stale ? .line : .solid, color: road.stage == .stale ? Road.inkMuted : .white, eyes: .black, logo: road.showsLogo)
             }
         }
         .accessibilityLabel(road.headline)

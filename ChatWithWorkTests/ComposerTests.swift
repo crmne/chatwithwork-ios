@@ -60,6 +60,8 @@ struct ComposerTests {
     func composerRun() throws {
         let working = try #require(message("state", #"{"working":true,"run":"a1","revision":7,"startedAt":2500}"#).data() as ComposerState?)
         #expect(working.liveRun == LiveRun(id: "a1", revision: 7, startedAt: 2500))
+        let mine = try #require(message("state", #"{"working":true,"mark":"chat"}"#).data() as ComposerState?)
+        #expect(mine.mark == "chat")
         let older = try #require(message("state", #"{"working":true}"#).data() as ComposerState?)
         #expect(older.liveRun == nil)
         let waiting = try #require(message("state", #"{"waiting":true,"run":"a1"}"#).data() as ComposerState?)

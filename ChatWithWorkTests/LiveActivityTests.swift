@@ -33,6 +33,25 @@ struct LiveActivityTests {
         #expect(ChatActivityAttributes.ContentState.answering.line == "Answering")
     }
 
+    @Test("a person's chat shows the logo, a bot's run and an older server the bot")
+    func mark() throws {
+        let decode = { (json: String) in try JSONDecoder().decode(ChatActivityAttributes.ContentState.self, from: Data(json.utf8)) }
+        #expect(try decode(#"{"phase":"answering","mark":"chat"}"#).showsLogo)
+        #expect(try !decode(#"{"phase":"answering","mark":"bot"}"#).showsLogo)
+        #expect(try !decode(#"{"phase":"answering"}"#).showsLogo)
+    }
+
+    @Test("the mark's paths parse as logo.svg's shapes, in its own box")
+    func logoPaths() {
+        let box = LogoPaths.scribble.boundingBoxOfPath.offsetBy(dx: LogoPaths.offset.x, dy: LogoPaths.offset.y)
+        #expect(box.minX > 0 && box.minY > 0)
+        #expect(box.maxX < LogoPaths.size.width && box.maxY < LogoPaths.size.height)
+        #expect(box.width > 100 && box.height > 100)
+        let bubble = LogoPaths.bubble.boundingBoxOfPath.offsetBy(dx: LogoPaths.offset.x, dy: LogoPaths.offset.y)
+        #expect(bubble.width > box.width && bubble.height > box.height)
+        #expect(!LogoPaths.pen.isEmpty)
+    }
+
     @Test("the server's run fields decode, and older payloads and activities have none")
     func runFields() throws {
         let decoder = JSONDecoder()

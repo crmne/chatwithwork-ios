@@ -1035,7 +1035,7 @@ struct SidebarView: View {
                     .font(.footnote.weight(.semibold))
                     .padding(.horizontal, 8)
             } else {
-                ProgressView().frame(maxWidth: .infinity).padding(.top, 24)
+                LogoDraw().frame(width: 40, height: 40).frame(maxWidth: .infinity).padding(.top, 24)
             }
             Spacer()
         }

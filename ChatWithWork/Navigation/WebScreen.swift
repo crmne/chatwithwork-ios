@@ -15,7 +15,7 @@ enum WebScreen {
 
         controller.view.backgroundColor = Palette.canvas
         controller.visitableView.backgroundColor = Palette.canvas
-        controller.visitableView.activityIndicatorView.color = Palette.inkMuted
+        LogoDrawView.replaceSpinner(in: controller.visitableView.activityIndicatorView, side: 72)
         controller.visitableView.refreshControl.tintColor = Palette.inkMuted
 
         if case .list = AppRoute(url: url).kind {

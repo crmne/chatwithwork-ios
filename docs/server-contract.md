@@ -1789,7 +1789,7 @@ Content-Type: application/json, X-CSRF-Token: <the composer's csrfToken>, the we
 ```
 
 **Runs (2026-10-31).** While the composer says `working` or `waiting`, its state
-also says `run`, `revision` and `startedAt` (unix seconds), null otherwise, and
+also says `run`, `revision`, `startedAt` (unix seconds) and `mark` (`chat`, a person's chat, which draws Chat with Work's logo, or `bot`), null otherwise, and
 absent on an older server. A run is one turn: a question until it's answered, through
 steering and waits for the person. A new question or a retry is a new run.
 `run` is opaque and content-free, `revision` orders everything within it, and
