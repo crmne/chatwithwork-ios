@@ -85,6 +85,7 @@ def processing(handler, number):
 CHATS = {
     42: {"title": "Q3 launch commitments for Acme", "project": None, "when": "Today", "processing": False},
     41: {"title": "Summarize the security review thread", "project": "Acme launch", "when": "Today", "processing": True},
+    44: {"title": "Front desk bot for refunds", "project": None, "when": "Today", "processing": False, "builds_bot": True},
     38: {"title": "Which customers asked about SSO?", "project": None, "when": "Yesterday", "processing": False},
     35: {"title": "Draft the onboarding checklist", "project": "Onboarding", "when": "Previous 7 days", "processing": False},
     31: {"title": "Find the signed order form from Initech", "project": None, "when": "Previous 7 days", "processing": False},
@@ -1153,7 +1154,7 @@ def sidebar_json(handler, account, query):
     def chat_json(number, chat, group=True):
         data = {"number": number, "title": chat["title"], "url": f"/{account}/chats/{number}",
                 "state": "processing" if processing(handler, number) else "idle", "waiting": number == 42 and handler.session.get("approval", "waiting") == "waiting",
-                "project": chat["project"], "asked_at": "2026-10-25T08:12:00Z"}
+                "builds_bot": chat.get("builds_bot", False), "project": chat["project"], "asked_at": "2026-10-25T08:12:00Z"}
         if group:
             data["group"] = chat["when"]
         # What a long press offers (NativeSidebarHelper#native_sidebar_chat_actions).
