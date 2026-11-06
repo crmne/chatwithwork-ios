@@ -114,6 +114,12 @@ final class AppShell: NSObject {
         return url
     }
 
+    /// A shortcut whose visit found the session gone opens once signed in again.
+    private func keepShortcutPage() {
+        if let shortcutPage { pendingURL = shortcutPage }
+        shortcutPage = nil
+    }
+
     // MARK: Opening links
 
     /// Opens a universal link or a notification's page in the right place.
@@ -244,6 +250,8 @@ final class AppShell: NSObject {
         memory.hasSignedIn = true
         let next = pendingURL ?? url
         pendingURL = nil
+        // A page is waiting: the chat left moments ago mustn't come back over it.
+        if next != nil { memory.lastChat = nil }
         // Without a link into an organization, the shell starts unprefixed and
         // the server picks the organization this person used last.
         let target = next.map(AppRoute.init(url:))
@@ -380,6 +388,7 @@ extension AppShell: NavigatorDelegate {
                 // A redirect here follows a form, which is how logging out
                 // ends; anything else means the session ran out.
                 let reason: SignOutReason = proposal.isRedirect ? .signedOut : .sessionExpired
+                keepShortcutPage()
                 later { $0.showSignedOut(reason: reason) }
                 return .reject
             }
@@ -409,7 +418,7 @@ extension AppShell: NavigatorDelegate {
         if error.statusCode == 401 {
             switch state {
             case .signedIn:
-                if let shortcutPage { pendingURL = shortcutPage }
+                keepShortcutPage()
                 later { $0.showSignedOut(reason: .sessionExpired) }
             case .signedOut(let flow):
                 later { _ in flow.presentSignIn() }
@@ -429,6 +438,7 @@ extension AppShell: NavigatorDelegate {
             // instead of answering 401 still land here.
             let locations = [shell.navigator.session.webView.url, shell.navigator.modalSession.webView.url].compactMap { $0 }
             if locations.contains(where: { AppRoute(url: $0).isSignIn }) {
+                keepShortcutPage()
                 later { $0.showSignedOut(reason: .sessionExpired) }
                 return
             }
