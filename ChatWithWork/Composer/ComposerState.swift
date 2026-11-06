@@ -81,6 +81,7 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     var liveRun: LiveRun? { LiveRun(id: run, revision: revision, startedAt: startedAt) }
 
     var selectedModel: Model? { models.first(where: \.selected) }
+    var selectedPermissionMode: PermissionModes.Option? { permissionModes?.options.first(where: \.selected) }
     var isUploading: Bool { attachments.contains(where: \.uploading) }
 
     init(from decoder: Decoder) throws {

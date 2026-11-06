@@ -52,21 +52,28 @@ final class PlaygroundTests: XCTestCase {
         keep("composer-permissions")
         edits.tap()
         let plus = app.buttons["composer.plus"]
-        let selected = NSPredicate(format: "value == %@", "Allow edits")
-        expectation(for: selected, evaluatedWith: plus)
-        waitForExpectations(timeout: 10)
-        plus.tap()
+        let pill = app.buttons["composer.mode"]
+        XCTAssertTrue(pill.waitForExistence(timeout: 10), "Allow edits shows in the bar")
+        XCTAssertEqual(pill.label, "Changes: Allow edits")
+        XCTAssertTrue(plus.exists, "+ stays beside the pill")
+
+        // The pill opens the Changes section alone.
+        pill.tap()
         XCTAssertTrue(edits.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["attach.files"].exists, "The pill's sheet holds only Changes")
         keep("composer-permissions-selected")
         app.buttons["composer.permission.everything"].tap()
-        expectation(for: NSPredicate(format: "value == %@", "Allow everything"), evaluatedWith: plus)
+        expectation(for: NSPredicate(format: "label == %@", "Changes: Allow everything"), evaluatedWith: pill)
         waitForExpectations(timeout: 10)
         XCTAssertFalse(app.staticTexts["Allow everything is on"].exists)
         keep("composer-everything-inline")
+
+        // "+" still holds everything, the modes last.
         plus.tap()
+        XCTAssertTrue(app.buttons["attach.files"].waitForExistence(timeout: 10))
         app.buttons["composer.permission.ask"].tap()
-        expectation(for: NSPredicate(format: "value == %@", "Ask for changes"), evaluatedWith: plus)
-        waitForExpectations(timeout: 10)
+        XCTAssertTrue(pill.waitForNonExistence(timeout: 10), "Ask first shows no pill")
+        XCTAssertTrue(plus.exists)
     }
 
     @MainActor

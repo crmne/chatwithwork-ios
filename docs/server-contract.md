@@ -1663,7 +1663,20 @@ new chats submit that choice with the first question. A returned choice
 is rechecked against the latest state, so closing access while a sheet is
 open cannot retain the older choice. The page and server remain the policy
 authority for defaults, organization caps, drivers, guests and bot runs.
-The selected Allow edits or Allow everything mode uses its normal-ink icon in the existing + control, with an accessible label. It adds no warning row or color treatment. Existing chats keep the saved choice until the server returns its updated state.
+"+" stays the plain plus in every mode and always opens the full sheet, the
+modes last under a "Changes" heading: the selected one has a check, disabled ones
+are dimmed with the server's description saying why, and Allow everything's
+icon is in `--negative-ink`. While the selected mode isn't `ask`, the bar shows
+it as a pill (`composer.mode`) after the globe: Allow edits as `pencil` and
+"Edits" in muted ink with a `--line-strong` outline and no fill, Allow
+everything as `exclamationmark.octagon` and "Everything" in `--negative-ink` on
+`--negative-wash` with a `--negative-edge` outline, any other value as the
+server's full `label`. Its accessibility label is "Changes: " and the server's
+label. It's a fully rounded 34-point plate in a 44-point target, follows Dynamic
+Type without growing past the bar, and is dimmed and inert while `locked`. A tap
+opens the same sheet with only the Changes section. It reads `permissionModes`
+alone, so this needs no new key and older servers show no pill. Existing chats
+keep the saved choice until the server returns its updated state.
 Older servers omit these optional fields and retain the existing controls.
 
 The native composer uses the web’s exact surface/ink tokens and all five
@@ -1718,7 +1731,8 @@ App to web, as replies to `connect`, `{action, ...}`:
   field disabled and `lockReason` above it.
 - The files on their way as chips with their progress and a remove button.
 - The controls, one tap each as in the web's bar, each the web's touch
-  button (a 34-point square in a 44-point target): "+", the microphone
+  button (a 34-point square in a 44-point target), left to right: "+" (always
+  there, disabled while locked or holding nothing), the microphone
   (`composer.dictate`, while `dictation` isn't `null`; disabled while
   locked), the web search globe (`composer.webSearch`, while `webSearch`
   isn't `null`: the web's Phosphor globe, "Search the web", On or Off,
@@ -1726,11 +1740,13 @@ App to web, as replies to `connect`, `{action, ...}`:
   state before accepting another tap; muted when off, ink on a pressed
   square when on; faint where `disabled`, and a tap then shows `note`;
   turning it on shows `note` above the composer for a moment, since it says
-  where searches go), the model (a menu of `models`, hidden while locked or
-  working), and Send, the ink square. The name gives way first. Where the
-  bar is narrower than 340 points (an iPhone SE or mini; the web folds at
-  384, but its bar also holds the permission mode's button), the globe
-  folds into "+", which wears a small globe (`composer.plus.webSearch`, the
+  where searches go), the permission mode's pill (`composer.mode`, unless the
+  mode is `ask`, see above), the model (a menu of `models`, hidden while locked
+  or working), and Send, the ink square. The name gives way first: beside a
+  pill it goes once only a few letters would show, leaving the logo, so Send
+  and the pill always stay in the bar. Where the bar is narrower than 340
+  points (an iPhone SE or mini; the web folds at 384, but its bar always holds
+  the permission mode's button), the globe folds into "+", which wears a small globe (`composer.plus.webSearch`, the
   web's `.chat-prompt__attach-badge`) while `on`. While `working` and the
   field is empty, Stop ("Stop response", sends `stop`) stands in Send's
   place, the ink square inside the web's turning rainbow ring (still under
@@ -1744,7 +1760,8 @@ App to web, as replies to `connect`, `{action, ...}`:
   globe folded, "Search the web" with its `note` and a switch
   (`composer.webSearchSwitch`) that sends `webSearch` and leaves the sheet
   open, as the web's "+" holds only what its bar has no room for.
-- The permission modes follow attachments in the scrollable + sheet.
+- The permission modes follow attachments in the scrollable + sheet, and the
+  pill opens them alone.
   Attaching from a connected service is not drawn yet. Photos go as JPEGs at
   most 2560 pixels on their longest side; files over 25 MB are refused with
   a note to attach them from a computer.

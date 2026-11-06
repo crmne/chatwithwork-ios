@@ -62,6 +62,7 @@ final class ComposerController: NSObject {
 
         view.onAction = { [weak self] action in self?.send?(action) }
         view.onPlus = { [weak self] in self?.presentAttachSheet() }
+        view.onModePill = { [weak self] in self?.presentChangesSheet() }
         view.onDictate = { [weak self] in self?.startDictating() }
         view.onModeChange = { [weak self] mode in self?.awake.isWanted = mode != .typing }
         view.onWindowChange = { [weak self] onScreen in self?.awake.isOnScreen = onScreen }
@@ -132,14 +133,23 @@ final class ComposerController: NSObject {
     // MARK: The "+" sheet
 
     private func presentAttachSheet() {
-        guard let screen, let state = view.state else { return }
-        view.textView.resignFirstResponder()
-
-        let options = AttachOptions(
+        guard let state = view.state else { return }
+        presentSheet(AttachOptions(
             acceptsFiles: state.acceptsFiles,
             permissionModes: state.permissionModes,
             webSearch: view.webSearchFolded ? state.webSearch : nil
-        )
+        ))
+    }
+
+    private func presentChangesSheet() {
+        guard let modes = view.state?.permissionModes else { return }
+        presentSheet(.changes(modes))
+    }
+
+    private func presentSheet(_ options: AttachOptions) {
+        guard let screen else { return }
+        view.textView.resignFirstResponder()
+
         let sizing = AttachSheetSizing()
         var host: UIHostingController<AttachSheet>!
         host = UIHostingController(rootView: AttachSheet(options: options, heightChanged: sizing.update) { [weak self] choice in

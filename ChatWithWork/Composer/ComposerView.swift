@@ -2,8 +2,8 @@ import UIKit
 
 /// The composer the app draws over a chat: the words, the files on their
 /// way, and the web's controls, each one tap away as in the web's bar: "+"
-/// (the attach sheet), the microphone, the web search globe, the model, and
-/// Send. While an answer works, Stop in its turning ring, with Send beside it,
+/// (the attach sheet), the microphone, the web search globe, the permission
+/// mode's pill unless it's Ask first, the model, and Send. While an answer works, Stop in its turning ring, with Send beside it,
 /// subtle, once there are words to steer with. On a narrow phone the globe
 /// folds into "+", as the web's folding bar does, and "+" wears a small
 /// globe while web search is on. While dictation listens or transcribes, its line
@@ -20,6 +20,7 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     var onAction: ((ComposerAction) -> Void)?
     var onPlus: (() -> Void)?
+    var onModePill: (() -> Void)?
     var onDictate: (() -> Void)?
     /// Told when dictation starts, moves on, or ends (`mode`).
     var onModeChange: ((Mode) -> Void)?
@@ -58,7 +59,10 @@ final class ComposerView: UIView, UITextViewDelegate {
     private let controlsRow = UIStackView()
     private let dictateButton = ComposerControl(style: .ghost)
     private let webSearchButton = ComposerControl(style: .toggle)
+    private let modePill = ComposerModePill()
     private let modelButton = UIButton(type: .system)
+    /// Says the logo is still a menu, once the name has made room for a pill.
+    private let modelChevron = UIImageView(image: UIImage(systemName: "chevron.up.chevron.down", withConfiguration: UIImage.SymbolConfiguration(pointSize: 10, weight: .semibold)))
     /// Send and Stop are the web's touch `.chat-prompt__send`, as every
     /// button in the bar is (ComposerControl). Stop is always the ink
     /// square; Send beside it is the subtle one.
@@ -87,20 +91,27 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        if webSearchFolded != foldedWhenRefreshed { refreshControls() }
+        if bounds.width != widthWhenRefreshed { refreshControls() }
         onLayout?()
     }
 
     /// The web's folding bar (`.chat-prompt__bar--folding`) puts its globe
-    /// in "+" below 24rem. That bar also holds the permission mode's button,
-    /// which the app keeps in "+", so the app's globe folds 44 points
-    /// narrower: the model keeps the room the web leaves it. An iPhone SE's
-    /// or mini's bar is 331 points; other iPhones keep the globe.
+    /// in "+" below 24rem. That bar always holds the permission mode's button,
+    /// where the app's holds a mode's pill only away from Ask first, so the
+    /// app's globe folds 44 points narrower, and the model's name makes room
+    /// for a pill (fitModel). An iPhone SE's or mini's bar is 331 points;
+    /// other iPhones keep the globe.
     static let webSearchFoldsBelow: CGFloat = 384 - 44
     /// The bar's width: the box's 16-point margins and 6-point padding.
     private var barWidth: CGFloat { bounds.width - 2 * 16 - 2 * 6 }
     var webSearchFolded: Bool { bounds.width > 0 && barWidth < Self.webSearchFoldsBelow }
-    private var foldedWhenRefreshed: Bool?
+    private var widthWhenRefreshed: CGFloat?
+    /// Beside a pill, what the model needs to keep its name: its logo and a
+    /// few letters. With less it's the logo and a chevron.
+    static let modelNameNeeds: CGFloat = 80
+    /// Its logo and chevron in its button: with less room than this it steps
+    /// aside, so Send and the pill stay.
+    static let modelLogoNeeds: CGFloat = 48
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -184,6 +195,9 @@ final class ComposerView: UIView, UITextViewDelegate {
         webSearchButton.addAction(UIAction { [weak self] _ in self?.webSearchTapped() }, for: .primaryActionTriggered)
         webSearchButton.isHidden = true
 
+        modePill.addAction(UIAction { [weak self] _ in self?.onModePill?() }, for: .primaryActionTriggered)
+        modePill.isHidden = true
+
         modelButton.showsMenuAsPrimaryAction = true
         modelButton.accessibilityIdentifier = "composer.model"
         var modelConfiguration = UIButton.Configuration.plain()
@@ -194,6 +208,16 @@ final class ComposerView: UIView, UITextViewDelegate {
         modelConfiguration.imagePadding = 4
         modelConfiguration.titleLineBreakMode = .byTruncatingTail
         modelButton.configuration = modelConfiguration
+        modelChevron.tintColor = Palette.inkMuted
+        modelChevron.isUserInteractionEnabled = false
+        modelChevron.isHidden = true
+        modelChevron.accessibilityIdentifier = "composer.model.chevron"
+        modelChevron.translatesAutoresizingMaskIntoConstraints = false
+        modelButton.addSubview(modelChevron)
+        NSLayoutConstraint.activate([
+            modelChevron.trailingAnchor.constraint(equalTo: modelButton.trailingAnchor, constant: -8),
+            modelChevron.centerYAnchor.constraint(equalTo: modelButton.centerYAnchor)
+        ])
 
         stopButton.accessibilityIdentifier = "composer.stop"
         stopButton.accessibilityLabel = String(localized: "Stop response")
@@ -213,7 +237,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         let spacer = UIView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let controls = controlsRow
-        [plusButton, dictateButton, webSearchButton, cancelButton, spacer, modelButton, sendButton, stopButton].forEach(controls.addArrangedSubview)
+        [plusButton, dictateButton, webSearchButton, modePill, cancelButton, spacer, modelButton, sendButton, stopButton].forEach(controls.addArrangedSubview)
         controls.axis = .horizontal
         controls.alignment = .center
         // The web's touch bar has no gap: the 44-point targets touch.
@@ -321,13 +345,6 @@ final class ComposerView: UIView, UITextViewDelegate {
         chipsScroll.isHidden = state.attachments.isEmpty
 
         let selected = state.selectedModel
-        if modelButton.configuration?.title != selected?.name {
-            modelButton.configuration?.title = selected?.name
-            // While an answer works the server's picker has no models, so the
-            // title goes and comes back while the button is hidden, and UIKit
-            // keeps the hidden button's old size: a chevron without a name.
-            modelButton.invalidateIntrinsicContentSize()
-        }
         modelButton.configuration?.image = selected.flatMap { ModelLogo.image(for: $0, traits: traitCollection, size: 16) }
         modelButton.accessibilityLabel = selected.map { String(localized: "Model: \($0.name)") }
         modelButton.menu = UIMenu(title: String(localized: "Model"), children: state.models.enumerated().map { index, model in
@@ -335,9 +352,6 @@ final class ComposerView: UIView, UITextViewDelegate {
                 self?.onAction?(.model(index: index))
             }
         })
-        let permission = state.permissionModes?.options.first(where: \.selected)
-        let symbol = permission?.value == "everything" ? "exclamationmark.octagon" : permission?.value == "edits" ? "pencil" : "plus"
-        plusButton.setSymbol(symbol)
         refreshControls()
     }
 
@@ -416,15 +430,16 @@ final class ComposerView: UIView, UITextViewDelegate {
         dictateButton.isHidden = busy || state?.dictation == nil
         dictateButton.isEnabled = state?.locked != true
         let folded = webSearchFolded
-        foldedWhenRefreshed = folded
+        widthWhenRefreshed = bounds.width
         webSearchButton.isHidden = busy || state?.webSearch == nil || folded
         // "+" opens while it holds anything, the folded globe's switch included.
         plusButton.isEnabled = state?.locked != true && (state?.acceptsFiles != false || state?.permissionModes != nil || (folded && state?.webSearch != nil))
         plusBadge.isHidden = !(folded && state?.webSearch?.on == true)
-        let permission = state?.permissionModes?.options.first(where: \.selected)?.label
-        let search = plusBadge.isHidden ? nil : String(localized: "Web search on")
-        let value = [permission, search].compactMap { $0 }.joined(separator: ", ")
-        plusButton.accessibilityValue = value.isEmpty ? nil : value
+        plusButton.accessibilityValue = plusBadge.isHidden ? nil : String(localized: "Web search on")
+        let permission = state?.selectedPermissionMode
+        if let permission { modePill.show(permission) }
+        modePill.setHidden(busy || permission == nil || permission?.value == "ask")
+        modePill.isEnabled = state?.locked != true
         styleWebSearch()
         modelButton.isHidden = busy || state == nil || state?.locked == true || state?.working == true || (state?.models.isEmpty ?? true)
 
@@ -457,6 +472,7 @@ final class ComposerView: UIView, UITextViewDelegate {
             sendButton.setSymbol(image, weight: .semibold)
         }
         styleStop()
+        fitModel()
         box.look = ComposerLook(
             locked: state?.locked == true,
             working: state?.working == true,
@@ -464,6 +480,35 @@ final class ComposerView: UIView, UITextViewDelegate {
             focused: textView.isFirstResponder
         )
         resizeText()
+    }
+
+    /// The name gives way first. Alone in the bar it truncates; beside a
+    /// pill, which takes real room, it goes once only a few letters would
+    /// show, leaving the logo and a chevron, and on the very narrowest bars the
+    /// whole button steps aside. Send and the pill are never the ones pushed out.
+    private func fitModel() {
+        let room = modePill.isHidden || bounds.width == 0 ? nil : modelRoom
+        let crowded = room.map { $0 < Self.modelNameNeeds } == true
+        let name = crowded ? nil : state?.selectedModel?.name
+        modelChevron.isHidden = !crowded
+        let trailing: CGFloat = crowded ? 22 : 8
+        if modelButton.configuration?.title != name || modelButton.configuration?.contentInsets.trailing != trailing {
+            modelButton.configuration?.title = name
+            modelButton.configuration?.contentInsets.trailing = trailing
+            // While an answer works the server's picker has no models, so the
+            // title goes and comes back while the button is hidden, and UIKit
+            // keeps the hidden button's old size: a logo without a name.
+            modelButton.invalidateIntrinsicContentSize()
+        }
+        if let room, room < Self.modelLogoNeeds { modelButton.isHidden = true }
+    }
+
+    /// The bar's width less what's showing in it, the model aside.
+    private var modelRoom: CGFloat {
+        controlsRow.arrangedSubviews.reduce(barWidth) { room, view in
+            guard !view.isHidden, view !== modelButton else { return room }
+            return room - view.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).width
+        }
     }
 
     private func sendTapped() {

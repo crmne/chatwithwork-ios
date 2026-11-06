@@ -143,22 +143,131 @@ struct ComposerTests {
         #expect(try state("{}").permissionModes == nil)
     }
 
-    @Test("the current permission mode stays in the existing control without increasing composer height")
+    private static func modes(_ selected: String, label: String? = nil, locked: Bool = false) -> String {
+        let label = label ?? selected
+        return "{\"locked\":\(locked),\"acceptsFiles\":true,\"permissionModes\":{\"selected\":\"\(selected)\",\"options\":[{\"value\":\"\(selected)\",\"label\":\"\(label)\",\"selected\":true,\"disabled\":false}]}}"
+    }
+
+    @Test("+ stays the plain plus in every mode, and the pill names the mode unless it's Ask first")
     @MainActor
-    func inlinePermissionMode() throws {
-        let view = ComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 140))
+    func modePill() throws {
+        let view = ComposerView(frame: CGRect(x: 0, y: 0, width: 402, height: 140))
         view.update(try state("{}"))
-        let height = view.systemLayoutSizeFitting(CGSize(width: 390, height: 0), withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel).height
-        let button = try #require(view.descendant("composer.plus") as? UIButton)
-        for mode in ["edits", "everything"] {
-            let selected = try state("{\"permissionModes\":{\"selected\":\"\(mode)\",\"options\":[{\"value\":\"\(mode)\",\"label\":\"Selected mode\",\"selected\":true,\"disabled\":false}]}}")
-            view.update(selected)
-            #expect(button.accessibilityValue == "Selected mode")
-            #expect(view.systemLayoutSizeFitting(CGSize(width: 390, height: 0), withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel).height == height)
-            #expect(button.tintColor == Palette.ink)
+        let fitting = { view.systemLayoutSizeFitting(CGSize(width: 402, height: 0), withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel).height }
+        let height = fitting()
+        let plus = try #require(view.descendant("composer.plus") as? ComposerControl)
+        let pill = try #require(view.descendant("composer.mode") as? ComposerModePill)
+        let plain = plus.iconImage
+        #expect(pill.isHidden)
+
+        view.update(try state(Self.modes("ask", label: "Ask first")))
+        #expect(pill.isHidden)
+        #expect(plus.iconImage === plain && plus.accessibilityValue == nil)
+
+        for (mode, label, word, loud) in [("edits", "Allow edits", "Edits", false), ("everything", "Allow everything", "Everything", true)] {
+            view.update(try state(Self.modes(mode, label: label)))
+            #expect(!pill.isHidden)
+            #expect(pill.look?.title == word)
+            #expect(pill.look?.loud == loud)
+            #expect(pill.accessibilityLabel == "Changes: \(label)")
+            #expect(pill.accessibilityIdentifier == "composer.mode")
+            #expect(plus.iconImage === plain && !plus.isHidden && plus.accessibilityValue == nil)
+            #expect(fitting() == height, "A pill never makes the composer taller")
         }
+
+        // A newer server's mode shows its own label, quietly.
+        view.update(try state(Self.modes("sometimes", label: "Allow sometimes")))
+        #expect(!pill.isHidden && pill.look?.title == "Allow sometimes" && pill.look?.symbol == nil && pill.look?.loud == false)
+
+        // Older servers send no modes at all.
         view.update(try state("{}"))
-        #expect(button.accessibilityValue == nil)
+        #expect(pill.isHidden && plus.iconImage === plain)
+    }
+
+    @Test("the pill uses the web's tokens, dims while locked, opens its sheet, and steps aside for dictation")
+    @MainActor
+    func modePillBehaviour() throws {
+        let view = ComposerView(frame: CGRect(x: 0, y: 0, width: 402, height: 140))
+        let pill = try #require(view.descendant("composer.mode") as? ComposerModePill)
+        view.update(try state(Self.modes("edits")))
+        #expect(pill.colors.ink == Palette.inkMuted && pill.colors.fill == .clear && pill.colors.edge == Palette.lineStrong)
+        view.update(try state(Self.modes("everything")))
+        #expect(pill.colors.ink == Palette.negativeInk && pill.colors.fill == Palette.negativeWash && pill.colors.edge == Palette.negativeEdge)
+        #expect(pill.isEnabled)
+
+        var opened = 0
+        view.onModePill = { opened += 1 }
+        pill.sendActions(for: .primaryActionTriggered)
+        #expect(opened == 1)
+
+        view.update(try state(Self.modes("everything", locked: true)))
+        #expect(!pill.isHidden && !pill.isEnabled)
+
+        view.update(try state(Self.modes("everything")))
+        view.setMode(.recording)
+        #expect(pill.isHidden)
+        view.setMode(.typing)
+        #expect(!pill.isHidden)
+    }
+
+    @Test("the pill's sheet holds only Changes")
+    @MainActor
+    func changesSheet() throws {
+        let modes = try state(Self.modes("edits")).permissionModes
+        let options = AttachOptions.changes(modes)
+        #expect(options.permissionModes == modes)
+        #expect(!options.acceptsFiles && options.webSearch == nil)
+    }
+
+    @Test("the model gives way to the pill, and Send and the pill stay in the bar", arguments: [
+        (width: 320.0, mode: "everything"), (width: 375.0, mode: "everything"), (width: 390.0, mode: "everything"),
+        (width: 402.0, mode: "everything"), (width: 375.0, mode: "edits"), (width: 402.0, mode: "edits")
+    ])
+    @MainActor
+    func modelGivesWay(width: Double, mode: String) throws {
+        let json = #"{"acceptsFiles":true,"dictation":{"url":"/d"},"webSearch":{"on":false,"disabled":false},"models":[{"name":"Claude Sonnet 5 with a long name","selected":true,"iconName":"anthropic"}],"permissionModes":{"selected":"\#(mode)","options":[{"value":"\#(mode)","label":"x","selected":true,"disabled":false}]}}"#
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: 800))
+        window.traitOverrides.preferredContentSizeCategory = .large
+        let view = ComposerView(frame: CGRect(x: 0, y: 600, width: width, height: 140))
+        window.addSubview(view)
+        window.isHidden = false
+        defer { window.isHidden = true }
+        view.update(try state(json))
+        view.layoutIfNeeded()
+
+        let pill = try #require(view.descendant("composer.mode"))
+        let send = try #require(view.descendant("composer.send"))
+        let model = try #require(view.descendant("composer.model"))
+        let bar = view.bounds.insetBy(dx: 16 + 6, dy: 0)
+        for control in [pill, send] {
+            let frame = control.convert(control.bounds, to: view)
+            #expect(frame.minX >= bar.minX - 0.5 && frame.maxX <= bar.maxX + 0.5, "\(control.accessibilityIdentifier ?? "") leaves the bar at \(width): \(frame)")
+        }
+        #expect(send.bounds.width == ComposerControl.target)
+        if !model.isHidden {
+            let frame = model.convert(model.bounds, to: view)
+            let pillFrame = pill.convert(pill.bounds, to: view)
+            #expect(frame.minX >= pillFrame.maxX - 0.5, "The model overlaps the pill at \(width)")
+        }
+        #expect(pill.bounds.height == ComposerControl.target)
+        if mode == "everything" { #expect(pill.bounds.width <= 125) }
+        if mode == "edits" { #expect(pill.bounds.width <= 85) }
+
+        // Which model shows: its name where there's room, else its logo and a chevron.
+        let button = try #require(model as? UIButton)
+        let chevron = try #require(view.descendant("composer.model.chevron"))
+        switch (width, mode) {
+        case (320, _):
+            #expect(button.isHidden, "The very narrowest bar has no room for the model")
+        case (402, "edits"):
+            #expect(button.configuration?.title != nil && chevron.isHidden)
+        case (_, "everything"):
+            #expect(!button.isHidden && chevron.isHidden == (button.configuration?.title != nil))
+            if width == 402 { #expect(button.configuration?.title == nil && !chevron.isHidden) }
+        default:
+            break
+        }
+        #expect(button.accessibilityLabel == "Model: Claude Sonnet 5 with a long name")
     }
 
     @Test("maker logos are optional, bundled, and independent from the inference host")
