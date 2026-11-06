@@ -486,9 +486,11 @@ final class ComposerView: UIView, UITextViewDelegate {
     /// pill, which takes real room, it goes once only a few letters would
     /// show, leaving the logo and a chevron, and on the very narrowest bars the
     /// whole button steps aside. Send and the pill are never the ones pushed out.
+    /// Without a logo to say which model it is, its name stays, cut short.
     private func fitModel() {
         let room = modePill.isHidden || bounds.width == 0 ? nil : modelRoom
-        let crowded = room.map { $0 < Self.modelNameNeeds } == true
+        let hasLogo = modelButton.configuration?.image != nil
+        let crowded = hasLogo && room.map { $0 < Self.modelNameNeeds } == true
         let name = crowded ? nil : state?.selectedModel?.name
         modelChevron.isHidden = !crowded
         let trailing: CGFloat = crowded ? 22 : 8
