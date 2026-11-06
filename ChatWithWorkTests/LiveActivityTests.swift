@@ -50,6 +50,8 @@ struct LiveActivityTests {
         let bubble = LogoPaths.bubble.boundingBoxOfPath.offsetBy(dx: LogoPaths.offset.x, dy: LogoPaths.offset.y)
         #expect(bubble.width > box.width && bubble.height > box.height)
         #expect(!LogoPaths.pen.isEmpty)
+        // Outside in: the pen finishes at the W's top left, where the Rails app's script/logo_pen ends.
+        #expect(abs(LogoPaths.pen.currentPoint.x - 52) < 2 && abs(LogoPaths.pen.currentPoint.y - 48) < 2)
     }
 
     @Test("the server's run fields decode, and older payloads and activities have none")
