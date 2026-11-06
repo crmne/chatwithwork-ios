@@ -1717,26 +1717,33 @@ App to web, as replies to `connect`, `{action, ...}`:
 - The field, with `placeholder`, growing to about five lines. Locked: the
   field disabled and `lockReason` above it.
 - The files on their way as chips with their progress and a remove button.
-- The controls, one tap each as in the web's bar: "+", the microphone
+- The controls, one tap each as in the web's bar, each the web's touch
+  button (a 34-point square in a 44-point target): "+", the microphone
   (`composer.dictate`, while `dictation` isn't `null`; disabled while
   locked), the web search globe (`composer.webSearch`, while `webSearch`
-  isn't `null`: "Search the web", On or Off, sends `webSearch` with the
-  opposite of `on`, waiting for the page's next state before accepting
-  another tap; on shows the live wash; faint where `disabled`, and a
-  tap then shows `note`; turning it on shows `note` above the composer for
-  a moment, since it says where searches go), the model (a menu of
-  `models`, hidden while locked or working), and Send. At 390 points the
-  three 34-point buttons leave the model's name about 180 points; the
-  name gives way first. While `working` and the field is
-  empty, Stop ("Stop response", sends `stop`) stands in Send's place; once
-  there are words or files, Stop and Send show side by side, Send steering
-  the answer, and an emptied field leaves Stop alone again. Stop is
-  disabled while `stopping`. A light haptic on Send, a firmer one on Stop.
+  isn't `null`: the web's Phosphor globe, "Search the web", On or Off,
+  sends `webSearch` with the opposite of `on`, waiting for the page's next
+  state before accepting another tap; muted when off, ink on a pressed
+  square when on; faint where `disabled`, and a tap then shows `note`;
+  turning it on shows `note` above the composer for a moment, since it says
+  where searches go), the model (a menu of `models`, hidden while locked or
+  working), and Send, the ink square. The name gives way first. Where the
+  bar is narrower than 340 points (an iPhone SE or mini; the web folds at
+  384, but its bar also holds the permission mode's button), the globe
+  folds into "+", which wears a small globe (`composer.plus.webSearch`, the
+  web's `.chat-prompt__attach-badge`) while `on`. While `working` and the
+  field is empty, Stop ("Stop response", sends `stop`) stands in Send's
+  place, the ink square inside the web's turning rainbow ring (still under
+  Reduce Motion); once there are words or files, Send shows beside it as
+  the subtle button, steering the answer, and an emptied field leaves Stop
+  alone again. Stop is disabled while `stopping`, its ring grey and slow. A
+  light haptic on Send, a firmer one on Stop.
 - "+" opens a sheet: the latest photos in a row where library access is already
   granted (the system photo picker and camera work without it), Camera, Photos (`PHPickerViewController`), Files and Scan
-  (VisionKit's document camera, the pages sent as one PDF). Dictate and Web
-  search left it for the bar (2026-10-28), as the web's "+" holds only what
-  its bar has no room for.
+  (VisionKit's document camera, the pages sent as one PDF), and, where the
+  globe folded, "Search the web" with its `note` and a switch
+  (`composer.webSearchSwitch`) that sends `webSearch` and leaves the sheet
+  open, as the web's "+" holds only what its bar has no room for.
 - The permission modes follow attachments in the scrollable + sheet.
   Attaching from a connected service is not drawn yet. Photos go as JPEGs at
   most 2560 pixels on their longest side; files over 25 MB are refused with

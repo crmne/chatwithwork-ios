@@ -9,20 +9,24 @@ import VisionKit
 struct AttachOptions {
     var acceptsFiles: Bool
     var permissionModes: ComposerState.PermissionModes? = nil
+    /// Web search, when the composer's bar has no room for its globe.
+    var webSearch: ComposerState.WebSearch? = nil
     var canScan: Bool = VNDocumentCameraViewController.isSupported
     var hasCamera: Bool = UIImagePickerController.isSourceTypeAvailable(.camera)
 }
 
 /// The "+" sheet: recent photos (where the person lets the app see their
-/// library), then Camera, Photos, Files, Scan and the page’s permission modes. Dictation and web search
-/// are one tap away in the composer's bar, and tools and models live
-/// elsewhere, so "+" never becomes a drawer of everything.
-/// (On the web, "+" holds only what its bar has no room for; at phone width
-/// the app's bar has room for all of it.)
+/// library), then Camera, Photos, Files, Scan, web search when the bar has
+/// no room for its globe, and the page’s permission modes. Dictation is one
+/// tap away in the composer's bar, and tools and models live elsewhere, so
+/// "+" never becomes a drawer of everything. (On the web, "+" holds only
+/// what its bar has no room for; on a narrow phone that's the globe.)
 struct AttachSheet: View {
     enum Choice {
         case camera, photos, files, scan
         case permissionMode(String)
+        /// The switch: it changes in place, and the sheet stays open.
+        case webSearch(Bool)
         case recent(PHAsset)
     }
 
@@ -55,6 +59,9 @@ struct AttachSheet: View {
                         tile("Files", "doc", .files, id: "attach.files")
                         if options.canScan { tile("Scan", "doc.viewfinder", .scan, id: "attach.scan") }
                     }
+                }
+                if let webSearch = options.webSearch {
+                    WebSearchSwitch(webSearch: webSearch) { on in choose(.webSearch(on)) }
                 }
                 if let modes = options.permissionModes {
                     VStack(alignment: .leading, spacing: 4) {
@@ -108,6 +115,48 @@ struct AttachSheet: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(id)
+    }
+}
+
+/// `.chat-prompt__web-search` in the web's "+" menu: the globe, "Search the
+/// web" with its note (the price of a search, or why the model can't), and
+/// a switch, which can't turn on where the model can't search.
+private struct WebSearchSwitch: View {
+    let webSearch: ComposerState.WebSearch
+    let change: (Bool) -> Void
+    @State private var on: Bool
+    @ScaledMetric(relativeTo: .body) private var iconSide = 20
+
+    init(webSearch: ComposerState.WebSearch, change: @escaping (Bool) -> Void) {
+        self.webSearch = webSearch
+        self.change = change
+        _on = State(initialValue: webSearch.on)
+    }
+
+    var body: some View {
+        Toggle(isOn: Binding(get: { on }, set: { value in
+            on = value
+            change(value)
+        })) {
+            HStack(alignment: .top, spacing: 10) {
+                Image("Globe")
+                    .renderingMode(.template)
+                    .resizable()
+                    .frame(width: iconSide, height: iconSide)
+                    .foregroundStyle(Color(webSearch.disabled ? Palette.inkFaint : Palette.inkMuted))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Search the web").foregroundStyle(Color(webSearch.disabled ? Palette.inkFaint : Palette.ink))
+                    if let note = webSearch.note, !note.isEmpty {
+                        Text(note).font(.caption).foregroundStyle(Color(webSearch.disabled ? Palette.inkFaint : Palette.inkMuted))
+                    }
+                }
+            }
+        }
+        // The web's switch is ink when on.
+        .tint(Color(Palette.ink))
+        .disabled(webSearch.disabled && !on)
+        .padding(.vertical, 4)
+        .accessibilityIdentifier("composer.webSearchSwitch")
     }
 }
 
