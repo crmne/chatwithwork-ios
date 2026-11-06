@@ -17,6 +17,8 @@ struct BotMark: View {
     var size: CGFloat = 20
     var face: BotMarkShape.Face?
     var colour: Color?
+    /// False holds the open eyes still, as the web's `blink: false`.
+    var blinks = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var blinking = false
     @State private var frame = 0
@@ -32,7 +34,7 @@ struct BotMark: View {
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
-        .task(id: Motion(reduceMotion: reduceMotion, face: face)) {
+        .task(id: Motion(reduceMotion: reduceMotion, face: face, blinks: blinks)) {
             blinking = false
             frame = 0
             guard !reduceMotion else { return }
@@ -43,7 +45,7 @@ struct BotMark: View {
                     guard !Task.isCancelled else { return }
                     frame = (frame + 1) % face.frames.count
                 }
-            } else {
+            } else if blinks {
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(Double.random(in: 4...9)))
                     guard !Task.isCancelled else { return }
@@ -58,6 +60,7 @@ struct BotMark: View {
     private struct Motion: Equatable {
         let reduceMotion: Bool
         let face: BotMarkShape.Face?
+        let blinks: Bool
     }
 }
 

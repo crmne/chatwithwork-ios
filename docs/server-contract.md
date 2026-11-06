@@ -1329,9 +1329,14 @@ build from now on keeps working on a server without them.
   narrows them itself, with no fetch, and remembers the key per organization,
   as it does the Chats view's, apart from the web's choice. Bots search every
   word in the name and `description`, never the state.
-- New chat and New bot are one square (36 points, hairline, `plus`), raised
-  while its page is on screen, opening `links.new_chat` or the chosen list's
-  `new_url`. There are no New chat, New bot or Instructions rows;
+- New chat and New bot are one quiet card as the web's (`.sidebar__new`): 36
+  points, as tall as the selector, on its surface with its hairline, never
+  solid, holding what it makes with a small + disc of ink on its corner (the
+  Chats half's `bubble.left.and.bubble.right` for New chat, the web's
+  `chats-circle`, and the bot mark for New bot, holding still; 2026-11-06), its
+  edge stronger while its page is on screen, opening `links.new_chat` or the
+  chosen list's `new_url`. The bar's New chat keeps `square.and.pencil`, the
+  platform's compose button. There are no New chat, New bot or Instructions rows;
   `links.instructions` stays for older builds, and Instructions stays in
   Settings.
 - The selector's menu: My and All (My noting "only you"), "Projects you're
@@ -1340,6 +1345,12 @@ build from now on keeps working on a server without them.
 - Pinned follows the search, chats list with no `group` headings, as on the
   web, and a bot's row ends as the web's does: `waiting` with a dot, Failed,
   Paused, or `next_run`, or nothing.
+- Each chat has `builds_bot` (2026-11-06), that it's a chat making a bot: its
+  row wears the bot mark before its title, or in a pin's icon's place, and says
+  "Makes a bot" to VoiceOver. A server without the key means false. Tries with
+  such a chat, or a bot made from one, aren't in `chats` or `sections` (the
+  server's `Chat.listed`), so the app does nothing for them; a pin stays until
+  its person takes it off, as on the web.
 - With no `bots.lists` (an older server) the Bots view keeps its card in the
   selector's place, opening the Bots page.
 

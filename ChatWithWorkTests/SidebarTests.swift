@@ -181,6 +181,14 @@ struct SidebarTests {
         #expect(data.next != nil)
     }
 
+    @Test("reads that a chat makes a bot, which older servers leave out")
+    func chatsThatMakeABot() throws {
+        let json = Self.json.replacingOccurrences(of: #""number": 41,"#, with: #""number": 41, "builds_bot": true,"#)
+        let data = try SidebarData.decode(Data(json.utf8))
+        #expect(data.chats.first { $0.number == 41 }?.buildsBot == true)
+        #expect(data.chats.first { $0.number == 42 }?.buildsBot == nil)
+    }
+
     @Test("reads a chat's long-press actions and the Decisions page, which older servers leave out")
     func actionsAndDecisions() throws {
         let json = Self.json

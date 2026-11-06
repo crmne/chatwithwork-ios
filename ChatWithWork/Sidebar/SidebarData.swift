@@ -195,6 +195,8 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
         let url: String
         let state: String
         let waiting: Bool?
+        /// It makes a bot, so its row wears the bot mark (servers from 2026-11-06).
+        let buildsBot: Bool?
         let project: String?
         let askedAt: String?
         let group: String?

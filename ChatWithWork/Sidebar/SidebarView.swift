@@ -110,28 +110,48 @@ struct SidebarView: View {
                     botsCard(data, bots)
                 }
                 if let newBot = store.botList?.newUrl ?? bots.newUrl {
-                    newButton(name: "New bot", identifier: "sidebar.newBot", isCurrent: isCurrent(newBot)) { actions.open(newBot) }
+                    newButton(name: "New bot", identifier: "sidebar.newBot", isCurrent: isCurrent(newBot), action: { actions.open(newBot) }) { newBotMark }
                 }
             } else {
                 listSelector(data.list, choices: data.lists, data: data, waiting: 0) { actions.chooseList($0.key) }
                 if let newChat = data.links.newChat {
-                    newButton(name: "New chat", identifier: "sidebar.newChat", isCurrent: isCurrent(newChat), action: actions.newChat)
+                    newButton(name: "New chat", identifier: "sidebar.newChat", isCurrent: isCurrent(newChat), action: actions.newChat) { newChatMark }
                 }
             }
         }
     }
 
-    /// New chat or New bot, one drawing: a square as tall as the selector
-    /// with its hairline, raised while it's the page on screen.
-    private func newButton(name: LocalizedStringKey, identifier: String, isCurrent: Bool, action: @escaping () -> Void) -> some View {
+    /// What New chat makes: the Chats half's icon, as the web's `chats-circle`.
+    private var newChatMark: some View {
+        Image(systemName: "bubble.left.and.bubble.right").font(.system(size: 13, weight: .semibold))
+    }
+
+    /// What New bot makes, holding still.
+    private var newBotMark: some View {
+        BotMark(size: 18, blinks: false)
+    }
+
+    /// New chat or New bot, one drawing (`.sidebar__new`): the same quiet
+    /// card as the selector, as tall, holding what it makes with a small +
+    /// disc on its corner, its edge stronger while it's the page on screen.
+    private func newButton(name: LocalizedStringKey, identifier: String, isCurrent: Bool, action: @escaping () -> Void, @ViewBuilder mark: () -> some View) -> some View {
         Button(action: action) {
-            Image(systemName: "plus")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color(Palette.ink))
-                .frame(width: 36, height: 36)
-                .background(RoundedRectangle(cornerRadius: 10).fill(isCurrent ? Color(Palette.surface) : .clear))
-                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(Palette.line), lineWidth: 1))
-                .contentShape(Rectangle())
+            ZStack {
+                mark()
+                    .foregroundStyle(Color(Palette.ink))
+                    .frame(width: 20, height: 20)
+                Image(systemName: "plus")
+                    .font(.system(size: 7, weight: .heavy))
+                    .foregroundStyle(Color(Palette.inkInverted))
+                    .frame(width: 11, height: 11)
+                    .background(Circle().fill(Color(Palette.ink)))
+                    .background(Circle().fill(Color(Palette.surface)).padding(-1.5))
+                    .offset(x: 8.5, y: 8.5)
+            }
+            .frame(width: 36, height: 36)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color(Palette.surface)))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(isCurrent ? Palette.lineStrong : Palette.line), lineWidth: 1))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(name)
@@ -922,8 +942,21 @@ struct SidebarView: View {
         let current = currentPath.map { AppRoute(path: $0).path == AppRoute(path: chat.url).path } ?? false
         return Button { actions.open(chat.url) } label: {
             HStack(spacing: 10) {
+                // A chat that makes a bot wears the bot mark before its title, as on the web, and in a pin's own place.
                 if pinned {
-                    Image(systemName: "bubble.left").font(.system(size: 16)).frame(width: 18, height: 18).foregroundStyle(Color(Palette.inkMuted))
+                    Group {
+                        if chat.buildsBot == true {
+                            BotMark(size: 16, blinks: false)
+                        } else {
+                            Image(systemName: "bubble.left").font(.system(size: 16))
+                        }
+                    }
+                    .frame(width: 18, height: 18)
+                    .foregroundStyle(Color(Palette.inkMuted))
+                } else if chat.buildsBot == true {
+                    BotMark(size: 14, blinks: false)
+                        .foregroundStyle(Color(Palette.inkFaint))
+                        .padding(.trailing, -4)
                 }
                 Text(chat.title)
                     .lineLimit(1)
@@ -959,9 +992,17 @@ struct SidebarView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(chat.title)
-        .accessibilityValue(chat.isWaiting ? String(localized: "Waiting for a decision") : chat.isWorking ? String(localized: "Answering") : "")
+        .accessibilityValue(chatRowValue(chat))
         .accessibilityIdentifier("sidebar.chat")
         .accessibilityAddTraits(current ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// What a chat's row says beyond its title: what it is, and what it's doing.
+    private func chatRowValue(_ chat: SidebarData.Chat) -> String {
+        [
+            chat.buildsBot == true ? String(localized: "Makes a bot") : nil,
+            chat.isWaiting ? String(localized: "Waiting for a decision") : chat.isWorking ? String(localized: "Answering") : nil
+        ].compactMap { $0 }.joined(separator: ", ")
     }
 
     // MARK: Foot
@@ -1023,7 +1064,7 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Spacer(minLength: 0)
-                newButton(name: "New chat", identifier: "sidebar.newChat", isCurrent: false, action: actions.newChat)
+                newButton(name: "New chat", identifier: "sidebar.newChat", isCurrent: false, action: actions.newChat) { newChatMark }
             }
             if store.failure == .unavailable {
                 Text("Your chats couldn't load. Pull the page or try again.")
