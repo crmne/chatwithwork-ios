@@ -34,6 +34,48 @@ repository).
 
 ## Building and uploading
 
+### November 6, 2026: 1.1.2 released, 1.1.3 sent to App Review
+
+Apple approved 1.1.2 (build 10044) on November 6, 2026 at about 20:20
+Europe/Berlin. It was released by hand through the API at 20:49, and App Store
+Connect said Ready for Sale at once. The public page answered soon after:
+https://apps.apple.com/app/id6826316749. It's the app's first version on the
+App Store.
+
+iOS 1.1.3, build 10059, went to App Review on November 6, 2026 at 21:38
+Europe/Berlin, with **Manually release this version** selected. Only one
+version can be in review, so 1.1.3 had to wait for 1.1.2's approval, and a
+version's build has to carry its version string, so 10058's work took a new
+build: 10059 is Xcode Cloud's archive of main at `MARKETING_VERSION` 1.1.3.
+A new version took the description, keywords, URLs, screenshots and review
+details from 1.1.2, but not the promotional text, which was copied over
+unchanged. The synthetic review login was refreshed on production just before.
+Export compliance: no non-exempt encryption.
+
+It carries the composer's "+" and mode pill
+([#44](https://github.com/crmne/chatwithwork-ios/pull/44)), the sidebar's New
+chat and New bot cards and its mark on chats that make a bot
+([#43](https://github.com/crmne/chatwithwork-ios/pull/43)), the logo drawn from
+the outside in ([#42](https://github.com/crmne/chatwithwork-ios/pull/42)), the
+native composer ([#33](https://github.com/crmne/chatwithwork-ios/pull/33)), the
+logo on loading screens and a person's chat's Live Activity
+([#40](https://github.com/crmne/chatwithwork-ios/pull/40)), and the rest since
+build 10044. What's New is `fastlane/metadata/en-US/release_notes.txt`.
+
+![The sidebar, with New chat as a quiet card and a chat that makes a bot marked](release-images/1.1.3-sidebar.png)
+
+![The composer, with "+" on the left and the Everything pill](release-images/1.1.3-composer.png)
+
+Both pictures are from an iPhone 17 Pro simulator against the playground, so
+everything in them is made up.
+
+Validation, on the Mac mini with this commit's code: `script/test` passed.
+`testComposerBrandingAndPermissions` fails on `if toast.exists { toast.tap() }`,
+a race with the toast leaving, and passed once that line was taken out of a
+throwaway copy. `testSignedInShell` fails with "Settings should be a sheet", as
+it does on earlier main. The build wasn't run on a device or against a real
+server.
+
 ### Build 10048 in TestFlight (November 5, 2026)
 
 Xcode Cloud built 1.1.2 build 10048 from
