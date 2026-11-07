@@ -117,18 +117,22 @@ enum PinchZoom {
 /// Tells the app when a page has painted, so its skeleton can go
 /// (PageSkeleton): a page loaded from scratch says so at its first
 /// contentful paint, a Turbo visit in the frame after it renders. Each
-/// message carries the page's path.
+/// message carries the page's path and query, and when the paint happened
+/// (`at`, milliseconds since 1970), both taken as it happens rather than
+/// when the message goes two frames later, by which time a newer visit
+/// may have moved the web view on.
 enum PagePaint {
     static let handlerName = "cwwPagePaint"
 
     static let script = """
     (() => {
-      const say = () => {
-        try { window.webkit.messageHandlers.\(handlerName).postMessage({ path: location.pathname }) } catch (_) {}
+      const now = () => ({ path: location.pathname + location.search, at: Date.now() })
+      const say = (page) => {
+        try { window.webkit.messageHandlers.\(handlerName).postMessage(page) } catch (_) {}
       }
-      const afterFrame = () => requestAnimationFrame(() => requestAnimationFrame(say))
+      const afterFrame = () => { const page = now(); requestAnimationFrame(() => requestAnimationFrame(() => say(page))) }
       let painted = false
-      const paint = () => { if (!painted) { painted = true; say() } }
+      const paint = () => { if (!painted) { painted = true; say(now()) } }
       if (window.PerformanceObserver && (PerformanceObserver.supportedEntryTypes || []).includes("paint")) {
         new PerformanceObserver((list) => {
           if (list.getEntries().some((entry) => entry.name === "first-contentful-paint")) paint()
@@ -148,9 +152,10 @@ enum PagePaint {
 
     private final class Handler: NSObject, WKScriptMessageHandler {
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard let path = (message.body as? [String: Any])?["path"] as? String,
+            guard let body = message.body as? [String: Any], let path = body["path"] as? String,
                   let webView = message.webView, let screen = webView.visitableViewController else { return }
-            PageSkeleton.pagePainted(path: path, webView: webView, on: screen)
+            let at = (body["at"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) }
+            PageSkeleton.pagePainted(path: path, at: at, webView: webView, on: screen)
         }
     }
 }

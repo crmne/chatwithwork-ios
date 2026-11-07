@@ -260,6 +260,53 @@ struct PageSkeletonTests {
         #expect(controller.view.subviews.filter { $0 is PageSkeletonView }.count == 1)
     }
 
+    private func gone(_ controller: UIViewController) async -> Bool {
+        for _ in 0..<100 where PageSkeleton.current(on: controller) != nil {
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return PageSkeleton.current(on: controller) == nil
+    }
+
+    @Test("stays when the tab before it paints late, and goes for its own tab")
+    func queryOnly() async {
+        let controller = attached("/482139075/bots/5?tab=setup")
+        PageSkeleton.pagePainted(path: "/482139075/bots/5", webView: nil, on: controller)
+        PageSkeleton.pagePainted(path: "/482139075/bots/5?tab=overview", webView: nil, on: controller)
+        #expect(PageSkeleton.current(on: controller) != nil)
+        PageSkeleton.pagePainted(path: "/482139075/bots/5?tab=setup", webView: nil, on: controller)
+        #expect(await gone(controller))
+    }
+
+    @Test("stays for a paint from before it came up, even of the same page")
+    func paintedBefore() async {
+        let controller = attached("/482139075/bots")
+        PageSkeleton.pagePainted(path: "/482139075/bots", at: Date(timeIntervalSinceNow: -2), webView: nil, on: controller)
+        #expect(PageSkeleton.current(on: controller) != nil)
+        PageSkeleton.pagePainted(path: "/482139075/bots", at: Date(), webView: nil, on: controller)
+        #expect(await gone(controller))
+    }
+
+    @Test("names a page by its path and query, and compares both", arguments: [
+        ("/482139075/bots/5?tab=setup", "/482139075/bots/5?tab=setup", true),
+        ("/482139075/bots/5?tab=setup", "/bots/5?tab=setup", true),
+        ("/482139075/bots/5?tab=setup", "/482139075/bots/5", false),
+        ("/482139075/bots/5?tab=setup", "/482139075/bots/5?tab=overview", false),
+        ("/482139075/bots/5", "/482139075/bots/5", true),
+        ("/482139075/bots/5", "/593428103/bots/5", false)
+    ])
+    func samePage(one: String, other: String, expected: Bool) {
+        #expect(PageSkeleton.samePage(one, other) == expected)
+    }
+
+    @Test("keeps the query, and leaves out the fragment", arguments: [
+        ("/482139075/settings?tab=profile", "/482139075/settings?tab=profile"),
+        ("/482139075/chats/42#message_7", "/482139075/chats/42"),
+        ("/482139075/bots", "/482139075/bots")
+    ])
+    func pageOfURL(path: String, expected: String) {
+        #expect(PageSkeleton.page(of: url(path)) == expected)
+    }
+
     @Test("goes once its own page has painted and the web view shows it")
     func paints() async {
         let controller = attached("/482139075/bots")

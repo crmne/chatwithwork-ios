@@ -55,7 +55,7 @@ enum PageSkeleton {
     static func attach(to controller: VisitableViewController, url: URL, properties: PathProperties? = nil) {
         let properties = properties ?? Hotwire.config.pathConfiguration.properties(for: url)
         guard let kind = kind(for: url, properties: properties), let container = controller.viewIfLoaded, current(on: controller) == nil else { return }
-        let skeleton = PageSkeletonView(kind: kind, path: url.path(percentEncoded: false))
+        let skeleton = PageSkeletonView(kind: kind, path: page(of: url))
         skeleton.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(skeleton)
         NSLayoutConstraint.activate([
@@ -82,15 +82,26 @@ enum PageSkeleton {
         objc_getAssociatedObject(controller, &key) as? PageSkeletonView
     }
 
-    /// The page in `controller`'s web view painted `path`. It's the screen's
-    /// page, or the page the web view now shows (a redirect), and not a
-    /// page from before that finished late.
-    static func pagePainted(path: String, webView: WKWebView?, on controller: UIViewController) {
+    /// The page in `controller`'s web view painted `path` (with its query)
+    /// at `at`. It's the screen's page, or the page the web view now shows
+    /// (a redirect), and not a page from before that finished late: a
+    /// bot's Overview painting as its Setup tab's screen comes up has the
+    /// same path, so the query tells them apart, and a paint from before
+    /// the skeleton came up never counts.
+    static func pagePainted(path: String, at: Date? = nil, webView: WKWebView?, on controller: UIViewController) {
         guard let skeleton = current(on: controller), !skeleton.isSettling else { return }
-        let shown = webView?.url?.path(percentEncoded: false)
+        if let at, at < skeleton.shownAt.addingTimeInterval(-0.001) { return }
+        let shown = webView?.url.map(page(of:))
         guard samePage(path, skeleton.path) || samePage(path, shown) else { return }
         skeleton.isSettling = true
         settle(webView, kind: skeleton.kind, on: controller)
+    }
+
+    /// A page as `PagePaint` names it: its path and its query.
+    nonisolated static func page(of url: URL) -> String {
+        let path = url.path(percentEncoded: false)
+        guard let query = url.query(percentEncoded: true), !query.isEmpty else { return path }
+        return path + "?" + query
     }
 
     /// A painted page isn't yet what the person should see: Hotwire keeps the
@@ -123,10 +134,19 @@ enum PageSkeleton {
         !webViewHidden && (contentHeight <= visibleHeight + 1 || offset > restingOffset + 1)
     }
 
+    /// The same page: the same path, in the same organization where both
+    /// name one, and the same query.
     nonisolated static func samePage(_ path: String?, _ other: String?) -> Bool {
         guard let path, let other else { return false }
-        let one = AppRoute(path: path), two = AppRoute(path: other)
-        return one.path == two.path && (one.account == nil || two.account == nil || one.account == two.account)
+        let (onePath, oneQuery) = split(path), (twoPath, twoQuery) = split(other)
+        let one = AppRoute(path: onePath), two = AppRoute(path: twoPath)
+        return one.path == two.path && oneQuery == twoQuery
+            && (one.account == nil || two.account == nil || one.account == two.account)
+    }
+
+    private nonisolated static func split(_ page: String) -> (path: String, query: String) {
+        guard let mark = page.firstIndex(of: "?") else { return (page, "") }
+        return (String(page[..<mark]), String(page[page.index(after: mark)...]))
     }
 
     /// Crossfades the skeleton out, and the real title in.
@@ -453,7 +473,10 @@ final class PageSkeletonView: UIView {
     private static let sweepKey = "sweep"
 
     let kind: PageSkeleton.Kind
+    /// The page it stands for, its query included (`PageSkeleton.page(of:)`).
     let path: String
+    /// When it came up: paints from before then are another page's.
+    let shownAt = Date()
     weak var titleBone: TitleBone?
     var isSettling = false
     /// Whether Reduce Motion is on; replaced in tests.
