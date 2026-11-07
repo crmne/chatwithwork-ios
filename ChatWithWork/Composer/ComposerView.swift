@@ -287,7 +287,8 @@ final class ComposerView: UIView, UITextViewDelegate {
             placeholder.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: 11),
             placeholder.widthAnchor.constraint(lessThanOrEqualTo: textView.widthAnchor, constant: -22),
             // As tall as the field at rest, so the box doesn't jump.
-            dictationLine.heightAnchor.constraint(equalToConstant: 40)
+            // At least the field's resting height; a failure's two lines at large text sizes grow it.
+            dictationLine.heightAnchor.constraint(greaterThanOrEqualToConstant: 40)
         ])
         modelButton.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         refreshControls()
@@ -745,6 +746,8 @@ final class DictationLine: UIView {
             stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
             stack.centerYAnchor.constraint(equalTo: centerYAnchor),
+            stack.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: 4),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -4),
             dot.widthAnchor.constraint(equalToConstant: 7),
             dot.heightAnchor.constraint(equalToConstant: 7),
             waveform.heightAnchor.constraint(equalToConstant: 28)

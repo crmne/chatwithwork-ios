@@ -40,6 +40,12 @@ final class ComposerController: NSObject {
     /// A recording that couldn't be transcribed, kept on the phone with the
     /// draft until it's sent again or discarded, so nothing said is lost.
     private(set) var keptRecording: (file: URL, path: String)?
+
+    /// A kept recording goes with its composer (signing out, switching
+    /// organizations): nothing would offer Try again or Discard for it.
+    isolated deinit {
+        if let kept = keptRecording { try? FileManager.default.removeItem(at: kept.file) }
+    }
     var transcribeRecording: (URL, String, String?, AppEnvironment) async throws -> String = {
         try await DictationRecorder.transcribe($0, at: $1, csrfToken: $2, environment: $3)
     }
