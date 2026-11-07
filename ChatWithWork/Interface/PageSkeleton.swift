@@ -514,7 +514,8 @@ final class PageSkeletonView: UIView {
         // The page loading underneath stays out of VoiceOver's way until this goes.
         accessibilityViewIsModal = true
 
-        // Groups and the composer sit under the bones.
+        // Groups sit under the bones, and the composer over them, as in a
+        // chat, where it covers what would pass behind it.
         backdrop.frame = bounds
         backdrop.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         addSubview(backdrop)
@@ -530,7 +531,7 @@ final class PageSkeletonView: UIView {
         composer.layer.cornerCurve = .continuous
         composer.layer.borderWidth = 1
         composer.isHidden = true
-        backdrop.addSubview(composer)
+        addSubview(composer)
 
         styleColors()
         registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: PageSkeletonView, _: UITraitCollection) in
