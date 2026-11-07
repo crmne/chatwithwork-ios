@@ -278,6 +278,26 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
         everyChatShown.contains(where: \.isWorking) || (bots?.items ?? []).contains(where: \.working)
     }
 
+    /// The page of what `half` shows, opened by a tap on its half of the
+    /// Chats | Bots switch while it's already chosen, as the web's switch
+    /// does: the chats page on the chosen list, or the Bots page on the list
+    /// the Bots view shows (`botListKey`, this install's choice). The app
+    /// keeps its own choices, so the page is told which with `list=`.
+    func listPage(_ half: SidebarView.Half, botListKey: String?) -> String? {
+        switch half {
+        case .chats: Self.page("/\(organization.id)/chats", on: list)
+        case .bots: (bots?.url ?? links.bots).map { Self.page($0, on: bots?.chosenList(botListKey)) }
+        }
+    }
+
+    /// `path` with the list it should show, when there is one, in place of
+    /// any `list` it already names; its other parameters and fragment stay.
+    private static func page(_ path: String, on list: List?) -> String {
+        guard let list, var components = URLComponents(string: path) else { return path }
+        components.queryItems = (components.queryItems ?? []).filter { $0.name != "list" } + [URLQueryItem(name: "list", value: list.key)]
+        return components.string ?? path
+    }
+
     static func decode(_ data: Data) throws -> SidebarData {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase

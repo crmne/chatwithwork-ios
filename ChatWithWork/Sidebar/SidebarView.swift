@@ -476,6 +476,11 @@ struct SidebarView: View {
     private func halfButton(_ half: Half, title: LocalizedStringKey, attention: Bool, @ViewBuilder icon: () -> some View) -> some View {
         let chosen = store.view == half
         return Button {
+            // The half already chosen, tapped again, opens its page, as the web's switch does.
+            if store.view == half {
+                if let page = store.data?.listPage(half, botListKey: store.botListKey) { actions.open(page) }
+                return
+            }
             query = ""
             withAnimation(.snappy) { store.view = half }
         } label: {
@@ -505,6 +510,7 @@ struct SidebarView: View {
         .accessibilityIdentifier("sidebar.switch.\(half.rawValue)")
         .accessibilityValue(attention ? String(localized: "A bot needs you") : "")
         .accessibilityAddTraits(chosen ? [.isButton, .isSelected] : .isButton)
+        .accessibilityHint(chosen ? (half == .chats ? String(localized: "Opens the chats page") : String(localized: "Opens the Bots page")) : "")
     }
 
     private func placeRow(_ title: LocalizedStringKey, systemImage: String, identifier: String, @ViewBuilder trailing: () -> some View = { EmptyView() }, action: @escaping () -> Void) -> some View {

@@ -76,6 +76,23 @@ struct SidebarTests {
         #expect(bots.items(in: "all").count == 2)
     }
 
+    @Test("the half already chosen opens its page, on the list its view shows")
+    /// The pages a second tap on each half opens, from a server with lists and from an older one.
+    func listPages() throws {
+        let data = try SidebarData.decode(Data(Self.listsJSON.utf8))
+
+        #expect(data.listPage(.chats, botListKey: nil) == "/482139075/chats?list=recent")
+        #expect(data.listPage(.bots, botListKey: "3") == "/482139075/bots?list=3")
+        #expect(data.listPage(.bots, botListKey: nil) == "/482139075/bots?list=all")
+
+        let older = try SidebarData.decode(Data(Self.json.utf8))
+        #expect(older.listPage(.chats, botListKey: nil) == "/482139075/chats?list=3")
+        #expect(older.listPage(.bots, botListKey: nil) == "/482139075/bots")
+
+        let queried = try SidebarData.decode(Data(Self.listsJSON.replacingOccurrences(of: "\"url\": \"/482139075/bots\"", with: "\"url\": \"/482139075/bots?list=recent&tab=all#top\"").utf8))
+        #expect(queried.listPage(.bots, botListKey: "3") == "/482139075/bots?tab=all&list=3#top")
+    }
+
     @Test("a bot's mark and line come as the web's row draws them, and an older server's bot has neither")
     func botMarks() throws {
         let json = """
