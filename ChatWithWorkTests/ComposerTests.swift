@@ -381,6 +381,14 @@ struct ComposerTests {
         #expect(view.textView.isHidden && !line.isHidden)
         #expect(line.accessibilityLabel == "Transcribing")
 
+        view.setMode(.failed("Couldn't transcribe."))
+        #expect(view.textView.isHidden && !line.isHidden)
+        #expect(line.accessibilityLabel == "Couldn't transcribe.")
+        #expect(view.descendant("composer.discardDictation")?.isHidden == false)
+        #expect(view.descendant("composer.discardDictation")?.accessibilityLabel == "Discard recording")
+        #expect(view.descendant("composer.send")?.accessibilityLabel == "Try again")
+        #expect((view.descendant("composer.send") as? UIControl)?.isEnabled == true)
+
         view.append("Draft the recap")
         view.setMode(.typing)
         #expect(!view.textView.isHidden && line.isHidden)
