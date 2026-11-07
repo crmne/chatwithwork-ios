@@ -290,6 +290,7 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
         }
     }
 
+    /// `path` with the list it should show, when there is one.
     private static func page(_ path: String, on list: List?) -> String {
         guard let key = list?.key.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { return path }
         return "\(path)?list=\(key)"

@@ -77,6 +77,7 @@ struct SidebarTests {
     }
 
     @Test("the half already chosen opens its page, on the list its view shows")
+    /// The pages a second tap on each half opens, from a server with lists and from an older one.
     func listPages() throws {
         let data = try SidebarData.decode(Data(Self.listsJSON.utf8))
 
