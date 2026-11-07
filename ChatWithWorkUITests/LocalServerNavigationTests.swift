@@ -57,7 +57,10 @@ final class LocalServerNavigationTests: XCTestCase {
         navigate("05-projects") { tap(app.buttons["All projects…"].firstMatch) }
         navigate("06-project") { tap(webLink(app, project)) }
 
+        // New bot, a sheet: the sidebar offers it beside the bots.
         openSidebar(app)
+        tap(app.buttons["sidebar.switch.bots"])
+        settle(1)
         navigate("12-modal") { tap(app.buttons["sidebar.newBot"]) }
         tap(app.buttons["sheet.close"].firstMatch)
         settle(2)
@@ -65,13 +68,21 @@ final class LocalServerNavigationTests: XCTestCase {
         openSidebar(app)
         tap(app.buttons["sidebar.person"])
         settle(1)
-        navigate("07-settings") { tap(app.buttons["sidebar.settings"].firstMatch) }
+        navigate("07-settings") { tap(app.buttons["Settings"].firstMatch) }
         navigate("08-settings-tab") { tap(webLink(app, "Profile")) }
 
         openSidebar(app)
         if app.buttons["sidebar.switch.chats"].exists {
             tap(app.buttons["sidebar.switch.chats"])
             settle(1)
+        }
+        // The chat is in a project: show the project's chats.
+        let row = app.buttons.matching(NSPredicate(format: "identifier == 'sidebar.chat' AND label CONTAINS %@", chat)).firstMatch
+        if !row.waitForExistence(timeout: 3) {
+            tap(app.buttons["sidebar.list"])
+            settle(1)
+            tap(app.buttons[project].firstMatch)
+            settle(3)
         }
         navigate("09-chat") { tap(app.buttons.matching(NSPredicate(format: "identifier == 'sidebar.chat' AND label CONTAINS %@", chat)).firstMatch) }
         navigate("11-panel") { tap(panelButton(app)) }
@@ -83,6 +94,10 @@ final class LocalServerNavigationTests: XCTestCase {
         navigate("10-new-chat") { tap(app.buttons["sidebar.newChat"].firstMatch) }
 
         openSidebar(app)
+        tap(app.buttons["sidebar.list"])
+        settle(1)
+        tap(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "My chats")).firstMatch)
+        settle(3)
         navigate("14-chat-list") { tap(app.buttons["sidebar.seeAll"].firstMatch) }
     }
 
@@ -147,7 +162,7 @@ final class LocalServerNavigationTests: XCTestCase {
     /// The bar button that opens the panel beside a chat.
     @MainActor
     private func panelButton(_ app: XCUIApplication) -> XCUIElement {
-        let named = environment["CWW_UI_TEST_PANEL_BUTTON"] ?? "Details"
+        let named = environment["CWW_UI_TEST_PANEL_BUTTON"] ?? "Side chats and more"
         return app.navigationBars.buttons.matching(NSPredicate(format: "label == %@ OR identifier == %@", named, named)).firstMatch
     }
 
