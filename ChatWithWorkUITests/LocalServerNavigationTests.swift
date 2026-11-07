@@ -46,7 +46,7 @@ final class LocalServerNavigationTests: XCTestCase {
         // the server offers its Bots half, so the app's own link opens it,
         // which routes it as the sidebar's places are.
         let account = environment["CWW_UI_TEST_ACCOUNT"] ?? "205896759"
-        navigate("02-bots") { app.open(URL(string: "chatwithwork://open?path=/\(account)/bots")!) }
+        navigate("02-bots") { XCUIDevice.shared.system.open(URL(string: "chatwithwork://open?path=/\(account)/bots")!) }
         navigate("03-bot") { tap(webLink(app, bot)) }
         navigate("04-bot-tab") { tap(webLink(app, "Setup")) }
         navigate("13-back") { tap(backButton(app)) }

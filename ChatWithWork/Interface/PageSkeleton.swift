@@ -1,4 +1,4 @@
-import HotwireNative
+@preconcurrency import HotwireNative
 import ObjectiveC
 import UIKit
 import WebKit
