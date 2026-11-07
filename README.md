@@ -146,14 +146,18 @@ docs/             the server contract and design notes
   conversation and its clear gutters showing the chat behind it, its page zoom
   follows the system text size, and its title follows the page's `<title>`
   whenever it changes. Files open in Quick Look.
-- **A chat's skeleton** (`ChatSkeleton`) shows the shape of a chat from the
-  moment its screen appears: question bubbles and answer lines with one shimmer
-  sweeping across them (still under Reduce Motion), a title bone, and the
-  composer at rest, in the same layout as the Android app's. It crossfades out
-  once the page has painted (`PagePaint`: first contentful paint, or a Turbo
-  visit's render), Hotwire shows the web view and the page has moved to its
-  place in the chat. A failed visit removes it, and it never stays past 10
-  seconds.
+- **A page's skeleton** (`PageSkeleton`) shows the shape of a page from the
+  moment its screen appears, whichever page it is: a chat's question bubbles
+  and answer lines, a new chat's greeting and suggestions, a list's rows,
+  Settings' groups, a form's fields, or any other page's heading and rows,
+  with one shimmer sweeping across them (still under Reduce Motion), a title
+  bone, and the composer at rest where there is one, in the same layout as
+  the Android app's. The server's path configuration picks the shape
+  (`skeleton`, server contract section 5). It crossfades out once the page
+  has painted (`PagePaint`: first contentful paint, or a Turbo visit's
+  render), Hotwire shows the web view and, for a chat, the page has moved
+  to its place in the chat. A failed visit removes it, it never stays past
+  10 seconds, and a screen someone comes back to never shows it.
 - **A notification that launches the app** starts the navigator on its page:
   `SceneDelegate` reads it from the connection options and `AppShell` starts
   the shell in that page's organization, without loading New chat first.

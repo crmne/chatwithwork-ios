@@ -8,7 +8,8 @@
       "properties": {
         "context": "default",
         "pull_to_refresh_enabled": true,
-        "query_string_presentation": "replace"
+        "query_string_presentation": "replace",
+        "skeleton": "page"
       }
     },
     {
@@ -19,7 +20,8 @@
       "properties": {
         "context": "modal",
         "modal_style": "large",
-        "pull_to_refresh_enabled": false
+        "pull_to_refresh_enabled": false,
+        "skeleton": "form"
       }
     },
     {
@@ -34,7 +36,8 @@
       "properties": {
         "context": "modal",
         "modal_style": "large",
-        "pull_to_refresh_enabled": false
+        "pull_to_refresh_enabled": false,
+        "skeleton": "none"
       }
     },
     {
@@ -45,7 +48,16 @@
       "properties": {
         "context": "default",
         "presentation": "replace_root",
-        "pull_to_refresh_enabled": false
+        "pull_to_refresh_enabled": false,
+        "skeleton": "chat"
+      }
+    },
+    {
+      "patterns": [
+        "/chats/new(\\?|$)"
+      ],
+      "properties": {
+        "skeleton": "new_chat"
       }
     },
     {
@@ -74,7 +86,8 @@
       "properties": {
         "context": "default",
         "pull_to_refresh_enabled": true,
-        "query_string_presentation": "default"
+        "query_string_presentation": "default",
+        "skeleton": "settings"
       }
     },
     {
@@ -88,7 +101,16 @@
       "properties": {
         "context": "default",
         "presentation": "replace_root",
-        "pull_to_refresh_enabled": true
+        "pull_to_refresh_enabled": true,
+        "skeleton": "list"
+      }
+    },
+    {
+      "patterns": [
+        "/settings$"
+      ],
+      "properties": {
+        "skeleton": "settings"
       }
     },
     {
@@ -98,7 +120,8 @@
       "properties": {
         "context": "modal",
         "modal_style": "full",
-        "pull_to_refresh_enabled": false
+        "pull_to_refresh_enabled": false,
+        "skeleton": "none"
       }
     }
   ]

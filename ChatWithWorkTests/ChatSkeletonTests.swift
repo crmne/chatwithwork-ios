@@ -13,7 +13,7 @@ struct ChatSkeletonTests {
 
     private func url(_ path: String) -> URL { URL(string: "https://chatwithwork.com" + path)! }
 
-    @Test("shows for a chat, not for a new chat or anything else", arguments: [
+    @Test("from a server without `skeleton`, shows for a chat and nothing else", arguments: [
         ("/482139075/chats/42", true),
         ("/chats/42", true),
         ("/482139075/chats/42?from=7", true),
@@ -25,7 +25,7 @@ struct ChatSkeletonTests {
         ("/users/sign_in", false)
     ])
     func covers(path: String, expected: Bool) {
-        #expect(ChatSkeleton.covers(url(path)) == expected)
+        #expect(PageSkeleton.kind(for: url(path), properties: [:]) == (expected ? .chat : nil))
     }
 
     @Test("lays out two questions and two answers, top down under the bar")
@@ -97,10 +97,10 @@ struct ChatSkeletonTests {
 
     // MARK: The sweep
 
-    private func skeletonOnScreen() -> (ChatSkeletonView, UIWindow) {
+    private func skeletonOnScreen() -> (PageSkeletonView, UIWindow) {
         let window = UIWindow(frame: screen)
         window.isHidden = false
-        let skeleton = ChatSkeletonView(path: "/482139075/chats/42")
+        let skeleton = PageSkeletonView(kind: .chat, path: "/482139075/chats/42")
         skeleton.frame = screen
         window.addSubview(skeleton)
         skeleton.layoutIfNeeded()
@@ -125,7 +125,7 @@ struct ChatSkeletonTests {
 
     @Test("reads as one element to VoiceOver")
     func voiceOver() {
-        let skeleton = ChatSkeletonView(path: "/chats/1")
+        let skeleton = PageSkeletonView(kind: .chat, path: "/chats/1")
         #expect(skeleton.isAccessibilityElement)
         #expect(skeleton.accessibilityLabel == "Loading chat")
     }
@@ -135,37 +135,37 @@ struct ChatSkeletonTests {
     private func attached(_ path: String = "/482139075/chats/42") -> VisitableViewController {
         let controller = HotwireWebViewController(url: url(path))
         controller.loadViewIfNeeded()
-        ChatSkeleton.attach(to: controller, url: url(path))
+        PageSkeleton.attach(to: controller, url: url(path), properties: [:])
         return controller
     }
 
-    @Test("isn't attached to a new chat")
+    @Test("isn't attached to a new chat by a server without `skeleton`")
     func notOnNewChat() {
-        #expect(ChatSkeleton.current(on: attached("/482139075/chats/new")) == nil)
+        #expect(PageSkeleton.current(on: attached("/482139075/chats/new")) == nil)
     }
 
     @Test("draws a title bone while the screen has no title, and gives the bar back as it goes")
     func titleBone() {
         let controller = attached()
         #expect(controller.navigationItem.titleView is TitleBone)
-        ChatSkeleton.dismiss(on: controller, animated: false)
+        PageSkeleton.dismiss(on: controller, animated: false)
         #expect(controller.navigationItem.titleView == nil)
-        #expect(ChatSkeleton.current(on: controller) == nil)
+        #expect(PageSkeleton.current(on: controller) == nil)
     }
 
     @Test("stays for a page from before, and goes for its own page")
     func paints() async {
         let controller = attached()
-        ChatSkeleton.pagePainted(path: "/482139075/chats/new", webView: nil, on: controller)
-        #expect(ChatSkeleton.current(on: controller) != nil)
+        PageSkeleton.pagePainted(path: "/482139075/chats/new", webView: nil, on: controller)
+        #expect(PageSkeleton.current(on: controller) != nil)
 
-        ChatSkeleton.pagePainted(path: "/482139075/chats/42", webView: nil, on: controller)
+        PageSkeleton.pagePainted(path: "/482139075/chats/42", webView: nil, on: controller)
         await settled(controller)
-        #expect(ChatSkeleton.current(on: controller) == nil)
+        #expect(PageSkeleton.current(on: controller) == nil)
     }
 
     private func settled(_ controller: UIViewController) async {
-        for _ in 0..<100 where ChatSkeleton.current(on: controller) != nil {
+        for _ in 0..<100 where PageSkeleton.current(on: controller) != nil {
             try? await Task.sleep(for: .milliseconds(20))
         }
     }
@@ -177,16 +177,16 @@ struct ChatSkeletonTests {
         (false, 500.0, 700.0, -116.0, true)     // a short chat stays where it is
     ])
     func settling(hidden: Bool, content: Double, visible: Double, offset: Double, expected: Bool) {
-        #expect(ChatSkeleton.isSettled(webViewHidden: hidden, contentHeight: content, visibleHeight: visible, offset: offset, restingOffset: -116) == expected)
+        #expect(PageSkeleton.isSettled(webViewHidden: hidden, contentHeight: content, visibleHeight: visible, offset: offset, restingOffset: -116) == expected)
     }
 
     @Test("never stays past its timeout")
     func timeout() async {
-        let before = ChatSkeleton.timeout
-        ChatSkeleton.timeout = .milliseconds(20)
-        defer { ChatSkeleton.timeout = before }
+        let before = PageSkeleton.timeout
+        PageSkeleton.timeout = .milliseconds(20)
+        defer { PageSkeleton.timeout = before }
         let controller = attached()
         try? await Task.sleep(for: .milliseconds(200))
-        #expect(ChatSkeleton.current(on: controller) == nil)
+        #expect(PageSkeleton.current(on: controller) == nil)
     }
 }

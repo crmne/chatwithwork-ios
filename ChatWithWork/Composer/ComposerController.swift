@@ -58,8 +58,8 @@ final class ComposerController: NSObject {
         let controller = ComposerController(screen: screen, environment: environment)
         objc_setAssociatedObject(screen, &key, controller, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         KeyboardAvoidance.dock(controller.view, on: screen)
-        // Its first layouts stay behind a chat's skeleton, which has its own composer.
-        ChatSkeleton.current(on: screen).map { screen.view.bringSubviewToFront($0) }
+        // Its first layouts stay behind a page's skeleton, which draws its own composer.
+        PageSkeleton.current(on: screen).map { screen.view.bringSubviewToFront($0) }
         return controller
     }
 
