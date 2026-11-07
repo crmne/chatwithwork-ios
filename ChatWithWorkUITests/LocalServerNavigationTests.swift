@@ -130,6 +130,13 @@ final class LocalServerNavigationTests: XCTestCase {
         settle(1)
         action()
         settle(4.5)
+        // A slow page keeps its skeleton longer: film until it has gone.
+        let skeleton = app.descendants(matching: .any).matching(NSPredicate(format: "identifier IN %@", ["page.skeleton", "chat.skeleton"])).firstMatch
+        let loaded = Date().addingTimeInterval(8)
+        while skeleton.exists && Date() < loaded {
+            settle(0.25)
+        }
+        settle(1)
         manager.createFile(atPath: dir.appendingPathComponent("\(name).done").path, contents: nil)
         // The recorder stops and writes its file before the next navigation's preparation.
         settle(1.5)
@@ -163,7 +170,7 @@ final class LocalServerNavigationTests: XCTestCase {
     @MainActor
     private func panelButton(_ app: XCUIApplication) -> XCUIElement {
         let named = environment["CWW_UI_TEST_PANEL_BUTTON"] ?? "Side chats and more"
-        return app.navigationBars.buttons.matching(NSPredicate(format: "label == %@ OR identifier == %@", named, named)).firstMatch
+        return app.navigationBars.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", named)).firstMatch
     }
 
     @MainActor
