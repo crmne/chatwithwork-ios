@@ -17,9 +17,27 @@ final class DictationRecorder: NSObject, AVAudioRecorderDelegate {
         case microphoneRefused
         case couldNotRecord
         /// The server's own words, like "Dictation uses credits, and your
-        /// organization has none left."
+        /// organization has none left." The recording is kept to send again.
         case refused(String)
+        /// The server refused the recording itself (400, 413, 415, in its own
+        /// words): sending it again can't work.
+        case rejected(String)
+        /// No answer of the app's own: no connection, or the proxy in front of
+        /// it giving up after 30 seconds with a page of its own. Kept to send again.
         case unavailable
+
+        /// Whether the recording is worth keeping to send again.
+        var keepsRecording: Bool {
+            if case .rejected = self { return false }
+            return true
+        }
+
+        /// What a response that isn't words means. Only the app's own refusal
+        /// of the recording, with its words, drops it.
+        static func from(status: Int, error: String?) -> Failure {
+            guard let error, !error.isEmpty else { return .unavailable }
+            return [400, 413, 415].contains(status) ? .rejected(error) : .refused(error)
+        }
     }
 
     private var recorder: AVAudioRecorder?
@@ -99,9 +117,9 @@ final class DictationRecorder: NSObject, AVAudioRecorderDelegate {
     // MARK: Transcribing
 
     /// Posts the recording as the multipart field `audio` and returns the
-    /// words, or the server's reason for refusing.
+    /// words, or the server's reason for refusing. The file stays: the
+    /// composer deletes it once it's transcribed or let go.
     static func transcribe(_ file: URL, at path: String, csrfToken: String?, environment: AppEnvironment) async throws -> String {
-        defer { try? FileManager.default.removeItem(at: file) }
         guard let audio = try? Data(contentsOf: file) else { throw Failure.couldNotRecord }
 
         let boundary = "cww-\(UUID().uuidString)"
@@ -126,8 +144,7 @@ final class DictationRecorder: NSObject, AVAudioRecorderDelegate {
         }
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
         if http.statusCode == 200, let text = json?["text"] as? String { return text }
-        if let error = json?["error"] as? String, !error.isEmpty { throw Failure.refused(error) }
-        throw Failure.unavailable
+        throw Failure.from(status: http.statusCode, error: json?["error"] as? String)
     }
 }
 

@@ -16,6 +16,9 @@ final class ComposerView: UIView, UITextViewDelegate {
         case typing
         case recording
         case transcribing
+        /// The recording couldn't be transcribed, and why: it's kept, with
+        /// Try again where Send is and Discard where Cancel is.
+        case failed(String)
     }
 
     var onAction: ((ComposerAction) -> Void)?
@@ -28,6 +31,7 @@ final class ComposerView: UIView, UITextViewDelegate {
     var onWindowChange: ((Bool) -> Void)?
     var onStopDictating: (() -> Void)?
     var onCancelDictating: (() -> Void)?
+    var onRetryDictating: (() -> Void)?
     var onLayout: (() -> Void)?
 
     private(set) var state: ComposerState?
@@ -379,6 +383,9 @@ final class ComposerView: UIView, UITextViewDelegate {
         case .transcribing:
             dictationLine.show(.transcribing)
             UIAccessibility.post(notification: .announcement, argument: String(localized: "Transcribing"))
+        case .failed(let reason):
+            dictationLine.show(.failed(reason))
+            UIAccessibility.post(notification: .announcement, argument: reason)
         }
         refreshControls()
         if mode == .typing, !textView.text.isEmpty {
@@ -420,12 +427,19 @@ final class ComposerView: UIView, UITextViewDelegate {
         let state = state
         let recording = mode == .recording
         let transcribing = mode == .transcribing
-        let busy = recording || transcribing
+        let failed: Bool
+        if case .failed = mode { failed = true } else { failed = false }
+        let busy = recording || transcribing || failed
 
         textView.isHidden = busy
         dictationLine.isHidden = !busy
         placeholder.isHidden = !textView.text.isEmpty
         cancelButton.isHidden = !busy
+        if failed {
+            configure(cancelButton, symbol: "trash", label: String(localized: "Discard recording"), identifier: "composer.discardDictation")
+        } else {
+            configure(cancelButton, symbol: "xmark", label: String(localized: "Cancel dictation"), identifier: "composer.cancelDictation")
+        }
         plusButton.isHidden = busy
         dictateButton.isHidden = busy || state?.dictation == nil
         dictateButton.isEnabled = state?.locked != true
@@ -448,6 +462,12 @@ final class ComposerView: UIView, UITextViewDelegate {
         if recording {
             image = "stop.fill"
             sendButton.accessibilityLabel = String(localized: "Stop recording")
+            sendButton.isEnabled = true
+            sendButton.isHidden = false
+            stopButton.isHidden = true
+        } else if failed {
+            image = "arrow.clockwise"
+            sendButton.accessibilityLabel = String(localized: "Try again")
             sendButton.isEnabled = true
             sendButton.isHidden = false
             stopButton.isHidden = true
@@ -519,6 +539,9 @@ final class ComposerView: UIView, UITextViewDelegate {
             onStopDictating?()
             return
         case .transcribing:
+            return
+        case .failed:
+            onRetryDictating?()
             return
         case .typing:
             break
@@ -683,6 +706,7 @@ final class DictationLine: UIView {
     enum Phase: Equatable {
         case listening(seconds: Int)
         case transcribing
+        case failed(String)
     }
 
     private let dot = UIView()
@@ -751,6 +775,20 @@ final class DictationLine: UIView {
             time.isHidden = true
             accessibilityLabel = String(localized: "Transcribing")
             accessibilityValue = nil
+        case .failed(let reason):
+            label.text = reason
+            label.textColor = Palette.negativeInk
+            dot.isHidden = true
+            waveform.isHidden = true
+            time.isHidden = true
+            accessibilityLabel = reason
+            accessibilityValue = nil
+        }
+        if case .failed = phase {
+            label.numberOfLines = 2
+        } else {
+            label.numberOfLines = 1
+            label.textColor = Palette.inkMuted
         }
     }
 

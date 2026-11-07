@@ -1791,8 +1791,14 @@ cancel button on the left; the rest of the bar steps aside. The field
 comes back, with the words, once they're transcribed. It posts the
 recording as the multipart field `audio` to `{base}{dictation.url}` with the web view's cookies, `X-CSRF-Token:
 csrfToken` and `Accept: application/json`. `200 {text}` puts the words in
-the field and sends `text`; `{error}` (403 without credits, 413, 415, 429,
-502) shows the server's words above the composer. Never the system's speech
+the field and sends `text`. A recording the server refuses for itself
+(400, 413, 415 with its `{error}`) is deleted and the server's words show
+above the composer. Anything else (no connection, the proxy's own 504
+after 30 seconds, 403, 429, 502) keeps the recording on the phone with the
+draft: the line says "Couldn't transcribe." (or the server's `{error}`) in
+negative ink, with Discard (`composer.discardDictation`, a trash can) where
+cancel is and Try again (`arrow.clockwise`) where Send is, until one is
+pressed. It stays through the background. Never the system's speech
 recognizers. Cancellation stops the upload task and invalidates its generation,
 so a late transcript cannot change the draft or end a newer recording.
 Recordings shorter than half a second or with no sustained measured signal
