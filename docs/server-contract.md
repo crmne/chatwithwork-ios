@@ -1969,6 +1969,27 @@ A new chat already on screen takes the words, files and dictation as it
 is, without loading again. `sign-in` and `handoff` are the browser sheet's
 callbacks (section 10) and open nothing.
 
+### Shortcuts
+
+New chat, New bot and Decisions, by these names on both platforms, reach
+their pages from outside the app. iOS offers them as App Shortcuts
+(`ChatWithWorkShortcuts`: the Shortcuts app, Spotlight, the Action Button and
+Siri's phrases) and as the Home Screen's quick actions, on a long press of the
+icon (`UIApplicationShortcutItems`); Android as its launcher shortcuts. Nothing
+changes on the server: they open the pages it already has, as any link does.
+
+| Shortcut | Opens |
+|---|---|
+| New chat | `/:account/chats/new` (the list last chosen, as the app's own New chat), the root, with the composer focused and its microphone one tap away; it never starts listening |
+| New bot | `/:account/bots/new` (`bots.new_url` of the Bots view's list, once the sidebar said), its sheet over what's on screen |
+| Decisions | `/:account/decisions`, the root |
+
+They open in the organization on screen or the last one used; with neither
+(signed in moments ago), the unprefixed path, which the server redirects into
+the one the person used last. Signed out, the sign-in sheet comes first and
+the page follows, also when a shortcut's own visit finds the session gone. They
+take no words, so nothing reaches a model except through the composer.
+
 ### The share extension
 
 "Chat with Work" in the share sheet (`ShareExtension/`,

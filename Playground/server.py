@@ -1567,6 +1567,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.proxy_asset(path)
         if path.startswith("/web/"):
             return self.static(REPO / path.lstrip("/"))
+        if path == "/expire_sessions":
+            # Every session gone, so a test can see the app find out.
+            with STATE_LOCK:
+                SESSIONS.clear()
+            return self.send(200, "Expired")
         if path == "/lock":
             kind = (query.get("kind") or ["none"])[0]
             with STATE_LOCK:
@@ -1603,7 +1608,7 @@ class Handler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"(?:/(\d{7,}))?(/.*)", path)
         account, rest = match.group(1), match.group(2)
         if account is None:
-            if rest in ("/chats", "/projects", "/bots", "/settings", "/chats/new"):
+            if rest in ("/chats", "/projects", "/bots", "/bots/new", "/decisions", "/settings", "/chats/new"):
                 return self.redirect(f"/1000001{rest}" + (f"?{url.query}" if url.query else ""), 302)
             return self.send(404, "Not found", "text/plain")
         if account not in ACCOUNTS:

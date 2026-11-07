@@ -17,6 +17,9 @@ final class ComposerController: NSObject {
     /// A widget's or a shortcut's "Dictate": the next composer that connects
     /// starts listening.
     static var dictatesOnConnect = false
+    /// The New chat shortcut: the next new chat's composer takes the keyboard,
+    /// with its microphone beside the field. It never starts listening itself.
+    static var focusesOnConnect = false
     /// Words shared into the app, for the next composer that connects.
     static var pendingText: String?
     /// Files shared into the app, handed to the next composer that connects.
@@ -118,6 +121,31 @@ final class ComposerController: NSObject {
             Self.dictatesOnConnect = false
             startDictating()
         }
+        if Self.focusesOnConnect, let screen, AppRoute(url: screen.currentVisitableURL).kind == .newChat {
+            takeKeyboard()
+        }
+    }
+
+    /// Focuses the field once it can have the keyboard: a shortcut's page can
+    /// connect while the app is still coming forward or a sheet is leaving, and
+    /// a redirected visit connects a screen that's replaced at once, so the
+    /// wish lasts until a composer on screen has it.
+    private func takeKeyboard(attempt: Int = 0) {
+        guard Self.focusesOnConnect else { return }
+        guard let state = view.state, state.visible, !state.locked, view.mode == .typing else {
+            Self.focusesOnConnect = false
+            return
+        }
+        if view.window?.windowScene?.activationState == .foregroundActive, screen?.presentedViewController == nil,
+           screen?.navigationController?.presentedViewController == nil, view.textView.becomeFirstResponder() {
+            Self.focusesOnConnect = false
+            return
+        }
+        guard attempt < 40 else {
+            if view.window != nil { Self.focusesOnConnect = false }
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.takeKeyboard(attempt: attempt + 1) }
     }
 
     /// The composer of the new chat on screen, if that's what the shell shows.

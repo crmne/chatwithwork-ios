@@ -78,6 +78,9 @@ final class SidebarStore {
     /// The page an organization's new chat opens on, the last time the JSON said.
     var newChatPath: String? { data?.links.newChat }
 
+    /// New bot in the list the Bots view shows, the last time the JSON said.
+    var newBotPath: String? { botList?.newUrl ?? data?.bots?.newUrl }
+
     // MARK: Loading
 
     // How many times the list was marked stale, so a fetch that began before

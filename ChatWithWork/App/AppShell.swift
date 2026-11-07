@@ -29,6 +29,9 @@ final class AppShell: NSObject {
     private var account: AccountSlug?
     /// A link that arrived while signed out, opened once signed in.
     private var pendingURL: URL?
+    /// The page a shortcut just opened, which signing in again comes back to
+    /// if its visit finds the session gone.
+    private var shortcutPage: URL?
 
     init(window: UIWindow, environment: AppEnvironment, memory: SessionMemory = .standard) {
         self.window = window
@@ -68,6 +71,68 @@ final class AppShell: NSObject {
             self.pendingURL = nil
             open(pendingURL)
         }
+    }
+
+    // MARK: Shortcuts
+
+    /// Puts up the first screen for a shortcut that launched the app: its page
+    /// when that's a place, rather than loading New chat or the chat left a
+    /// moment ago first; a form comes up over the shell's usual start.
+    func start(opening shortcut: Shortcut) {
+        switch shortcut {
+        case .newChat:
+            ComposerController.focusesOnConnect = true
+            start(at: page(for: shortcut))
+        case .decisions:
+            start(at: page(for: shortcut))
+        case .newBot:
+            start()
+            open(shortcut)
+        }
+    }
+
+    /// Opens a shortcut's page in the organization on screen.
+    func open(_ shortcut: Shortcut, attempt: Int = 0) {
+        // Launched by the shortcut: let the shell put up its first screen first.
+        if case .signedIn(let shell) = state, shell.navigator.rootViewController.viewControllers.isEmpty, attempt < 20 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in self?.open(shortcut, attempt: attempt + 1) }
+            return
+        }
+        if shortcut == .newChat {
+            ComposerController.focusesOnConnect = true
+            _ = page(for: shortcut)
+            // A new chat already on screen takes it without a visit, so nothing is left to settle.
+            if case .signedIn(let shell) = state, ComposerController.onNewChat(shell.navigator.rootViewController) != nil { shortcutPage = nil }
+            openAppLink(AppLink.newChat())
+        } else {
+            open(page(for: shortcut))
+        }
+    }
+
+    /// The shortcut's page, remembered until its own visit finishes, so a
+    /// session that ends meanwhile brings the person back to it after signing in.
+    /// The newest shortcut replaces any earlier one still loading.
+    private func page(for shortcut: Shortcut) -> URL {
+        let account = account ?? currentAccount ?? memory.lastAccount
+        var chosen: String?
+        switch shortcut {
+        case .newBot:
+            if case .signedIn(let shell) = state { chosen = shell.store.newBotPath }
+        case .newChat:
+            if case .signedIn(let shell) = state { chosen = shell.store.newChatPath }
+            chosen = chosen ?? account.flatMap { memory.newChatPath(in: $0) }
+        case .decisions:
+            break
+        }
+        let url = environment.url(path: shortcut.path(in: account, chosen: chosen))
+        shortcutPage = url
+        return url
+    }
+
+    /// A shortcut whose visit found the session gone opens once signed in again.
+    private func keepShortcutPage() {
+        if let shortcutPage { pendingURL = shortcutPage }
+        shortcutPage = nil
     }
 
     // MARK: Opening links
@@ -200,6 +265,8 @@ final class AppShell: NSObject {
         memory.hasSignedIn = true
         let next = pendingURL ?? url
         pendingURL = nil
+        // A page is waiting: the chat left moments ago mustn't come back over it.
+        if next != nil { memory.lastChat = nil }
         // Without a link into an organization, the shell starts unprefixed and
         // the server picks the organization this person used last.
         let target = next.map(AppRoute.init(url:))
@@ -336,6 +403,7 @@ extension AppShell: NavigatorDelegate {
                 // A redirect here follows a form, which is how logging out
                 // ends; anything else means the session ran out.
                 let reason: SignOutReason = proposal.isRedirect ? .signedOut : .sessionExpired
+                keepShortcutPage()
                 later { $0.showSignedOut(reason: reason) }
                 return .reject
             }
@@ -365,6 +433,7 @@ extension AppShell: NavigatorDelegate {
         if error.statusCode == 401 {
             switch state {
             case .signedIn:
+                keepShortcutPage()
                 later { $0.showSignedOut(reason: .sessionExpired) }
             case .signedOut(let flow):
                 later { _ in flow.presentSignIn() }
@@ -384,6 +453,7 @@ extension AppShell: NavigatorDelegate {
             // instead of answering 401 still land here.
             let locations = [shell.navigator.session.webView.url, shell.navigator.modalSession.webView.url].compactMap { $0 }
             if locations.contains(where: { AppRoute(url: $0).isSignIn }) {
+                keepShortcutPage()
                 later { $0.showSignedOut(reason: .sessionExpired) }
                 return
             }
@@ -396,6 +466,8 @@ extension AppShell: NavigatorDelegate {
                 shell.sidebarChanged()
             }
             if let current = shell.navigator.session.webView.url { shell.noteVisit(current) }
+            // Only the shortcut's own visit settles it; another page finishing meanwhile doesn't.
+            if let page = shortcutPage, AppRoute(url: url).path == AppRoute(url: page).path { shortcutPage = nil }
 
         case .signedOut(let flow):
             if let location = flow.navigator.modalSession.webView.url, signsIn(AppRoute(url: location)) {

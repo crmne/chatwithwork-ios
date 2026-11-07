@@ -17,7 +17,9 @@ through the system's secure browser sheet, push notifications that show the
 answer's start or what waits for you (fetched from the server as they arrive,
 never through Apple) and universal links, a native composer with a "+" sheet
 and dictation, Live Activities that follow an answer's steps after you leave
-it, a home-screen widget, and a share extension.
+it, a home-screen widget, a share extension, and New chat, New bot and
+Decisions as App Shortcuts (Shortcuts, Spotlight, the Action Button, Siri) and
+Home Screen quick actions.
 
 What the server has to do for all of that is written down in
 [docs/server-contract.md](docs/server-contract.md).
@@ -155,6 +157,10 @@ docs/             the server contract and design notes
 - **A notification that launches the app** starts the navigator on its page:
   `SceneDelegate` reads it from the connection options and `AppShell` starts
   the shell in that page's organization, without loading New chat first.
+- **Shortcuts** (`App/Shortcuts.swift`): New chat, New bot and Decisions,
+  whether an App Intent or a quick action started them, go through
+  `ShortcutInbox` to `AppShell`, which opens their pages like any other link
+  (server contract, section 13). They carry no words.
 - **Bridge components**: Joe Masilotti's `alert`, `review-prompt` and `theme`
   as they are; iOS versions of `button`, `menu`, `search`, `form`, `share`,
   `toast` and `haptic` with his messages, which share the navigation bar
@@ -187,6 +193,11 @@ Then run the app with `-CWWBaseURL http://localhost:8765`, or run the UI
 tests, whose `PlaygroundTests` sign in, use the sidebar, open a chat, use its
 menus and the composer, switch the sidebar to its bots, and visit Bots and
 Settings.
+
+`ShortcutsTests` run the quick actions and the Shortcuts app, where iOS launches
+the app itself, without launch arguments: build with `CWW_BASE_URL` pointing at
+the playground in `Config/Local.xcconfig`, and set
+`TEST_RUNNER_CWW_UI_TEST_SHORTCUTS=1`. Without it they're skipped.
 
 `LocalServerTests` needs the real thing instead: a Chat with Work
 development server the simulator reaches, which answers and sends pushes
