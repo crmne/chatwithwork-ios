@@ -1582,6 +1582,14 @@ remembers the chosen half per install. Guests get no `bots`, so no switch;
 a server that sends no `items` keeps the Bots row. The sidebar keeps checking
 every five seconds while open and a bot is `working`, as it does for a chat.
 
+**The chosen half, tapped again (2026-11-07).** A tap on the half of the
+switch that's already chosen opens its page, as the web's switch does: Chats
+the chats page on the chosen list (`/:account/chats?list=<list.key>`), Bots
+the Bots page on the list the Bots view shows (`bots.url`, else `links.bots`,
+with `?list=<key>`, this install's choice, else the server's). Both pages
+take `list=`, since the app keeps its own choices, and both are places, so
+they replace the root. A tap on the other half only switches, as before.
+
 **Long press (2026-10-26).** Each `CHAT` carries `actions`, what the web
 row's menu offers for it, in its order: `rename`, `pin` or `unpin`,
 `section`, `project` and `delete`, the creator's own only where the web's
