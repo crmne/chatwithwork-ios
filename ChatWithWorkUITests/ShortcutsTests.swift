@@ -175,10 +175,13 @@ final class ShortcutsTests: XCTestCase {
         let spotlight = XCUIApplication(bundleIdentifier: "com.apple.Spotlight")
         XCTAssertTrue(spotlight.wait(for: .runningForeground, timeout: 10))
         spotlight.typeText("Decisions")
-        let result = spotlight.staticTexts["Decisions"].firstMatch
-        XCTAssertTrue(result.waitForExistence(timeout: 15), "Spotlight should offer Decisions")
+        // The Top Hit: the app's Decisions, with the app's mark on it.
+        let topHit = spotlight.cells.matching(NSPredicate(format: "identifier CONTAINS %@", "AppViewResultCell")).firstMatch
+        XCTAssertTrue(topHit.waitForExistence(timeout: 15), "Spotlight should offer Decisions as its Top Hit")
+        XCTAssertTrue(topHit.staticTexts["Decisions"].exists)
         keep("spotlight")
-        result.tap()
+        // Return opens the Top Hit, as the field's "Open" says.
+        spotlight.typeText("\n")
         expectDecisions()
     }
 
