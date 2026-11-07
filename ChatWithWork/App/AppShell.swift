@@ -82,7 +82,7 @@ final class AppShell: NSObject {
         switch shortcut {
         case .newChat:
             ComposerController.focusesOnConnect = true
-            start(at: environment.url(path: memory.lastAccount.flatMap { memory.newChatPath(in: $0) } ?? shortcut.path(in: memory.lastAccount)))
+            start(at: page(for: shortcut))
         case .decisions:
             start(at: page(for: shortcut))
         case .newBot:
@@ -100,16 +100,29 @@ final class AppShell: NSObject {
         }
         if shortcut == .newChat {
             ComposerController.focusesOnConnect = true
+            shortcutPage = page(for: shortcut)
             openAppLink(AppLink.newChat())
         } else {
             open(page(for: shortcut))
         }
     }
 
+    /// The shortcut's page, remembered until its own visit finishes, so a
+    /// session that ends meanwhile brings the person back to it after signing in.
+    /// The newest shortcut replaces any earlier one still loading.
     private func page(for shortcut: Shortcut) -> URL {
+        let account = account ?? currentAccount ?? memory.lastAccount
         var chosen: String?
-        if shortcut == .newBot, case .signedIn(let shell) = state { chosen = shell.store.newBotPath }
-        let url = environment.url(path: shortcut.path(in: account ?? currentAccount ?? memory.lastAccount, chosen: chosen))
+        switch shortcut {
+        case .newBot:
+            if case .signedIn(let shell) = state { chosen = shell.store.newBotPath }
+        case .newChat:
+            if case .signedIn(let shell) = state { chosen = shell.store.newChatPath }
+            chosen = chosen ?? account.flatMap { memory.newChatPath(in: $0) }
+        case .decisions:
+            break
+        }
+        let url = environment.url(path: shortcut.path(in: account, chosen: chosen))
         shortcutPage = url
         return url
     }
@@ -451,7 +464,8 @@ extension AppShell: NavigatorDelegate {
                 shell.sidebarChanged()
             }
             if let current = shell.navigator.session.webView.url { shell.noteVisit(current) }
-            shortcutPage = nil
+            // Only the shortcut's own visit settles it; another page finishing meanwhile doesn't.
+            if let page = shortcutPage, AppRoute(url: url).path == AppRoute(url: page).path { shortcutPage = nil }
 
         case .signedOut(let flow):
             if let location = flow.navigator.modalSession.webView.url, signsIn(AppRoute(url: location)) {
