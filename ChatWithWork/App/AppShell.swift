@@ -100,7 +100,9 @@ final class AppShell: NSObject {
         }
         if shortcut == .newChat {
             ComposerController.focusesOnConnect = true
-            shortcutPage = page(for: shortcut)
+            _ = page(for: shortcut)
+            // A new chat already on screen takes it without a visit, so nothing is left to settle.
+            if case .signedIn(let shell) = state, ComposerController.onNewChat(shell.navigator.rootViewController) != nil { shortcutPage = nil }
             openAppLink(AppLink.newChat())
         } else {
             open(page(for: shortcut))
