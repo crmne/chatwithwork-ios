@@ -510,6 +510,7 @@ struct SidebarView: View {
         .accessibilityIdentifier("sidebar.switch.\(half.rawValue)")
         .accessibilityValue(attention ? String(localized: "A bot needs you") : "")
         .accessibilityAddTraits(chosen ? [.isButton, .isSelected] : .isButton)
+        .accessibilityHint(chosen ? (half == .chats ? String(localized: "Opens the chats page") : String(localized: "Opens the Bots page")) : "")
     }
 
     private func placeRow(_ title: LocalizedStringKey, systemImage: String, identifier: String, @ViewBuilder trailing: () -> some View = { EmptyView() }, action: @escaping () -> Void) -> some View {

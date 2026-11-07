@@ -88,6 +88,9 @@ struct SidebarTests {
         let older = try SidebarData.decode(Data(Self.json.utf8))
         #expect(older.listPage(.chats, botListKey: nil) == "/482139075/chats?list=3")
         #expect(older.listPage(.bots, botListKey: nil) == "/482139075/bots")
+
+        let queried = try SidebarData.decode(Data(Self.listsJSON.replacingOccurrences(of: "\"url\": \"/482139075/bots\"", with: "\"url\": \"/482139075/bots?list=recent&tab=all#top\"").utf8))
+        #expect(queried.listPage(.bots, botListKey: "3") == "/482139075/bots?tab=all&list=3#top")
     }
 
     @Test("a bot's mark and line come as the web's row draws them, and an older server's bot has neither")
