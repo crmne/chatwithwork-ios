@@ -25,7 +25,7 @@ enum WebScreen {
         }
 
         KeyboardAvoidance.install(on: controller)
-        ChatSkeleton.attach(to: controller, url: url)
+        PageSkeleton.attach(to: controller, url: url)
         return controller
     }
 
@@ -114,8 +114,8 @@ enum PinchZoom {
     }
 }
 
-/// Tells the app when a page has painted, so a chat's skeleton can go
-/// (ChatSkeleton): a page loaded from scratch says so at its first
+/// Tells the app when a page has painted, so its skeleton can go
+/// (PageSkeleton): a page loaded from scratch says so at its first
 /// contentful paint, a Turbo visit in the frame after it renders. Each
 /// message carries the page's path.
 enum PagePaint {
@@ -150,7 +150,7 @@ enum PagePaint {
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             guard let path = (message.body as? [String: Any])?["path"] as? String,
                   let webView = message.webView, let screen = webView.visitableViewController else { return }
-            ChatSkeleton.pagePainted(path: path, webView: webView, on: screen)
+            PageSkeleton.pagePainted(path: path, webView: webView, on: screen)
         }
     }
 }

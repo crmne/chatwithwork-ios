@@ -424,6 +424,33 @@ anchoring unless written):
 v1, for the tab builds, opened `/chats/new` as a sheet, pushed chats, and
 treated `/chats`, `/projects` and `/settings` as tab roots.
 
+**`skeleton` (2026-11-07).** Every rule also says which shape a new screen
+draws natively until its page paints (`PageSkeleton`), merged like every
+property, so the last matching rule wins:
+
+| `skeleton` | Where | What the app draws |
+|---|---|---|
+| `chat` | `/chats/<n>`, its `?from=` drill-downs too | question bubbles and answer lines, and the composer at rest |
+| `new_chat` | `/chats/new` | the greeting, three suggestion pills under it, and the composer at rest |
+| `list` | `/decisions`, `/bots`, `/chats`, `/projects` | rows of a round mark and two lines, as many as fit |
+| `settings` | `/settings` and its tabs (`/settings?tab=...`) | two sections, each a heading, a muted line and a group of rows |
+| `form` | every `new` and `edit` sheet | four fields, each a label over a box |
+| `page` | everything else (the `.*` rule): a bot and its tabs, a project, the panel beside a chat, Settings' own pages | a heading, two lines of text and a group of rows |
+| `none` | the sign-in pages, a chat's file viewer | nothing |
+
+The app reads it from the screen's path properties: a name it doesn't know
+draws `page`, and a configuration without the property (an older server)
+draws `chat` for a chat and nothing anywhere else. Every shape is drawn
+the same way, in Live Wire's `--skeleton-bone` with one `--skeleton-shine`
+band sweeping across every 1.4 seconds (still under Reduce Motion), with a
+title bone in the bar until the page names itself, and is one VoiceOver
+element, "Loading" ("Loading chat" for a chat). It goes over 200 ms once
+the page has painted and Hotwire shows the web view, when the visit fails,
+or after 10 seconds, and shows only when a screen first appears, never when
+coming back to it. The geometry is shared with the Android app, point for
+dp: a column 16 from the sides and at most 780 wide, starting 16 under the
+bar, and leaving out what would pass the bottom or the composer.
+
 Hotwire Native adds its own rules for `/recede_historical_location`,
 `/resume_historical_location` and `/refresh_historical_location` after these.
 

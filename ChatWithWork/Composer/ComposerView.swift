@@ -70,7 +70,7 @@ final class ComposerView: UIView, UITextViewDelegate {
     private let sendButton = ComposerControl(style: .primary)
     /// The box at rest, one empty line: its 6pt top, the 40pt text, 2pt, the
     /// row of 44pt controls and its 6pt bottom. A chat's loading skeleton
-    /// draws its placeholder this tall (ChatSkeleton).
+    /// draws its placeholder this tall (PageSkeleton).
     nonisolated static let restingBoxHeight: CGFloat = 6 + 40 + 2 + 44 + 6
     /// Between the box and the bottom of the safe area.
     nonisolated static let restingBottomGap: CGFloat = 8
