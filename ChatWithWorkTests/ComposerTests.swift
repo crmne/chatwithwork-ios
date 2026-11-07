@@ -381,11 +381,47 @@ struct ComposerTests {
         #expect(view.textView.isHidden && !line.isHidden)
         #expect(line.accessibilityLabel == "Transcribing")
 
+        view.setMode(.failed("Couldn't transcribe."))
+        #expect(view.textView.isHidden && !line.isHidden)
+        #expect(line.accessibilityLabel == "Couldn't transcribe.")
+        #expect(view.descendant("composer.discardDictation")?.isHidden == false)
+        #expect(view.descendant("composer.discardDictation")?.accessibilityLabel == "Discard recording")
+        #expect(view.descendant("composer.send")?.accessibilityLabel == "Try again")
+        #expect((view.descendant("composer.send") as? UIControl)?.isEnabled == true)
+
         view.append("Draft the recap")
         view.setMode(.typing)
         #expect(!view.textView.isHidden && line.isHidden)
         #expect(view.textView.text == "Draft the recap")
         #expect(view.descendant("composer.cancelDictation")?.isHidden == true)
+    }
+
+    @Test("grows a failed dictation's line at large text sizes instead of covering the controls")
+    @MainActor
+    func failedLineAtLargeText() throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 600))
+        let host = UIViewController()
+        window.rootViewController = host
+        window.isHidden = false
+        host.traitOverrides.preferredContentSizeCategory = .accessibilityExtraExtraExtraLarge
+        let view = ComposerView(frame: .zero)
+        view.translatesAutoresizingMaskIntoConstraints = false
+        host.view.addSubview(view)
+        NSLayoutConstraint.activate([
+            view.leadingAnchor.constraint(equalTo: host.view.leadingAnchor, constant: 16),
+            view.trailingAnchor.constraint(equalTo: host.view.trailingAnchor, constant: -16),
+            view.topAnchor.constraint(equalTo: host.view.topAnchor, constant: 40)
+        ])
+        view.update(try #require(message("connect", Self.state).data()))
+        view.setMode(.failed("Couldn't transcribe that. Try again in a moment."))
+        host.view.layoutIfNeeded()
+
+        let line = try #require(view.descendant("composer.dictation"))
+        let send = try #require(view.descendant("composer.send"))
+        let lineFrame = line.convert(line.bounds, to: view)
+        let sendFrame = send.convert(send.bounds, to: view)
+        #expect(lineFrame.height > 40)
+        #expect(lineFrame.maxY <= sendFrame.minY)
     }
 
     @Test("puts the microphone and the globe in the bar, and the globe switches web search")

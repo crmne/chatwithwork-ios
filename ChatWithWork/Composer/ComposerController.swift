@@ -37,6 +37,15 @@ final class ComposerController: NSObject {
     private var startingDictation = false
     private var dictationTask: Task<Void, Never>?
     private var dictationGeneration = 0
+    /// A recording that couldn't be transcribed, kept on the phone with the
+    /// draft until it's sent again or discarded, so nothing said is lost.
+    private(set) var keptRecording: (file: URL, path: String)?
+
+    /// A kept recording goes with its composer (signing out, switching
+    /// organizations): nothing would offer Try again or Discard for it.
+    isolated deinit {
+        if let kept = keptRecording { try? FileManager.default.removeItem(at: kept.file) }
+    }
     var transcribeRecording: (URL, String, String?, AppEnvironment) async throws -> String = {
         try await DictationRecorder.transcribe($0, at: $1, csrfToken: $2, environment: $3)
     }
@@ -67,10 +76,11 @@ final class ComposerController: NSObject {
         view.onPlus = { [weak self] in self?.presentAttachSheet() }
         view.onModePill = { [weak self] in self?.presentChangesSheet() }
         view.onDictate = { [weak self] in self?.startDictating() }
-        view.onModeChange = { [weak self] mode in self?.awake.isWanted = mode != .typing }
+        view.onModeChange = { [weak self] mode in self?.awake.isWanted = mode == .recording || mode == .transcribing }
         view.onWindowChange = { [weak self] onScreen in self?.awake.isOnScreen = onScreen }
         view.onStopDictating = { [weak self] in self?.finishDictating() }
         view.onCancelDictating = { [weak self] in self?.cancelDictating() }
+        view.onRetryDictating = { [weak self] in self?.retryDictating() }
         view.onLayout = { [weak self] in self?.reportLayout() }
         view.levelSource = { [weak self] in self?.recorder.level ?? 0 }
         recorder.onLimit = { [weak self] in self?.finishDictating() }
@@ -302,26 +312,43 @@ final class ComposerController: NSObject {
         dictationGeneration += 1
         let generation = dictationGeneration
         view.setMode(.transcribing)
+        keptRecording = nil
         let task = Task {
+            var failure: String?
             defer {
                 if generation == dictationGeneration {
-                    view.setMode(.typing)
+                    if let failure {
+                        // Kept, with Try again and Discard in the dictation line.
+                        keptRecording = (file, path)
+                        view.setMode(.failed(failure))
+                    } else {
+                        view.setMode(.typing)
+                    }
                     dictationTask = nil
                 }
             }
             do {
                 let words = try await transcribeRecording(file, path, state.csrfToken, environment)
+                try? FileManager.default.removeItem(at: file)
                 guard !Task.isCancelled, generation == dictationGeneration else { return }
                 if !words.isEmpty {
                     view.append(words)
                     send?(.text(words))
                 }
             } catch {
-                guard !Task.isCancelled, generation == dictationGeneration else { return }
-                if case DictationRecorder.Failure.refused(let reason) = error {
-                    view.flash(reason)
-                } else {
-                    view.flash(String(localized: "That didn't transcribe. Try again."))
+                guard !Task.isCancelled, generation == dictationGeneration else {
+                    try? FileManager.default.removeItem(at: file)
+                    return
+                }
+                let reason = error as? DictationRecorder.Failure ?? .unavailable
+                switch reason {
+                case .rejected(let words):
+                    try? FileManager.default.removeItem(at: file)
+                    view.flash(words)
+                case .refused(let words):
+                    failure = words
+                default:
+                    failure = String(localized: "Couldn't transcribe.")
                 }
             }
         }
@@ -329,12 +356,24 @@ final class ComposerController: NSObject {
         return task
     }
 
+    /// Sends a recording that couldn't be transcribed again.
+    @discardableResult
+    func retryDictating() -> Task<Void, Never>? {
+        guard case .failed = view.mode, let kept = keptRecording, let state = view.state else { return nil }
+        return transcribe(kept.file, at: kept.path, state: state)
+    }
+
+    /// Cancel while it listens or transcribes; Discard for a recording that couldn't be transcribed.
     private func cancelDictating() {
         dictationGeneration += 1
         dictationTask?.cancel()
         dictationTask = nil
         startingDictation = false
         recorder.cancel()
+        if let kept = keptRecording {
+            try? FileManager.default.removeItem(at: kept.file)
+            keptRecording = nil
+        }
         view.setMode(.typing)
     }
 
