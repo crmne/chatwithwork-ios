@@ -50,6 +50,8 @@ export default class extends BridgeComponent {
     window.addEventListener("model-consent:given", this.consented = () => this.#changed())
     window.addEventListener("model-consent:declined", this.declined = () => this.#connectToApp())
     window.addEventListener("resize", this.resized = () => this.#layout(this.layout))
+    // A tab of the panel's page that hides or shows it: at once, as the tab switches.
+    window.addEventListener("chat-panel-page:switched", this.switched = () => this.#changedNow())
     // native.css only hides the web composer from sight where the app draws
     // its own; there VoiceOver and TalkBack mustn't find a second field. The
     // app names its components once its bridge is ready, which can be after
@@ -67,6 +69,7 @@ export default class extends BridgeComponent {
     window.removeEventListener("model-consent:given", this.consented)
     window.removeEventListener("model-consent:declined", this.declined)
     window.removeEventListener("resize", this.resized)
+    window.removeEventListener("chat-panel-page:switched", this.switched)
     document.documentElement.style.removeProperty("--native-composer-height")
     this.drawnByApp?.disconnect()
     this.element.removeAttribute("aria-hidden")
@@ -87,12 +90,15 @@ export default class extends BridgeComponent {
 
   #changed() {
     clearTimeout(this.timer)
-    this.timer = setTimeout(() => {
-      const state = JSON.stringify(this.#state())
-      if (state === this.lastState) return
-      this.lastState = state
-      this.send("state", JSON.parse(state))
-    }, 150)
+    this.timer = setTimeout(() => this.#changedNow(), 150)
+  }
+
+  #changedNow() {
+    clearTimeout(this.timer)
+    const state = JSON.stringify(this.#state())
+    if (state === this.lastState) return
+    this.lastState = state
+    this.send("state", JSON.parse(state))
   }
 
   #perform({ action, ...data } = {}) {
@@ -193,7 +199,7 @@ export default class extends BridgeComponent {
 
     return {
       overlay: true,
-      visible: !document.querySelector("dialog:modal"),
+      visible: !document.querySelector("dialog:modal") && !this.element.closest("[hidden]"),
       placeholder: editor?.getAttribute("placeholder") || "",
       text: this.#controller("chat")?.promptText || "",
       locked: element.classList.contains("composer--locked"),
