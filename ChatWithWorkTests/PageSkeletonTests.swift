@@ -92,7 +92,7 @@ struct PageSkeletonTests {
         let circle = layout.bones[0], first = layout.bones[1], second = layout.bones[2]
         #expect(circle.shape == .circle)
         #expect(circle.frame == CGRect(x: 16, y: insets.top + 16 + 16, width: 32, height: 32))
-        #expect(first.frame.minX == 16 + 32 + 12)
+        #expect(first.frame.minX == CGFloat(16 + 32 + 12))
         #expect(first.frame.minY == insets.top + 16 + 16)
         #expect(first.frame.height == 12)
         #expect(first.frame.width == ((column - 44) * 0.56).rounded())
@@ -117,7 +117,7 @@ struct PageSkeletonTests {
         let first = layout.boxes[0], second = layout.boxes[1]
         #expect(first.frame == CGRect(x: 16, y: muted.maxY + 14, width: column, height: 4 * 52))
         #expect(first.dividers == [1, 2, 3].map { first.frame.minY + CGFloat($0) * 52 })
-        #expect(second.frame.height == 3 * 52)
+        #expect(second.frame.height == CGFloat(3 * 52))
         #expect(second.dividers.count == 2)
         // The second section's heading, 28 under the first group.
         #expect(layout.bones.contains { $0.frame.minY == first.frame.maxY + 28 && $0.frame.height == 14 })
@@ -168,15 +168,15 @@ struct PageSkeletonTests {
         #expect(abs((lines[1].minY - lines[0].minY) - 25.6) <= 1)
         #expect(layout.boxes.count == 1)
         #expect(layout.boxes[0].frame.minY == heading.maxY + 12 + 2 * 25.6 + 24)
-        #expect(layout.boxes[0].frame.height == 4 * 52)
+        #expect(layout.boxes[0].frame.height == CGFloat(4 * 52))
     }
 
     @Test("keeps to the chat's column on a wide screen")
     func wide() {
         let wide = CGRect(x: 0, y: 0, width: 1180, height: 820)
         let layout = PageSkeletonLayout.page(bounds: wide, insets: UIEdgeInsets(top: 74, left: 0, bottom: 20, right: 0))
-        #expect(layout.boxes[0].frame.width == 780 - 32)
-        #expect(layout.boxes[0].frame.midX == 590)
+        #expect(layout.boxes[0].frame.width == CGFloat(780 - 32))
+        #expect(layout.boxes[0].frame.midX == CGFloat(590))
         #expect(layout.bones.allSatisfy { $0.frame.minX >= 216 && $0.frame.maxX <= 964 })
     }
 
