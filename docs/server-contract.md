@@ -1687,6 +1687,7 @@ upload's progress, a lock, an answer starting or ending), both with:
   "working": false, "stopping": false,
   "models": [{"name": "Gemini 3.8 Flash", "rate": "About 2 credits per answer", "selected": true, "searchesWeb": true}],
   "webSearch": {"on": false, "disabled": false, "note": "..."},
+  "narrowing": {"title": "Narrow services", "note": "Everything connected"},
   "dictation": {"url": "/482139075/dictations"}, "csrfToken": "...",
   "attachments": [{"id": "7", "name": "plan.pdf", "size": "1.2 MB", "contentType": "application/pdf", "uploading": true, "progress": 40}],
   "acceptsFiles": true }
@@ -1694,6 +1695,18 @@ upload's progress, a lock, an answer starting or ending), both with:
 
 `webSearch` and `dictation` are `null` where the composer doesn't offer
 them.
+
+**Narrow services (2026-11-09).** `narrowing` is the web + menu's Narrow
+services, which keeps a person's services to some of their accounts or
+projects for this chat: its `title` ("Narrow services") and `note`, what it's
+kept to now ("Everything connected", "Google Drive · alex@northwind.example"),
+or `null`. The key is `null` where the web menu has no such item, and older
+servers leave it out: either way the app shows no row. The + sheet draws it as
+one row (`composer.narrow`, `line.3.horizontal.decrease`, the title with the
+note under it) after the attachment tiles and web search, before "Changes";
+the mode pill's sheet leaves it out. Choosing it closes the sheet and sends
+`narrow`, which opens the web's dialog; while it's open `visible` is false, so
+the app hides its composer as for any page dialog.
 
 **Composer parity (2026-10-30).** Each model may also send `iconName`
 (the model maker’s key), `icon` (the web asset’s absolute URL), and
@@ -1770,6 +1783,7 @@ App to web, as replies to `connect`, `{action, ...}`:
 | `model` | `{index}` | picks `models[index]` |
 | `permissionMode` | `{value}` | clicks an enabled permission-mode radio in the viewer’s web composer |
 | `webSearch` | `{on}` | switches web search |
+| `narrow` | | opens Narrow services, the web's dialog (`visible` goes false while it's open) |
 | `attach` | `{files: [{name, type, data}]}` | uploads files the app picked, photographed or scanned (`data` base64) like any file the composer takes |
 | `remove` | `{id}` | takes a file out |
 | `text` | `{text}` | dictated words, for the web composer too |
@@ -1809,7 +1823,8 @@ App to web, as replies to `connect`, `{action, ...}`:
   (VisionKit's document camera, the pages sent as one PDF), and, where the
   globe folded, "Search the web" with its `note` and a switch
   (`composer.webSearchSwitch`) that sends `webSearch` and leaves the sheet
-  open, as the web's "+" holds only what its bar has no room for.
+  open, as the web's "+" holds only what its bar has no room for; then
+  Narrow services (`composer.narrow`) while `narrowing` isn't `null`.
 - The permission modes follow attachments in the scrollable + sheet, and the
   pill opens them alone.
   Attaching from a connected service is not drawn yet. Photos go as JPEGs at

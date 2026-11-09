@@ -175,7 +175,8 @@ final class ComposerController: NSObject {
         presentSheet(AttachOptions(
             acceptsFiles: state.acceptsFiles,
             permissionModes: state.permissionModes,
-            webSearch: view.webSearchFolded ? state.webSearch : nil
+            webSearch: view.webSearchFolded ? state.webSearch : nil,
+            narrowing: state.narrowing
         ))
     }
 
@@ -219,6 +220,9 @@ final class ComposerController: NSObject {
             guard let webSearch = view.state?.webSearch, view.state?.locked != true, !webSearch.disabled || !on else { return }
             UISelectionFeedbackGenerator().selectionChanged()
             send?(.webSearch(on: on))
+        case .narrow:
+            guard view.state?.narrowing != nil else { return }
+            send?(.narrow)
         case .recent(let asset):
             Task {
                 if let image = await RecentPhotos.data(asset), let file = ComposerFiles.photo(image) { attach([file]) }

@@ -11,6 +11,8 @@ struct AttachOptions {
     var permissionModes: ComposerState.PermissionModes? = nil
     /// Web search, when the composer's bar has no room for its globe.
     var webSearch: ComposerState.WebSearch? = nil
+    /// Narrow services, where the web + menu has it.
+    var narrowing: ComposerState.Narrowing? = nil
     var canScan: Bool = VNDocumentCameraViewController.isSupported
     var hasCamera: Bool = UIImagePickerController.isSourceTypeAvailable(.camera)
 
@@ -22,7 +24,8 @@ struct AttachOptions {
 
 /// The "+" sheet: recent photos (where the person lets the app see their
 /// library), then Camera, Photos, Files, Scan, web search when the bar has
-/// no room for its globe, and the page’s permission modes under "Changes".
+/// no room for its globe, Narrow services where the web + menu has it, and
+/// the page’s permission modes under "Changes".
 /// The bar's mode pill opens the same sheet with only that section. Dictation
 /// is one tap away in the composer's bar, and tools and models live elsewhere,
 /// so "+" never becomes a drawer of everything. (On the web, "+" holds only
@@ -33,6 +36,7 @@ struct AttachSheet: View {
         case permissionMode(String)
         /// The switch: it changes in place, and the sheet stays open.
         case webSearch(Bool)
+        case narrow
         case recent(PHAsset)
     }
 
@@ -68,6 +72,25 @@ struct AttachSheet: View {
                 }
                 if let webSearch = options.webSearch {
                     WebSearchSwitch(webSearch: webSearch) { on in choose(.webSearch(on)) }
+                }
+                if let narrowing = options.narrowing {
+                    Button { choose(.narrow) } label: {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "line.3.horizontal.decrease")
+                                .frame(width: permissionIconWidth)
+                                .foregroundStyle(Color(Palette.inkMuted))
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(narrowing.title).foregroundStyle(Color(Palette.ink))
+                                if let note = narrowing.note, !note.isEmpty {
+                                    Text(note).font(.caption).foregroundStyle(Color(Palette.inkMuted))
+                                }
+                            }.frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .padding(.vertical, 8)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("composer.narrow")
                 }
                 if let modes = options.permissionModes {
                     VStack(alignment: .leading, spacing: 4) {

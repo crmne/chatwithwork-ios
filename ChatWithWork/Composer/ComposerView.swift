@@ -448,7 +448,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         widthWhenRefreshed = bounds.width
         webSearchButton.isHidden = busy || state?.webSearch == nil || folded
         // "+" opens while it holds anything, the folded globe's switch included.
-        plusButton.isEnabled = state?.locked != true && (state?.acceptsFiles != false || state?.permissionModes != nil || (folded && state?.webSearch != nil))
+        plusButton.isEnabled = state?.locked != true && (state?.acceptsFiles != false || state?.permissionModes != nil || state?.narrowing != nil || (folded && state?.webSearch != nil))
         plusBadge.isHidden = !(folded && state?.webSearch?.on == true)
         plusButton.accessibilityValue = plusBadge.isHidden ? nil : String(localized: "Web search on")
         let permission = state?.selectedPermissionMode

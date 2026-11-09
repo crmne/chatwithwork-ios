@@ -34,6 +34,13 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
         let note: String?
     }
 
+    /// The web + menu's Narrow services: its title, and what it keeps the
+    /// person's services to now ("Everything connected").
+    struct Narrowing: Decodable, Equatable, Sendable {
+        let title: String
+        let note: String?
+    }
+
     struct Dictation: Decodable, Equatable, Sendable {
         let url: String
     }
@@ -68,6 +75,8 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     let models: [Model]
     let permissionModes: PermissionModes?
     let webSearch: WebSearch?
+    /// Present only where the web + menu offers Narrow services; older servers leave it out.
+    let narrowing: Narrowing?
     let dictation: Dictation?
     let csrfToken: String?
     let attachments: [Attachment]
@@ -102,6 +111,7 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
         models = try values.decodeIfPresent([Model].self, forKey: .models) ?? []
         permissionModes = try values.decodeIfPresent(PermissionModes.self, forKey: .permissionModes)
         webSearch = try values.decodeIfPresent(WebSearch.self, forKey: .webSearch)
+        narrowing = try values.decodeIfPresent(Narrowing.self, forKey: .narrowing)
         dictation = try values.decodeIfPresent(Dictation.self, forKey: .dictation)
         csrfToken = try values.decodeIfPresent(String.self, forKey: .csrfToken)
         attachments = try values.decodeIfPresent([Attachment].self, forKey: .attachments) ?? []
@@ -109,7 +119,7 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case overlay, visible, placeholder, text, locked, lockReason, working, stopping, waiting, run, mark, revision, startedAt, models, permissionModes, webSearch, dictation, csrfToken, attachments, acceptsFiles
+        case overlay, visible, placeholder, text, locked, lockReason, working, stopping, waiting, run, mark, revision, startedAt, models, permissionModes, webSearch, narrowing, dictation, csrfToken, attachments, acceptsFiles
     }
 
     /// Whether Send can go now: words or files, nothing still uploading, and
@@ -147,6 +157,8 @@ nonisolated enum ComposerAction: Encodable, Equatable, Sendable {
     case model(index: Int)
     case permissionMode(value: String)
     case webSearch(on: Bool)
+    /// Opens the web's Narrow services dialog; `visible` goes false while it's open.
+    case narrow
     case attach(files: [ComposerFile])
     case remove(id: String)
     case text(String)
@@ -169,6 +181,8 @@ nonisolated enum ComposerAction: Encodable, Equatable, Sendable {
         case .webSearch(let on):
             try values.encode("webSearch", forKey: .action)
             try values.encode(on, forKey: .on)
+        case .narrow:
+            try values.encode("narrow", forKey: .action)
         case .attach(let files):
             try values.encode("attach", forKey: .action)
             try values.encode(files, forKey: .files)
