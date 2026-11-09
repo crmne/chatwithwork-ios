@@ -3,8 +3,7 @@ import UIKit
 @testable import ChatWithWork
 
 /// The composer's buttons are the web's touch buttons: 44-point targets
-/// painting 34-point squares with 9-point corners (the globe's 5), never
-/// circles.
+/// painting 34-point squares with 9-point corners, never circles.
 @MainActor
 @Suite("Composer controls")
 struct ComposerControlTests {
@@ -16,13 +15,14 @@ struct ComposerControlTests {
         return (control, plate)
     }
 
-    @Test("every style paints a 34-point square inside a 44-point target, with 9-point corners and the globe's 5")
+    @Test("every style paints a 34-point square inside a 44-point target, with 9-point corners, the globe's too")
     func geometry() {
         for style in [ComposerControl.Style.ghost, .toggle, .primary, .subtle] {
             let (control, plate) = laidOut(style)
             #expect(control.bounds.size == CGSize(width: 44, height: 44))
             #expect(plate.frame == CGRect(x: 5, y: 5, width: 34, height: 34))
-            #expect(plate.layer.cornerRadius == (style == .toggle ? 5 : 9))
+            #expect(plate.layer.cornerRadius == 9)
+            #expect(plate.layer.cornerCurve == .continuous)
         }
     }
 
@@ -46,17 +46,41 @@ struct ComposerControlTests {
         #expect(control.colors.icon == Palette.ink.withAlphaComponent(0.1))
     }
 
-    @Test("the globe is muted off, ink on a pressed square on, and faint where it can't search")
-    func toggle() {
-        let (control, _) = laidOut(.toggle)
+    @Test("the globe is a muted outline off, filled ink on a quiet wash on, and faint where it can't search")
+    func toggle() throws {
+        let (control, plate) = laidOut(.toggle)
+        control.setIcon("Globe", on: "GlobeFill")
+        let outline = try #require(UIImage(named: "Globe"))
+        let filled = try #require(UIImage(named: "GlobeFill"))
+        #expect(control.colors.plate == .clear)
         #expect(control.colors.icon == Palette.inkMuted)
+        #expect(control.iconImage?.size == outline.size)
+        #expect(control.iconImage?.pngData() == outline.withRenderingMode(.alwaysTemplate).pngData())
+        control.isHighlighted = true
+        #expect(control.colors.plate == Palette.ink.withAlphaComponent(0.07))
+        control.isHighlighted = false
+
         control.isOn = true
-        #expect(control.colors.plate == Palette.ink.withAlphaComponent(0.1))
+        #expect(control.colors.plate == Palette.ink.withAlphaComponent(0.08))
         #expect(control.colors.icon == Palette.ink)
-        #expect(control.layer.sublayers?.contains { $0 is CAShapeLayer && !$0.isHidden } == true, "On, the inset shadow shows")
+        #expect(control.colors.edge == nil)
+        #expect(control.iconImage?.pngData() == filled.withRenderingMode(.alwaysTemplate).pngData())
+        #expect(control.iconImage?.size == outline.size, "The filled globe is the outline's size")
+        #expect(plate.layer.borderWidth == 0 && plate.layer.shadowOpacity == 0)
+        #expect(control.layer.sublayers?.contains { $0 is CAShapeLayer } == false, "No inset shadow round the target")
+        control.isHighlighted = true
+        #expect(control.colors.plate == Palette.ink.withAlphaComponent(0.13))
+        control.isHighlighted = false
+
+        control.isOn = false
         control.isInert = true
+        #expect(control.colors.plate == .clear)
         #expect(control.colors.icon == Palette.inkFaint)
-        #expect(control.layer.sublayers?.contains { $0 is CAShapeLayer && !$0.isHidden } == false, "Faint, it doesn't")
+        #expect(control.iconImage?.pngData() == outline.withRenderingMode(.alwaysTemplate).pngData())
+        // Locked while on, as the web's aria-pressed one: still filled, but faint on nothing.
+        control.isOn = true
+        #expect(control.colors.plate == .clear && control.colors.icon == Palette.inkFaint)
+        #expect(control.iconImage?.pngData() == filled.withRenderingMode(.alwaysTemplate).pngData())
     }
 
     @Test("send beside stop is the subtle button: the surface, its hairline hidden as on the web's touch bar")

@@ -194,8 +194,9 @@ final class ComposerView: UIView, UITextViewDelegate {
         dictateButton.isHidden = true
 
         configure(webSearchButton, symbol: "globe", label: String(localized: "Search the web"), identifier: "composer.webSearch")
-        // The web's own globe, Phosphor's bold one (icon_tag "globe").
-        webSearchButton.setIcon("Globe")
+        // The web's own globes: Phosphor's bold one off (icon_tag "globe"),
+        // its filled one on (style: :fill).
+        webSearchButton.setIcon("Globe", on: "GlobeFill")
         webSearchButton.addAction(UIAction { [weak self] _ in self?.webSearchTapped() }, for: .primaryActionTriggered)
         webSearchButton.isHidden = true
 
@@ -303,6 +304,8 @@ final class ComposerView: UIView, UITextViewDelegate {
         plusBadge.layer.cornerRadius = 8
         plusBadge.layer.borderWidth = 1
         let globe = UIImageView(image: UIImage(named: "GlobeFill")?.withRenderingMode(.alwaysTemplate))
+        // The bar's 20-point globe, drawn at 10 here.
+        globe.contentMode = .scaleAspectFit
         globe.frame = CGRect(x: 3, y: 3, width: 10, height: 10)
         globe.tintColor = Palette.ink
         plusBadge.addSubview(globe)
@@ -573,8 +576,9 @@ final class ComposerView: UIView, UITextViewDelegate {
         if !webSearch.on, let note = webSearch.note, !note.isEmpty { flash(note) }
     }
 
-    /// On: ink on a pressed square, as the web's pressed globe. Off: a
-    /// muted icon, as on the web. Faint where the model can't search.
+    /// On: the filled globe in ink on a quiet wash, as the web's pressed
+    /// globe. Off: the muted outline, as on the web. Faint where the model
+    /// can't search.
     private func styleWebSearch() {
         let webSearch = state?.webSearch
         let on = webSearch?.on == true
