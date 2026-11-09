@@ -10,11 +10,11 @@ final class ComposerControl: UIButton {
     enum Style: Equatable {
         /// `.btn-ghost`: attach, dictate, cancel. Ink on nothing.
         case ghost
-        /// The globe (`.chat-prompt__web-search-toggle`): muted off, ink on a
-        /// pressed 10% ink square when on, faint where it can't search. Its
-        /// square's corners are 5 points (the toggle's own 10px radius,
-        /// inside the edge and padding), and on, the web's inset shadow
-        /// (0 1px 2px, ink at 12%) falls round the target's inner edge.
+        /// The globe (`.chat-prompt__web-search-toggle`), the ghost's square:
+        /// off, the outline globe muted on nothing; on, the filled globe
+        /// (`setIcon(_:on:)`) in ink on an 8% ink wash, 13% pressed, with no
+        /// edge or shadow, so the shape says it as well as the tone. Faint on
+        /// nothing where it can't search.
         case toggle
         /// `.btn-primary`: send, and stop. Ink square, inverted icon.
         case primary
@@ -27,14 +27,13 @@ final class ComposerControl: UIButton {
     static let target: CGFloat = 44
     static let side: CGFloat = 34
     static let corner: CGFloat = 9
-    static let toggleCorner: CGFloat = 5
     /// The web's icon boxes are 20px (stop's 15px); SF Symbols at these
     /// sizes draw glyphs of the same height as its Phosphor icons.
     static let iconPointSize: CGFloat = 19
     static let stopPointSize: CGFloat = 13
 
     var style: Style { didSet { restyle() } }
-    /// The globe's `aria-pressed`.
+    /// The globe's `aria-pressed`, which also picks its filled icon.
     var isOn = false { didSet { restyle() } }
     /// The globe's `aria-disabled`: tappable, to say why, but faint.
     var isInert = false { didSet { restyle() } }
@@ -43,10 +42,11 @@ final class ComposerControl: UIButton {
     /// The icon, apart from UIButton's own image view, which would dim it
     /// again when disabled or highlighted: `colors` alone decides its ink.
     private let icon = UIImageView()
+    /// The icon off and on, where it changes when on (the globe's outline
+    /// and filled ones). Nil for icons that stay the same.
+    private var icons: (off: UIImage?, on: UIImage?)?
     /// Stop's turning rainbow while the answer runs (`.chat-prompt__ring`).
     private var ring: StopRing?
-    /// The pressed globe's inset shadow, inside the target's 1-point edge.
-    private let pressedShadow = CAShapeLayer()
 
     init(style: Style) {
         self.style = style
@@ -58,13 +58,6 @@ final class ComposerControl: UIButton {
         icon.isUserInteractionEnabled = false
         icon.contentMode = .center
         addSubview(icon)
-        // Only the shadow shows, cast inward by the ring round the edge.
-        pressedShadow.fillColor = nil
-        pressedShadow.shadowOffset = CGSize(width: 0, height: 1)
-        pressedShadow.shadowRadius = 1
-        pressedShadow.shadowOpacity = 0.12
-        pressedShadow.isHidden = true
-        layer.insertSublayer(pressedShadow, at: 0)
         translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             widthAnchor.constraint(equalToConstant: Self.target),
@@ -80,13 +73,22 @@ final class ComposerControl: UIButton {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func setSymbol(_ name: String, pointSize: CGFloat = ComposerControl.iconPointSize, weight: UIImage.SymbolWeight = .medium) {
+        icons = nil
         icon.image = UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: pointSize, weight: weight))
     }
 
     /// One of the web's own Phosphor icons from the asset catalog, at its
     /// 20 points, tinted like a symbol.
     func setIcon(_ name: String) {
+        icons = nil
         icon.image = UIImage(named: name)?.withRenderingMode(.alwaysTemplate)
+    }
+
+    /// Two of them: `name` while off, `onName` while `isOn` (the globe's
+    /// outline and filled ones, `icon_tag "globe"` and its `style: :fill`).
+    func setIcon(_ name: String, on onName: String) {
+        icons = (UIImage(named: name)?.withRenderingMode(.alwaysTemplate), UIImage(named: onName)?.withRenderingMode(.alwaysTemplate))
+        restyle()
     }
 
     /// The image drawn now, for tests and accessibility snapshots.
@@ -123,19 +125,6 @@ final class ComposerControl: UIButton {
         icon.frame = bounds
         // The web's ring sits 1px inside the button's 1px edge.
         ring?.frame = bounds.insetBy(dx: 2, dy: 2)
-
-        let edge = bounds.insetBy(dx: 1, dy: 1)
-        let inner = UIBezierPath(roundedRect: CGRect(origin: .zero, size: edge.size), cornerRadius: Self.corner)
-        let outer = UIBezierPath(rect: CGRect(origin: .zero, size: edge.size).insetBy(dx: -8, dy: -8))
-        // Reversed, so the hole stays a hole in the shadow path too, which
-        // takes no fill rule.
-        outer.append(inner.reversing())
-        pressedShadow.frame = edge
-        pressedShadow.path = outer.cgPath
-        pressedShadow.shadowPath = outer.cgPath
-        let mask = CAShapeLayer()
-        mask.path = inner.cgPath
-        pressedShadow.mask = mask
     }
 
     /// What the plate and icon show now. `alpha` stays the view's own, so
@@ -148,7 +137,7 @@ final class ComposerControl: UIButton {
             return (isHighlighted ? ink.withAlphaComponent(0.07) : .clear, ink, nil)
         case .toggle:
             if isInert { return (.clear, Palette.inkFaint, nil) }
-            if isOn { return (ink.withAlphaComponent(0.1), ink, nil) }
+            if isOn { return (ink.withAlphaComponent(isHighlighted ? 0.13 : 0.08), ink, nil) }
             return (isHighlighted ? ink.withAlphaComponent(0.07) : .clear, isHighlighted ? ink : Palette.inkMuted, nil)
         case .primary:
             // daisyUI's disabled button, at the half opacity the web's send has then.
@@ -163,9 +152,7 @@ final class ComposerControl: UIButton {
     private func restyle() {
         let colors = colors
         plate.backgroundColor = colors.plate
-        plate.layer.cornerRadius = style == .toggle ? Self.toggleCorner : Self.corner
-        pressedShadow.isHidden = !(style == .toggle && isOn && !isInert)
-        pressedShadow.shadowColor = Palette.ink.resolvedColor(with: traitCollection).cgColor
+        if let icons { icon.image = isOn ? icons.on : icons.off }
         plate.layer.borderWidth = colors.edge == nil ? 0 : 1
         plate.layer.borderColor = colors.edge?.resolvedColor(with: traitCollection).cgColor
         // The icon takes it from here, as a UIButton's own image would.
