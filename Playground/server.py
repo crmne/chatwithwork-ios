@@ -677,6 +677,13 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
         </div>
       </div>
       </form>
+      <dialog id="chat_narrowing_dialog" class="modal narrowing-dialog" aria-labelledby="chat_narrowing_title">
+        <div class="modal-box narrowing-dialog__box">
+          <header class="dialog__header"><h3 id="chat_narrowing_title">Narrow services</h3></header>
+          <form method="dialog"><button class="btn btn-primary btn-sm">Done</button></form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+      </dialog>
     </div>"""
 
 
@@ -837,14 +844,7 @@ def conversation(handler, account, number, lock=None):
         </div>
       </div>
     </turbo-frame>
-{'' if in_project else share_dialog(handler, number, chat["title"])}
-    <dialog id="chat_narrowing_dialog" class="modal narrowing-dialog" aria-labelledby="chat_narrowing_title">
-      <div class="modal-box narrowing-dialog__box">
-        <header class="dialog__header"><h3 id="chat_narrowing_title">Narrow services</h3></header>
-        <form method="dialog"><button class="btn btn-primary btn-sm">Done</button></form>
-      </div>
-      <form method="dialog" class="modal-backdrop"><button>close</button></form>
-    </dialog>"""
+{'' if in_project else share_dialog(handler, number, chat["title"])}"""
     return Page(chat["title"], body, body_class="chat-view", account=account)
 
 
