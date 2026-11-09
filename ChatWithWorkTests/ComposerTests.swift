@@ -130,6 +130,15 @@ struct ComposerTests {
         #expect(state?.text == "")
     }
 
+    @Test("reads Narrow services where the web + menu has it, and no row where it's null or absent")
+    func narrowing() throws {
+        let present = try state(#"{"narrowing":{"title":"Narrow services","note":"Google Drive · alex@northwind.example"}}"#)
+        #expect(present.narrowing == .init(title: "Narrow services", note: "Google Drive · alex@northwind.example"))
+        #expect(try state(#"{"narrowing":{"title":"Narrow services","note":null}}"#).narrowing?.note == nil)
+        #expect(try state(#"{"narrowing":null}"#).narrowing == nil)
+        #expect(try state("{}").narrowing == nil)
+    }
+
     @Test("permissions come only from the current page, including disabled choices")
     func permissions() throws {
         let json = #"{"permissionModes":{"selected":"ask","options":[{"value":"ask","label":"Ask for changes","selected":true,"disabled":false},{"value":"edits","label":"Allow edits","selected":false,"disabled":false},{"value":"everything","label":"Allow everything","selected":false,"disabled":true}]}}"#
@@ -216,7 +225,7 @@ struct ComposerTests {
         let modes = try state(Self.modes("edits")).permissionModes
         let options = AttachOptions.changes(modes)
         #expect(options.permissionModes == modes)
-        #expect(!options.acceptsFiles && options.webSearch == nil)
+        #expect(!options.acceptsFiles && options.webSearch == nil && options.narrowing == nil)
     }
 
     @Test("the model gives way to the pill, and Send and the pill stay in the bar", arguments: [
@@ -339,6 +348,7 @@ struct ComposerTests {
         (.permissionMode(value: "edits"), #"{"action":"permissionMode","value":"edits"}"#),
         (.model(index: 1), #"{"action":"model","index":1}"#),
         (.webSearch(on: true), #"{"action":"webSearch","on":true}"#),
+        (.narrow, #"{"action":"narrow"}"#),
         (.remove(id: "7"), #"{"action":"remove","id":"7"}"#),
         (.text("words"), #"{"action":"text","text":"words"}"#),
         (.layout(height: 122, width: 402), #"{"action":"layout","height":122,"width":402}"#)

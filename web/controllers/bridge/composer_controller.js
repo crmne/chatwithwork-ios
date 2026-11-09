@@ -10,10 +10,14 @@ import { BridgeComponent } from "@hotwired/hotwire-native-bridge"
 //   state = { overlay, visible, placeholder, text, locked, lockReason, working, stopping, waiting, run, revision, startedAt,
 //             models: [{name, rate, selected, searchesWeb, icon, iconName, invertIcon}],
 //             permissionModes: {selected, options: [{value, label, description, selected, disabled}]} | null,
-//             webSearch: {on, disabled, note} | null, dictation: {url} | null, csrfToken,
+//             webSearch: {on, disabled, note} | null, narrowing: {title, note} | null, dictation: {url} | null, csrfToken,
 //             attachments: [{id, name, size, contentType, uploading, progress}], acceptsFiles }
 // +run+, +revision+, and +startedAt+ (unix seconds) say which answer is working or +waiting+ for the person (the
 // server's LiveActivity::Run), null while none is: opaque, and nothing from the chat.
+// +visible+ is false while a modal dialog or a popover owns the screen, or while the web composer is in a hidden tab (the
+// panel's page, chats/panels/show, has it on Side chats only).
+// +narrowing+ is the + menu's Narrow services where the person has a service it can keep to some of what it reaches
+// (chats/narrowings/_item): its title, and what it's kept to now ("Everything connected"); null where the menu has none.
 // +text+ is the words the web composer holds (a shared link, a restored draft), files left out, for the app's empty field.
 // Until the person says yes to their words going to models (model_consent_controller.js), +dictation+ is null, and a
 // send waits for the page's dialog: agreeing sends it, while Not now connects again, so the app's field gets its words
@@ -25,6 +29,7 @@ import { BridgeComponent } from "@hotwired/hotwire-native-bridge"
 //   model {index}      picks a model from state.models
 //   permissionMode {value} picks an enabled radio in the web's viewer-specific Changes menu
 //   webSearch {on}     switches web search
+//   narrow             opens Narrow services, the web's dialog (+visible+ goes false while it's open)
 //   attach {files: [{name, type, data}]}  files the app picked, scanned, or photographed, base64, uploaded here like
 //                      any file the composer takes
 //   remove {id}        takes a file out again
@@ -38,24 +43,24 @@ export default class extends BridgeComponent {
     this.observer = new MutationObserver(() => this.#changed())
     this.observer.observe(this.element, { childList: true, subtree: true, attributes: true, characterData: true })
     // Native views sit above the web view, including its modal top layer.
-    // Hide the native composer while a page dialog owns the screen, keeping
-    // its draft. Watch removal too: Turbo can replace an open dialog.
+    // Hide the native composer while a page dialog or popover owns the screen,
+    // keeping its draft. Watch removal too: Turbo can replace an open one.
     this.dialogs = new MutationObserver(records => {
       if (records.some(record => record.target instanceof HTMLDialogElement ||
         [ ...record.addedNodes, ...record.removedNodes ].some(node => node.nodeType === Node.ELEMENT_NODE &&
-          (node.matches("dialog") || node.querySelector("dialog"))))) this.#changed()
+          (node.matches("dialog, [popover]") || node.querySelector("dialog, [popover]"))))) this.#changed()
     })
     this.dialogs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: [ "open" ] })
+    document.addEventListener("toggle", this.toggled = () => this.#changed(), true)
     this.element.addEventListener("lexxy:upload-progress", this.progressed = () => this.#changed())
     window.addEventListener("model-consent:given", this.consented = () => this.#changed())
     window.addEventListener("model-consent:declined", this.declined = () => this.#connectToApp())
     window.addEventListener("resize", this.resized = () => this.#layout(this.layout))
-    // A tab of the panel's page that hides or shows it: at once, as the tab switches.
+    // A tab of the panel's page that hides or shows it (chat_panel_page_controller.js): at once, as the tab switches.
     window.addEventListener("chat-panel-page:switched", this.switched = () => this.#changedNow())
-    // native.css only hides the web composer from sight where the app draws
-    // its own; there VoiceOver and TalkBack mustn't find a second field. The
-    // app names its components once its bridge is ready, which can be after
-    // this connects, so follow the same attribute native.css does.
+    // native.css only hides the web composer from sight where the app draws its own; there VoiceOver and TalkBack
+    // mustn't find a second, invisible field. The app names its components once its bridge is ready, which can be
+    // after this connects, so follow the same attribute native.css does.
     this.drawnByApp = new MutationObserver(() => this.#hideWhereTheAppDrawsIt())
     this.drawnByApp.observe(document.documentElement, { attributes: true, attributeFilter: [ "data-bridge-components" ] })
     this.#hideWhereTheAppDrawsIt()
@@ -65,6 +70,7 @@ export default class extends BridgeComponent {
   disconnect() {
     this.observer?.disconnect()
     this.dialogs?.disconnect()
+    document.removeEventListener("toggle", this.toggled, true)
     this.element.removeEventListener("lexxy:upload-progress", this.progressed)
     window.removeEventListener("model-consent:given", this.consented)
     window.removeEventListener("model-consent:declined", this.declined)
@@ -108,6 +114,7 @@ export default class extends BridgeComponent {
       case "model": return this.element.querySelectorAll(".model-picker__option")[data.index]?.click()
       case "permissionMode": return this.#switchPermissionMode(data.value)
       case "webSearch": return this.#switchWebSearch(Boolean(data.on))
+      case "narrow": return this.element.querySelector(".chat-prompt__narrowing-item")?.click()
       case "attach": return (data.files || []).forEach(file => this.#attach(file))
       case "remove": return this.#remove(data.id)
       case "text": return this.element.dispatchEvent(new CustomEvent("dictation:text", { detail: { text: data.text || "", final: true } }))
@@ -121,6 +128,9 @@ export default class extends BridgeComponent {
     this.layout = data
     const height = Math.min(window.innerHeight, data.height * window.innerWidth / data.width)
     document.documentElement.style.setProperty("--native-composer-height", `${height}px`)
+    // The page's dock moved with it (a lock's line, like offline's, made it taller): scroll_controller.js keeps what
+    // waits for the person above it
+    document.dispatchEvent(new CustomEvent("composer:layout"))
   }
 
   #sendText(text) {
@@ -149,6 +159,15 @@ export default class extends BridgeComponent {
 
     const input = [ ...this.element.querySelectorAll("#permission_modes input[name=permission_mode]") ].find(input => input.value === value)
     if (input && !input.disabled && !input.checked) input.click()
+  }
+
+  #narrowing() {
+    const item = this.element.querySelector(".chat-prompt__narrowing-item")
+    if (!item) return null
+
+    const note = item.querySelector(".chat-prompt__menu-note")
+    const title = [ ...item.querySelector(".chat-prompt__menu-label").childNodes ].filter(node => node !== note).map(node => node.textContent).join("").trim()
+    return { title, note: note?.textContent.trim() || null }
   }
 
   #permissionModes() {
@@ -184,8 +203,26 @@ export default class extends BridgeComponent {
     return node?.fileName || figure.querySelector(".attachment__name")?.textContent.trim() || "file"
   }
 
+  // The lock's words as the apps show them: without what the page hides in them (.native-hidden, native.css), such
+  // as a call to buy credits, which the stores allow no pointer to.
+  #lockReason(lock) {
+    if (!lock) return null
+    const shown = lock.cloneNode(true)
+    shown.querySelectorAll(".native-hidden").forEach(hidden => hidden.remove())
+    return shown.textContent.trim().replace(/\s+/g, " ") || null
+  }
+
   #controller(identifier) {
     return this.application.getControllerForElementAndIdentifier(this.element, identifier)
+  }
+
+  // Why the switch is off, or where searches go and what one costs: the app shows it as the globe turns on.
+  #webSearchNote(checkbox) {
+    const switchLabel = checkbox.closest(".chat-prompt__web-search")
+    const note = switchLabel.querySelector(".chat-prompt__menu-note")?.textContent.trim() || null
+    const where = switchLabel.dataset.webSearchWhere
+
+    return checkbox.disabled || !where ? note : [ where, note ].filter(Boolean).join(" ")
   }
 
   #state() {
@@ -199,11 +236,11 @@ export default class extends BridgeComponent {
 
     return {
       overlay: true,
-      visible: !document.querySelector("dialog:modal") && !this.element.closest("[hidden]"),
+      visible: !document.querySelector("dialog:modal, [popover]:popover-open") && !element.closest("[hidden]"),
       placeholder: editor?.getAttribute("placeholder") || "",
       text: this.#controller("chat")?.promptText || "",
       locked: element.classList.contains("composer--locked"),
-      lockReason: lock?.textContent.trim().replace(/\s+/g, " ") || null,
+      lockReason: this.#lockReason(lock),
       working: element.classList.contains("composer--working"),
       stopping: Boolean(element.querySelector("button.chat-prompt__stop[disabled]")),
       waiting: element.dataset.liveWaiting === "true",
@@ -221,10 +258,11 @@ export default class extends BridgeComponent {
         invertIcon: option.dataset.modelSelectInvertParam === "true"
       })),
       permissionModes: this.#permissionModes(),
+      narrowing: this.#narrowing(),
       webSearch: webSearch ? {
         on: webSearch.checked,
         disabled: webSearch.disabled,
-        note: webSearch.closest(".chat-prompt__web-search")?.querySelector(".chat-prompt__menu-note")?.textContent.trim() || null
+        note: this.#webSearchNote(webSearch)
       } : null,
       dictation: dictation ? { url: element.dataset.dictationUrlValue } : null,
       csrfToken: document.querySelector("meta[name=csrf-token]")?.content || null,

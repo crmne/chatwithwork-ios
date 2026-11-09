@@ -624,6 +624,16 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
              data-composer-menu-target="menu">
           <label class="chat-prompt__web-search" hidden><input type="checkbox" name="web_search"> Web search
             <span class="chat-prompt__menu-note">Searches leave the EU: Google or Bing see the query.</span></label>
+          <turbo-frame id="chat_narrowing_item">
+            <button type="button" role="menuitem" class="chat-prompt__narrowing-item"
+                    data-controller="modal-opener" data-modal-opener-dialog-id-value="chat_narrowing_dialog" data-action="modal-opener#open">
+              {icon("funnel-simple", "size-4")}
+              <span class="chat-prompt__menu-label">
+                Narrow services
+                <span class="chat-prompt__menu-note">Everything connected</span>
+              </span>
+            </button>
+          </turbo-frame>
           <div id="permission_modes" class="chat-prompt__modes" role="group" aria-labelledby="permission_modes_label" data-action="change->composer#update">
             <span class="chat-prompt__menu-heading" id="permission_modes_label">Changes</span>
             <label class="chat-prompt__mode chat-prompt__mode--ask">
@@ -827,7 +837,14 @@ def conversation(handler, account, number, lock=None):
         </div>
       </div>
     </turbo-frame>
-{'' if in_project else share_dialog(handler, number, chat["title"])}"""
+{'' if in_project else share_dialog(handler, number, chat["title"])}
+    <dialog id="chat_narrowing_dialog" class="modal narrowing-dialog" aria-labelledby="chat_narrowing_title">
+      <div class="modal-box narrowing-dialog__box">
+        <header class="dialog__header"><h3 id="chat_narrowing_title">Narrow services</h3></header>
+        <form method="dialog"><button class="btn btn-primary btn-sm">Done</button></form>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>"""
     return Page(chat["title"], body, body_class="chat-view", account=account)
 
 
