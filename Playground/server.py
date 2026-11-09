@@ -677,14 +677,15 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
         </div>
       </div>
       </form>
-      <dialog id="chat_narrowing_dialog" class="modal narrowing-dialog" aria-labelledby="chat_narrowing_title">
-        <div class="modal-box narrowing-dialog__box">
-          <header class="dialog__header"><h3 id="chat_narrowing_title">Narrow services</h3></header>
-          <form method="dialog"><button class="btn btn-primary btn-sm">Done</button></form>
-        </div>
-        <form method="dialog" class="modal-backdrop"><button>close</button></form>
-      </dialog>
-    </div>"""
+    </div>
+    <!-- Beside the composer, not in it, as chats/_form renders it: the composer is aria-hidden where the app draws its own. -->
+    <dialog id="chat_narrowing_dialog" class="modal narrowing-dialog" aria-labelledby="chat_narrowing_title">
+      <div class="modal-box narrowing-dialog__box">
+        <header class="dialog__header"><h3 id="chat_narrowing_title">Narrow services</h3></header>
+        <form method="dialog"><button class="btn btn-primary btn-sm">Done</button></form>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>"""
 
 
 def project_context(account, project_number, chat_number=None):
