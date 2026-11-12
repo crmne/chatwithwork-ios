@@ -34,6 +34,39 @@ repository).
 
 ## Building and uploading
 
+### November 12, 2026: 1.1.3 released, 1.1.4 sent to App Review
+
+Apple had approved 1.1.3 (build 10059) by November 12, 2026, which found it
+Pending Developer Release. It was released by hand through the API at 18:49
+Europe/Berlin, and App Store Connect said Ready for Sale at once.
+
+iOS 1.1.4, build 10067, went to App Review on November 12, 2026 at 18:52
+Europe/Berlin, with **Manually release this version** selected. Build 10067 is
+Xcode Cloud's archive of main at
+[081e7e6](https://github.com/crmne/chatwithwork-ios/commit/081e7e6), with
+`MARKETING_VERSION` 1.1.4; the commit after it only writes What's New, which
+isn't in the app, so no new build was needed. It was already in both
+TestFlight groups. The new version took the description, keywords, URLs,
+screenshots and review details from 1.1.3, and the promotional text was set
+from `promotional_text.txt`. The synthetic review login was refreshed on
+production just before. Export compliance: no non-exempt encryption.
+
+It carries New chat, New bot and Decisions as App Shortcuts and quick actions
+([#45](https://github.com/crmne/chatwithwork-ios/pull/45)), a dictation kept
+when it couldn't be transcribed
+([#46](https://github.com/crmne/chatwithwork-ios/pull/46)), every page's
+shape until it paints
+([#47](https://github.com/crmne/chatwithwork-ios/pull/47)), the chats or Bots
+page on a second tap of the chosen half
+([#49](https://github.com/crmne/chatwithwork-ios/pull/49)), Narrow services in
+the + sheet ([#50](https://github.com/crmne/chatwithwork-ios/pull/50)), and the
+web search globe switched on as the bar's own square
+([#52](https://github.com/crmne/chatwithwork-ios/pull/52)). What's New is
+`fastlane/metadata/en-US/release_notes.txt`.
+
+Validation: each pull request says what it ran. Nothing more was run for this
+submission, and the build wasn't tried on a device or against a real server.
+
 ### November 6, 2026: 1.1.2 released, 1.1.3 sent to App Review
 
 Apple approved 1.1.2 (build 10044) on November 6, 2026 at about 20:20
