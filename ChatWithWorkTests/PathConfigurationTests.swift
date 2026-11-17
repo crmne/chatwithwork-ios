@@ -64,7 +64,7 @@ struct PathConfigurationTests {
     }
 
     @Test("makes every place the one screen at the root, with pull to refresh", arguments: [
-        "/1000001/decisions", "/1000001/decisions?decision=t7&view=now", "/1000001/bots", "/1000001/bots?list=mine",
+        "/1000001/home", "/1000001/decisions", "/1000001/decisions?decision=t7&view=now", "/1000001/bots", "/1000001/bots?list=mine",
         "/1000001/chats", "/1000001/chats?list=recent", "/1000001/projects", "/1000001/settings"
     ])
     func places(path: String) {

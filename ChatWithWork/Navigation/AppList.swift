@@ -15,7 +15,9 @@ nonisolated enum AppList: String, CaseIterable, Sendable {
 }
 
 nonisolated enum AppPath {
-    /// The new chat page, where the app opens.
+    /// Where the app opens: the server's home, which lands on Decisions once
+    /// it has something to show, else New chat, as signing in does.
+    static let home = "/home"
     static let newChat = "/chats/new"
     static let newBot = "/bots/new"
     static let decisions = "/decisions"

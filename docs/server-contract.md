@@ -418,8 +418,16 @@ anchoring unless written):
 | `/chats/\d+\?(.*&)?from=` | default | `default` (push) | off | a chat a page opens about something on it (a bot's "Change it in a chat", its runs, Decisions' "Open chat", a side chat), pushed with back to that page |
 | `^/shared/` | default | | off | |
 | `/settings\?` | default | | on | a Settings tab, pushed over the Settings list (`query_string_presentation: default`, since the list and its tabs share `/settings`) |
-| `/decisions(\?\|$)`, `/bots(\?\|$)`, `/chats(\?\|$)`, `/projects(\?\|$)`, `/settings$` | default | `replace_root` | on | the places: Decisions, Bots, the chat lists, Projects, the Settings list |
+| `/home$`, `/decisions(\?\|$)`, `/bots(\?\|$)`, `/chats(\?\|$)`, `/projects(\?\|$)`, `/settings$` | default | `replace_root` | on | the places: home (where the app starts, below), Decisions, Bots, the chat lists, Projects, the Settings list |
 | `/chats/\d+/files/` | modal (`full`) | | off | a chat's file in its viewer, over the chat ([A file](#a-file-chatsfilesshow)) |
+
+**Where the app starts (2026-11-17).** The navigator starts on
+`/<organization>/home` (`/home` before the app knows the organization,
+`SidebarShell.startURL`), which redirects as signing in does: to Decisions
+once a bot or something waiting gives it something to show, else to New
+chat. It's a place, so the page it lands on is the root. Builds before it
+started on `/<organization>/chats/new`, or the project's new chat the
+sidebar last chose.
 
 v1, for the tab builds, opened `/chats/new` as a sheet, pushed chats, and
 treated `/chats`, `/projects` and `/settings` as tab roots.

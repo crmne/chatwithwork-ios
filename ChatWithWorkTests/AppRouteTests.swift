@@ -58,14 +58,14 @@ struct AppRouteTests {
         #expect(AppRoute(path: "/users/sign_up").isAuthentication)
     }
 
-    @Test("starts inside the organization when it's known, at the new chat last used there")
+    @Test("starts on the organization's home when it's known, whatever New chat last opened")
     func startURLs() {
         let environment = AppEnvironment.load(info: ["CWWBaseURL": "https://chatwithwork.com"], arguments: UserDefaults(suiteName: UUID().uuidString)!, variables: [:])
         let memory = SessionMemory(defaults: UserDefaults(suiteName: UUID().uuidString)!)
         let acme = AccountSlug("482139075")!
-        #expect(SidebarShell.startURL(environment: environment, account: nil, memory: memory).absoluteString == "https://chatwithwork.com/chats/new")
-        #expect(SidebarShell.startURL(environment: environment, account: acme, memory: memory).absoluteString == "https://chatwithwork.com/482139075/chats/new")
+        #expect(SidebarShell.startURL(environment: environment, account: nil, memory: memory).absoluteString == "https://chatwithwork.com/home")
+        #expect(SidebarShell.startURL(environment: environment, account: acme, memory: memory).absoluteString == "https://chatwithwork.com/482139075/home")
         memory.setNewChatPath("/482139075/chats/new?project_id=3", in: acme)
-        #expect(SidebarShell.startURL(environment: environment, account: acme, memory: memory).absoluteString == "https://chatwithwork.com/482139075/chats/new?project_id=3")
+        #expect(SidebarShell.startURL(environment: environment, account: acme, memory: memory).absoluteString == "https://chatwithwork.com/482139075/home")
     }
 }

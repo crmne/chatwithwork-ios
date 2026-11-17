@@ -57,11 +57,11 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         foregroundObserver.map(NotificationCenter.default.removeObserver)
     }
 
-    /// The new chat in the list last chosen in this organization (its
-    /// project, if it was one), or the server's pick of organization.
+    /// The organization's home, which lands on Decisions or New chat as
+    /// signing in does (docs/server-contract.md, "Where the app starts"), or
+    /// the server's pick of organization.
     static func startURL(environment: AppEnvironment, account: AccountSlug?, memory: SessionMemory) -> URL {
-        let path = account.flatMap { memory.newChatPath(in: $0) } ?? AppPath.path(AppPath.newChat, in: account)
-        return environment.url(path: path)
+        environment.url(path: AppPath.path(AppPath.home, in: account))
     }
 
     private var sidebarWidth: CGFloat { min(view.bounds.width * 0.84, 340) }

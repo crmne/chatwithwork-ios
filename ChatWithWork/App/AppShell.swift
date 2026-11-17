@@ -484,7 +484,7 @@ extension AppShell: NavigatorDelegate {
         if route.account != nil { return true }
         switch route.kind {
         case .list, .newChat, .chat, .historicalLocation(.recede): return true
-        default: return route.path == "/accounts"
+        default: return route.path == "/accounts" || route.path == AppPath.home
         }
     }
 }
