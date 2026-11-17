@@ -222,7 +222,7 @@ struct SidebarView: View {
             }
             .padding(.horizontal, 4)
             .padding(.leading, 4)
-            .frame(minHeight: 36)
+            .frame(minHeight: 44)
             .background(RoundedRectangle(cornerRadius: 10).fill(Color(Palette.surface)))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(Palette.line), lineWidth: 1))
             .contentShape(Rectangle())
@@ -286,7 +286,7 @@ struct SidebarView: View {
             }
         }
         .padding(.horizontal, 12)
-        .frame(minHeight: 32)
+        .frame(minHeight: 44)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color(Palette.surface)))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(Palette.line), lineWidth: 1))
         .onChange(of: query) { _, value in
@@ -364,7 +364,7 @@ struct SidebarView: View {
             }
             .padding(.leading, 10)
             .padding(.trailing, 6)
-            .frame(minHeight: 36)
+            .frame(minHeight: 44)
             .background(RoundedRectangle(cornerRadius: 14).fill(Color(current ? Palette.surfaceRaised : Palette.surface)))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(waits ? Color(Palette.attention).opacity(0.45) : Color(current ? Palette.lineStrong : Palette.line), lineWidth: 1))
             .contentShape(Rectangle())
@@ -528,7 +528,7 @@ struct SidebarView: View {
             }
             .foregroundStyle(Color(Palette.ink))
             .padding(.horizontal, 8)
-            .frame(minHeight: 40)
+            .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -602,7 +602,7 @@ struct SidebarView: View {
             .font(.system(size: smallSize))
             .foregroundStyle(Color(Palette.inkFaint))
             .padding(.horizontal, 12)
-            .frame(minHeight: 32)
+            .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -709,7 +709,7 @@ struct SidebarView: View {
                     }
                     .foregroundStyle(Color(Palette.inkInverted))
                     .padding(.horizontal, 12)
-                    .frame(minHeight: 32)
+                    .frame(minHeight: 44)
                     .background(RoundedRectangle(cornerRadius: 10).fill(Color(Palette.ink)))
                     .contentShape(Rectangle())
                 }
@@ -782,7 +782,7 @@ struct SidebarView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, bot.line == nil ? 0 : 7)
-            .frame(minHeight: 35)
+            .frame(minHeight: 44)
             .background(rowBackground(current: current))
             .contentShape(Rectangle())
         }

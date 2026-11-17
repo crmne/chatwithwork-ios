@@ -245,6 +245,7 @@ final class AppShell: NSObject {
 
     private func showSignedIn(account: AccountSlug?, continuingTo url: URL? = nil, startingAt start: URL? = nil, animated: Bool = true) {
         let shell = SidebarShell(environment: environment, account: account, navigatorDelegate: self, memory: memory)
+        shell.onSignOut = { [weak self] in self?.later { $0.showSignedOut(reason: .signedOut) } }
         self.account = account
         state = .signedIn(shell)
 

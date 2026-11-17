@@ -57,6 +57,14 @@ struct BridgeContractTests {
         #expect(newChat?.nativeAction == ButtonData.newChat, "The shell leaves out the page's New chat by its nativeAction")
     }
 
+    @Test("sidebar's connect names the sidebar page and what the page on screen belongs under, or nothing from an older server")
+    func sidebarConnect() {
+        let named: SidebarPage.Connect? = message("sidebar", "connect", #"{"page":"/482139075/sidebar","belongsTo":null,\#(metadata)}"#).data()
+        #expect(named == SidebarPage.Connect(page: "/482139075/sidebar", belongsTo: nil))
+        let older: SidebarPage.Connect? = message("sidebar", "connect", #"{\#(metadata)}"#).data()
+        #expect(older?.pagePath == nil)
+    }
+
     @Test("notification-token's offer names its moment")
     func notificationOffer() {
         let approval: OfferData? = message("notification-token", "offer", #"{"reason":"approval",\#(metadata)}"#).data()

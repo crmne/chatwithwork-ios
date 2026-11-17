@@ -1,17 +1,21 @@
 import { BridgeComponent } from "@hotwired/hotwire-native-bridge"
 import { Turbo } from "@hotwired/turbo-rails"
 
-// The phone apps draw the sidebar natively from /native/sidebar's JSON
-// (Native::SidebarsController). This hidden element, on every signed-in page
-// in builds that list the "sidebar" component, tells the app when that list
-// changed, so it fetches it again: the page subscribes to the person's own
-// sidebar streams ([user, "chats"] and [user, :sidebar]), whose messages
-// target the web sidebar's rows, pins, lists and Bots row, none of which the
-// app's pages render.
+// The phone apps' sidebar. This hidden element is on every signed-in page in
+// builds that list the "sidebar" component. Its connect names the sidebar
+// page (SidebarsController, the web's own sidebar on its own), which builds
+// that know it keep in their drawer, and the path the page on screen belongs
+// under (data-sidebar-belongs-to: a bot's chat raises its bot's row), which
+// they hand that page to mark. Older builds draw the sidebar natively from
+// /native/sidebar's JSON (Native::SidebarsController), and this element
+// tells them when it changed, so they fetch it again: the page subscribes to
+// the person's own sidebar streams ([user, "chats"] and [user, :sidebar]),
+// whose messages target the web sidebar's rows, pins, lists and Bots row,
+// none of which the app's pages render.
 //
-//   <div hidden data-controller="bridge--sidebar"></div>
+//   <div hidden data-controller="bridge--sidebar" data-bridge--sidebar-page-value="/482139075/sidebar"></div>
 //
-// Web to app: connect {}, changed {} (at most twice a second).
+// Web to app: connect {page, belongsTo} (older servers send {}), changed {} (at most twice a second).
 // App to web, as replies to connect: {action: "perform", url, method, confirm?, destructive?}, a chat's action
 // from a long press in the native sidebar (the JSON's chat "actions"). This page sends it as the web's own link
 // would: a "get" is a visit, anything else a Turbo request with that method, asking first where there's a confirm
@@ -21,12 +25,13 @@ const DEBOUNCE = 500
 
 export default class extends BridgeComponent {
   static component = "sidebar"
+  static values = { page: String }
 
   connect() {
     super.connect()
     this.heard = this.heard.bind(this)
     document.addEventListener("turbo:before-stream-render", this.heard)
-    this.send("connect", {}, message => this.perform(message.data))
+    this.send("connect", this.#page(), message => this.perform(message.data))
   }
 
   perform({ action, url, method, confirm, destructive } = {}) {
@@ -53,6 +58,13 @@ export default class extends BridgeComponent {
     document.removeEventListener("turbo:before-stream-render", this.heard)
     clearTimeout(this.timer)
     super.disconnect()
+  }
+
+  #page() {
+    if (!this.pageValue) return {}
+
+    const belongsTo = document.querySelector("[data-sidebar-belongs-to]")?.dataset.sidebarBelongsTo || null
+    return { page: this.pageValue, belongsTo }
   }
 
   heard(event) {

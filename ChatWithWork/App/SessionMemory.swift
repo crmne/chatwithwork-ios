@@ -18,6 +18,7 @@ struct SessionMemory {
         static let lastChat = "CWWLastChat"
         static let lastChatAt = "CWWLastChatAt"
         static let sidebarView = "CWWSidebarView"
+        static let sidebarPages = "CWWSidebarPages"
     }
 
     var hasSignedIn: Bool {
@@ -72,6 +73,19 @@ struct SessionMemory {
         defaults.set(paths, forKey: Key.newChatPaths)
     }
 
+    /// The sidebar page the server named in each organization (the `sidebar`
+    /// component's `page`), so the drawer loads it at launch before the first
+    /// page connects. Nil for a server that names none.
+    func sidebarPagePath(in account: AccountSlug) -> String? {
+        (defaults.dictionary(forKey: Key.sidebarPages) as? [String: String])?[account.rawValue]
+    }
+
+    func setSidebarPagePath(_ path: String?, in account: AccountSlug) {
+        var paths = (defaults.dictionary(forKey: Key.sidebarPages) as? [String: String]) ?? [:]
+        paths[account.rawValue] = path
+        defaults.set(paths, forKey: Key.sidebarPages)
+    }
+
     /// The chat on screen when the person last left one, and when.
     var lastChat: (path: String, at: Date)? {
         get {
@@ -85,6 +99,6 @@ struct SessionMemory {
     }
 
     func reset() {
-        [Key.hasSignedIn, Key.lastAccount, Key.listKeys, Key.botListKeys, Key.newChatPaths, Key.lastChat, Key.lastChatAt, Key.sidebarView].forEach(defaults.removeObject(forKey:))
+        [Key.hasSignedIn, Key.lastAccount, Key.listKeys, Key.botListKeys, Key.newChatPaths, Key.lastChat, Key.lastChatAt, Key.sidebarView, Key.sidebarPages].forEach(defaults.removeObject(forKey:))
     }
 }
