@@ -51,6 +51,7 @@ final class SidebarWebController: UIViewController, WKNavigationDelegate, WKUIDe
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.allowsLinkPreview = false
+        webView.accessibilityIdentifier = "sidebar.page"
         webView.allowsBackForwardNavigationGestures = false
         // The page never scrolls; its list does, inside it. No bounce, no zoom.
         webView.scrollView.isScrollEnabled = false
