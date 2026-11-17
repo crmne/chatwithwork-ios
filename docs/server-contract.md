@@ -1346,6 +1346,77 @@ Android.
 
 ## 11. The sidebar
 
+### The sidebar page (2026-11-17)
+
+Where the server names one, the drawer shows the server's own sidebar: the
+web sidebar's column alone, as a page, kept loaded in a web view of its own
+beside the navigator (`SidebarWebController`). What it shows changes with the
+server, never with an app release; the native sidebar below stays as the
+fallback for servers that name none.
+
+- **Which page.** Every signed-in page's hidden `bridge--sidebar` element
+  sends `connect` `{page, belongsTo}`: `page` is the organization's sidebar
+  page (`/<organization>/sidebar`, `SidebarsController`), `belongsTo` the path
+  the page on screen belongs under (its `data-sidebar-belongs-to`, so a bot's
+  chat raises its bot's row) or null. An older server sends `{}`. The first
+  `page` loads; a different one (another organization's) loads in its place;
+  a connect without one unloads it and the native sidebar shows. The app
+  remembers the page per organization (`SessionMemory.sidebarPagePath`) and
+  loads it at launch, before the first page connects. Only pages in the main
+  stack count, not a sheet's.
+- **The web view.** The default website data store, so it shares the
+  navigator's cookies, kept to the app-bound domains like the navigator's, laid
+  out inside the safe area on the sidebar's sunken canvas, transparent until
+  it paints, with no zoom, no bounce and no scrolling of its own (the page's
+  list scrolls inside it). Its user agent is WebKit's with the app's tokens
+  (`Chat with Work; platform=ios; version=…; build=…;`) and nothing after
+  them: no `Hotwire Native`, `Turbo Native` or `bridge-components`, so the
+  server draws it for the app (`data-native-app`) while none of the page's
+  bridge controllers load where nothing would answer them, and the page never
+  keeps it as the app's user agent (`app_user_agent`). It's shown once the
+  page says `ready`; until then the native sidebar shows.
+- **Page to app**, JSON objects through `window.webkit.messageHandlers.sidebar`
+  (the main frame, from this server only):
+  - `{event: "ready"}`: drawn and listening. The app shows it and answers
+    with `current`.
+  - `{event: "visit", url}`: a row, New chat, Decisions, Settings, a form's
+    redirect, anything Turbo would visit. The app closes the drawer and opens
+    `url` as a place (Places), as a native row does; another organization's
+    page switches organization and the sign-in form signs out, as any
+    proposal does. Another site opens in the system.
+  - `{event: "close"}`: the header's close button.
+  - `{event: "confirm", id, title, description, confirm, dismiss,
+    destructive}`: Turbo's `data-turbo-confirm`, worded as `bridge--confirm`
+    words it. The app asks in its own alert and answers with `answer`.
+- **App to page**, on `window.chatWithWorkSidebar`:
+  - `current(url, belongsTo)`: the page on the main stack's top screen, after
+    each `connect` from it and on `ready`. The page marks its row.
+  - `refresh()`: back in the foreground, where the page's streams may have
+    missed something; the page reloads itself while online.
+  - `answer(id, confirmed)`.
+- **Navigation.** Only the page itself may load in the web view. Any other
+  main-frame navigation (a link Turbo doesn't follow, `target=_blank`, a
+  redirect) is cancelled and goes where a `visit` would; the sign-in form,
+  reached by the page's own load or a 401, means the session is gone and the
+  navigator reloads, which signs out as any page does, while one the person
+  reached from the menu's Sign out signs out straight away. Requests that
+  answer in place (pins, sections, the filter, Delete in a row's menu) stay
+  in the page, which keeps itself live on the person's streams: the app
+  fetches no JSON, polls nothing and ignores `changed` while it shows the
+  page. Deleting the chat on screen from its row sends a `visit` to New chat.
+- **Failing.** A 404 (a server without the page), another error, or no
+  network before the page ever showed hands the drawer back to the native
+  sidebar, and the next `connect` tries again; a page that showed stays as it
+  was drawn. Offline, the page's service worker serves its last copy where it
+  runs (the app-bound domains), else the native sidebar shows its cached JSON.
+- **Retiring the JSON.** The server keeps `/native/sidebar` and `changed` for
+  builds before this one. Once the stores' builds in use all know the page,
+  it drops them; this app keeps the native sidebar only for self-hosted
+  servers older than the page, and drops it once those have updated.
+
+### The native sidebar
+
+
 **Same head in both views (2026-11-01).** The native sidebar draws what the
 web's does at a phone's width, and both views open the same way, so switching
 moves nothing: Decisions, the Chats | Bots switch, the head (the list selector
