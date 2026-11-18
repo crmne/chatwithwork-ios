@@ -339,8 +339,21 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
 
     func startNewChat() {
         setOpen(false, animated: true)
-        let path = store.newChatPath ?? account.flatMap { memory.newChatPath(in: $0) } ?? AppPath.path(AppPath.newChat, in: account)
-        navigator.route(environment.url(path: path))
+        navigator.route(environment.url(path: newChatPath))
+    }
+
+    /// Where New chat goes: the bar's button, the shortcuts, a recede with
+    /// nothing under it. The native sidebar's chosen list may be a project's,
+    /// and New chat starts in it; the sidebar page has no such choice, and
+    /// its New chat is the organization's, so with the page in the drawer
+    /// so is the bar's, never a project the native sidebar chose before.
+    var newChatPath: String {
+        Self.newChatPath(usesSidebarPage: sidebarPage?.pageURL != nil, chosen: store.newChatPath ?? account.flatMap { memory.newChatPath(in: $0) }, account: account)
+    }
+
+    static func newChatPath(usesSidebarPage: Bool, chosen: String?, account: AccountSlug?) -> String {
+        let plain = AppPath.path(AppPath.newChat, in: account)
+        return usesSidebarPage ? plain : chosen ?? plain
     }
 
     /// The page on screen, as a path, to mark its row.

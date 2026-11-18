@@ -119,7 +119,7 @@ final class AppShell: NSObject {
         case .newBot:
             if case .signedIn(let shell) = state { chosen = shell.store.newBotPath }
         case .newChat:
-            if case .signedIn(let shell) = state { chosen = shell.store.newChatPath }
+            if case .signedIn(let shell) = state { chosen = shell.newChatPath }
             chosen = chosen ?? account.flatMap { memory.newChatPath(in: $0) }
         case .decisions:
             break

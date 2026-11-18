@@ -118,4 +118,13 @@ struct AppRouteTests {
         #expect(!shell.startWithoutHome(failed: URL(string: "https://chatwithwork.com/482139075/chats/9")!))
         withExtendedLifetime(delegate) {}
     }
+
+    @Test("New chat is the organization's with the sidebar page, the chosen list's without")
+    func newChatPaths() {
+        let acme = AccountSlug("482139075")!
+        let project = "/482139075/chats/new?project_id=3"
+        #expect(SidebarShell.newChatPath(usesSidebarPage: true, chosen: project, account: acme) == "/482139075/chats/new")
+        #expect(SidebarShell.newChatPath(usesSidebarPage: false, chosen: project, account: acme) == project)
+        #expect(SidebarShell.newChatPath(usesSidebarPage: false, chosen: nil, account: acme) == "/482139075/chats/new")
+    }
 }
