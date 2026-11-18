@@ -69,6 +69,18 @@ struct AppRouteTests {
         #expect(SidebarShell.startURL(environment: environment, account: acme, memory: memory).absoluteString == "https://chatwithwork.com/482139075/home")
     }
 
+    @Test("shows a historical location's notice, else its alert, as a toast")
+    func historicalNotices() {
+        let url = { (string: String) in URL(string: "https://chatwithwork.com\(string)")! }
+        let notice = AppShell.notice(in: url("/recede_historical_location?notice=Chat%20renamed."))
+        #expect(notice?.message == "Chat renamed." && notice?.style == .notice)
+        let alert = AppShell.notice(in: url("/refresh_historical_location?alert=That%20name%20is%20taken."))
+        #expect(alert?.message == "That name is taken." && alert?.style == .alert)
+        #expect(AppShell.notice(in: url("/resume_historical_location?notice=Saved.&alert=Ignored"))?.message == "Saved.")
+        #expect(AppShell.notice(in: url("/recede_historical_location")) == nil)
+        #expect(AppShell.notice(in: url("/recede_historical_location?notice=")) == nil)
+    }
+
     @Test("a server without the home starts on New chat, the one last chosen")
     func startURLsWithoutHome() {
         let environment = AppEnvironment.load(info: ["CWWBaseURL": "https://chatwithwork.com"], arguments: UserDefaults(suiteName: UUID().uuidString)!, variables: [:])

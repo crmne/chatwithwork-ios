@@ -349,14 +349,21 @@ final class AppShell: NSObject {
     // MARK: Notices
 
     /// `recede_or_redirect_to(url, notice: "...")` puts the notice on the
-    /// historical location it sends the app to; show it the native way.
+    /// historical location it sends the app to (`recede_`, `resume_` or
+    /// `refresh_historical_location`). The page beneath isn't loaded again,
+    /// so its flash would never show: the app shows it as a toast.
     private func showNotice(in url: URL) {
+        guard let notice = Self.notice(in: url) else { return }
+        ToastCenter.shared.show(notice.message, style: notice.style)
+    }
+
+    /// The notice, or else the alert, on a historical location's URL.
+    static func notice(in url: URL) -> (message: String, style: ToastStyle)? {
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        if let notice = items.first(where: { $0.name == "notice" })?.value, !notice.isEmpty {
-            ToastCenter.shared.show(notice, style: .notice)
-        } else if let alert = items.first(where: { $0.name == "alert" })?.value, !alert.isEmpty {
-            ToastCenter.shared.show(alert, style: .alert)
-        }
+        let value = { (name: String) in items.first(where: { $0.name == name })?.value.flatMap { $0.isEmpty ? nil : $0 } }
+        if let notice = value("notice") { return (notice, .notice) }
+        if let alert = value("alert") { return (alert, .alert) }
+        return nil
     }
 }
 
