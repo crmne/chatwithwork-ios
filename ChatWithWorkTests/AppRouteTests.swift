@@ -68,4 +68,22 @@ struct AppRouteTests {
         memory.setNewChatPath("/482139075/chats/new?project_id=3", in: acme)
         #expect(SidebarShell.startURL(environment: environment, account: acme, memory: memory).absoluteString == "https://chatwithwork.com/482139075/home")
     }
+
+    @Test("a server without the home starts on New chat, the one last chosen")
+    func startURLsWithoutHome() {
+        let environment = AppEnvironment.load(info: ["CWWBaseURL": "https://chatwithwork.com"], arguments: UserDefaults(suiteName: UUID().uuidString)!, variables: [:])
+        let memory = SessionMemory(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let acme = AccountSlug("482139075")!
+        let home = { (path: String) in URL(string: "https://chatwithwork.com\(path)")! }
+        let fallback = { (path: String, account: AccountSlug?) in
+            SidebarShell.startURLWithoutHome(failed: home(path), environment: environment, account: account, memory: memory)?.absoluteString
+        }
+        #expect(fallback("/home", nil) == "https://chatwithwork.com/chats/new")
+        #expect(fallback("/482139075/home", nil) == "https://chatwithwork.com/482139075/chats/new")
+        memory.setNewChatPath("/482139075/chats/new?project_id=3", in: acme)
+        #expect(fallback("/482139075/home", nil) == "https://chatwithwork.com/482139075/chats/new?project_id=3")
+        #expect(fallback("/home", acme) == "https://chatwithwork.com/482139075/chats/new?project_id=3")
+        #expect(fallback("/482139075/chats/9", acme) == nil)
+        #expect(fallback("/482139075/decisions", acme) == nil)
+    }
 }

@@ -75,6 +75,26 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         environment.url(path: AppPath.path(AppPath.home, in: account))
     }
 
+    /// Where to start instead when the organization's home answers 404: a
+    /// server older than it (self-hosted releases before 2026-11-17) starts
+    /// on the new chat last chosen in that organization, as builds before
+    /// the home did. None for any other page.
+    static func startURLWithoutHome(failed url: URL, environment: AppEnvironment, account: AccountSlug?, memory: SessionMemory) -> URL? {
+        let route = AppRoute(url: url)
+        guard route.path == AppPath.home else { return nil }
+        let account = route.account ?? account
+        let path = account.flatMap { memory.newChatPath(in: $0) } ?? AppPath.path(AppPath.newChat, in: account)
+        return environment.url(path: path)
+    }
+
+    /// Opens the new chat in place of a home the server doesn't have, as
+    /// the place at the root. False when `url` isn't the home.
+    func startWithoutHome(failed url: URL) -> Bool {
+        guard let start = Self.startURLWithoutHome(failed: url, environment: environment, account: account, memory: memory) else { return false }
+        open(url: start)
+        return true
+    }
+
     private var sidebarWidth: CGFloat { min(view.bounds.width * 0.84, 340) }
 
     override func viewDidLoad() {

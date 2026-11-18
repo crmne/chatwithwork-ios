@@ -443,6 +443,11 @@ extension AppShell: NavigatorDelegate {
             }
             return
         }
+        // A server older than the organization's home (docs/server-contract.md,
+        // "Where the app starts") starts on New chat instead.
+        if error.statusCode == 404, case .signedIn(let shell) = state, shell.startWithoutHome(failed: visitable.currentVisitableURL) {
+            return
+        }
 
         visitable.visitableViewController.presentError(error, retryHandler: retryHandler)
     }

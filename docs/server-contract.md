@@ -427,7 +427,9 @@ anchoring unless written):
 once a bot or something waiting gives it something to show, else to New
 chat. It's a place, so the page it lands on is the root. Builds before it
 started on `/<organization>/chats/new`, or the project's new chat the
-sidebar last chose.
+sidebar last chose. A server older than the home (self-hosted releases
+before 2026-11-17) answers its visit 404; the app then starts on that new
+chat instead (`SidebarShell.startURLWithoutHome`), as those builds did.
 
 v1, for the tab builds, opened `/chats/new` as a sheet, pushed chats, and
 treated `/chats`, `/projects` and `/settings` as tab roots.
