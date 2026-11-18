@@ -857,6 +857,25 @@ deck the assistant made shows as its slides without PowerPoint on the phone.
 - The page allows zooming (no `maximum-scale`); Android turns on its web
   view's pinch zoom for these pages only.
 
+### Pull to refresh and coming back (2026-11-18)
+
+Pulling a page down at its top calls the page's `window.chatWithWork.refresh()`
+(`PullToRefresh`, in place of Hotwire Native's action on the visitable view's
+refresh control), awaited with `callAsyncJavaScript`: a chat's frame comes up
+to date in place, what's typed, the focus and the scroll kept, and any other
+page refreshes by morphing. The control spins until the promise settles. A
+page without `chatWithWork` (an older server) gets Hotwire Native's refresh,
+a cold reload of the whole page, which is what every refreshable page did
+before. The chats' rules turn `pull_to_refresh_enabled` on once this is
+released, in the bundled configuration and the server's `ios_v2.json`
+together; a chat loads all its messages, so nothing at its top competes with
+the pull.
+
+Coming back from the background needs nothing from the app: WKWebView fires
+`visibilitychange` as the app returns, and the page reopens its connection
+and brings a chat up to date in place itself (the server's docs/ui/chat.md,
+"Coming back").
+
 ### Links the app handles itself
 
 Nothing to do, but worth knowing:
