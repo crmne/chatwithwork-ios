@@ -87,6 +87,9 @@ nonisolated enum SidebarPage {
         case visit(URL)
         case close
         case confirm(Confirm)
+        /// One of the page's own requests answered 422 (posted by the app's
+        /// `staleScript`, not the page): its CSRF token went stale.
+        case stale
 
         struct Confirm: Equatable, Sendable {
             let id: String
@@ -104,6 +107,8 @@ nonisolated enum SidebarPage {
                 self = .ready
             case "close":
                 self = .close
+            case "stale":
+                self = .stale
             case "visit":
                 guard let string = body["url"] as? String, let url = URL(string: string, relativeTo: base)?.absoluteURL else { return nil }
                 self = .visit(url)
@@ -134,6 +139,19 @@ nonisolated enum SidebarPage {
     }
 
     static let refreshScript = "window.chatWithWorkSidebar?.refresh()"
+
+    /// The app's own script in the sidebar page: a request the page makes in
+    /// place (a pin, a section, the filter) that answers 422 means its CSRF
+    /// token went stale while it stayed loaded (signed in again, the session
+    /// rotated). It says so, and the app loads the page again.
+    static let staleScript = """
+    document.addEventListener("turbo:before-fetch-response", function (event) {
+      var response = event.detail && event.detail.fetchResponse
+      if (response && response.statusCode === 422 && window.webkit && window.webkit.messageHandlers.sidebar) {
+        window.webkit.messageHandlers.sidebar.postMessage({ event: "stale" })
+      }
+    })
+    """
 
     private static func jsonString(_ string: String) -> String {
         let data = (try? JSONSerialization.data(withJSONObject: [string])) ?? Data("[\"\"]".utf8)

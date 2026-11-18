@@ -46,6 +46,7 @@ final class SidebarWebController: UIViewController, WKNavigationDelegate, WKUIDe
         // pages' service worker runs here too and keeps the page offline.
         configuration.limitsNavigationsToAppBoundDomains = AppBoundDomains.covers(environment.baseURL)
         configuration.userContentController.add(MessageProxy(self), name: "sidebar")
+        configuration.userContentController.addUserScript(WKUserScript(source: SidebarPage.staleScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = self
@@ -120,6 +121,9 @@ final class SidebarWebController: UIViewController, WKNavigationDelegate, WKUIDe
             onClose?()
         case .confirm(let confirm):
             ask(confirm)
+        case .stale:
+            // Drawn again with a fresh token; it stays on screen meanwhile.
+            webView.reload()
         }
     }
 

@@ -77,6 +77,8 @@ struct SidebarPageTests {
         let base = environment.baseURL
         #expect(SidebarPage.Message(body: ["event": "ready"], base: base) == .ready)
         #expect(SidebarPage.Message(body: ["event": "close"], base: base) == .close)
+        #expect(SidebarPage.Message(body: ["event": "stale"], base: base) == .stale)
+        #expect(SidebarPage.staleScript.contains("statusCode === 422"))
         #expect(SidebarPage.Message(body: ["event": "visit", "url": "https://chatwithwork.com/482139075/decisions"], base: base) == .visit(URL(string: "https://chatwithwork.com/482139075/decisions")!))
         #expect(SidebarPage.Message(body: ["event": "visit", "url": "/482139075/chats/new"], base: base) == .visit(URL(string: "https://chatwithwork.com/482139075/chats/new")!))
         #expect(SidebarPage.Message(body: ["event": "confirm", "id": "3", "title": "Delete this chat?", "description": NSNull(), "confirm": "Delete", "dismiss": "Cancel", "destructive": true], base: base)

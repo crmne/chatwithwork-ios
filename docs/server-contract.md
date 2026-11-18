@@ -867,7 +867,8 @@ Nothing to do, but worth knowing:
   replace the root with it, as with every place.
 - A link into another organization rebuilds the shell there.
 - `recede_or_redirect_to(url, notice:)`, `refresh_…` and `resume_…` show the
-  notice (or `alert`) as a toast.
+  notice (or `alert`) on their URL as a toast (`AppShell.notice(in:)`): the
+  page beneath isn't loaded again, so its own flash would never show.
 
 ### Offline chats (2026-11-04)
 
@@ -1385,7 +1386,11 @@ fallback for servers that name none.
     redirect, anything Turbo would visit. The app closes the drawer and opens
     `url` as a place (Places), as a native row does; another organization's
     page switches organization and the sign-in form signs out, as any
-    proposal does. Another site opens in the system.
+    proposal does. A link off this server (the person's menu's Help, a
+    `target=_blank` link) comes as a visit with an absolute URL: a web page
+    opens in Safari's sheet over the app (`SFSafariViewController`), never in
+    the drawer or the navigator, and `mailto:` and `tel:` links open in their
+    apps.
   - `{event: "close"}`: the header's close button.
   - `{event: "confirm", id, title, description, confirm, dismiss,
     destructive}`: Turbo's `data-turbo-confirm`, worded as `bridge--confirm`
@@ -1406,6 +1411,14 @@ fallback for servers that name none.
   in the page, which keeps itself live on the person's streams: the app
   fetches no JSON, polls nothing and ignores `changed` while it shows the
   page. Deleting the chat on screen from its row sends a `visit` to New chat.
+- **A stale token.** The page stays loaded for hours, so its CSRF token can
+  go stale (the person signed in again, the session rotated), and then its
+  in-place requests answer 422. The app adds a script of its own to the page
+  (`SidebarPage.staleScript`): when a Turbo request answers 422 it posts
+  `{event: "stale"}` to the app, which loads the page again, with a fresh
+  token, while it stays on screen. The page needs to do nothing for it; a
+  request made outside Turbo (a plain `fetch`) isn't seen, and a server
+  whose own validation answers 422 in place would reload the page too.
 - **Failing.** A 404 (a server without the page), another error, or no
   network before the page ever showed hands the drawer back to the native
   sidebar, and the next `connect` tries again; a page that showed stays as it
