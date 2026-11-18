@@ -418,7 +418,7 @@ anchoring unless written):
 | `/chats/\d+\?(.*&)?from=` | default | `default` (push) | off | a chat a page opens about something on it (a bot's "Change it in a chat", its runs, Decisions' "Open chat", a side chat), pushed with back to that page |
 | `^/shared/` | default | | off | |
 | `/settings\?` | default | | on | a Settings tab, pushed over the Settings list (`query_string_presentation: default`, since the list and its tabs share `/settings`) |
-| `/home$`, `/decisions(\?\|$)`, `/bots(\?\|$)`, `/chats(\?\|$)`, `/projects(\?\|$)`, `/settings$` | default | `replace_root` | on | the places: home (where the app starts, below), Decisions, Bots, the chat lists, Projects, the Settings list |
+| `^(/[0-9]+)?/home(\?\|$)`, `/decisions(\?\|$)`, `/bots(\?\|$)`, `/chats(\?\|$)`, `/projects(\?\|$)`, `/settings$` | default | `replace_root` | on | the places: home (where the app starts, below), Decisions, Bots, the chat lists, Projects, the Settings list |
 | `/chats/\d+/files/` | modal (`full`) | | off | a chat's file in its viewer, over the chat ([A file](#a-file-chatsfilesshow)) |
 
 **Where the app starts (2026-11-17).** The navigator starts on
@@ -430,6 +430,10 @@ started on `/<organization>/chats/new`, or the project's new chat the
 sidebar last chose. A server older than the home (self-hosted releases
 before 2026-11-17) answers its visit 404; the app then starts on that new
 chat instead (`SidebarShell.startURLWithoutHome`), as those builds did.
+The home's rule is anchored at the start of the path and allows a query
+(2026-11-18), so `/<organization>/home?...` is still the root, while another
+page whose query only mentions the home (`?return_to=/home`) keeps its own
+rule.
 
 v1, for the tab builds, opened `/chats/new` as a sheet, pushed chats, and
 treated `/chats`, `/projects` and `/settings` as tab roots.
