@@ -1625,7 +1625,7 @@ class Handler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"(?:/(\d{7,}))?(/.*)", path)
         account, rest = match.group(1), match.group(2)
         if account is None:
-            if rest in ("/chats", "/projects", "/bots", "/bots/new", "/decisions", "/settings", "/chats/new"):
+            if rest in ("/home", "/chats", "/projects", "/bots", "/bots/new", "/decisions", "/settings", "/chats/new"):
                 return self.redirect(f"/1000001{rest}" + (f"?{url.query}" if url.query else ""), 302)
             return self.send(404, "Not found", "text/plain")
         if account not in ACCOUNTS:
@@ -1633,6 +1633,11 @@ class Handler(BaseHTTPRequestHandler):
 
         if rest == "/native/sidebar":
             return self.send(200, json.dumps(sidebar_json(self, account, query)), "application/json")
+        if rest == "/home":
+            # Where the app starts (docs/server-contract.md, "Where the app
+            # starts"): the server's home picks Decisions or New chat; here
+            # always New chat, where the tests begin.
+            return self.redirect(f"/{account}/chats/new", 302)
 
         page = None
         if rest == "/bots":
