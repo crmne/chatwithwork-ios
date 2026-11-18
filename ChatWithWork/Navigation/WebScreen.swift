@@ -17,6 +17,7 @@ enum WebScreen {
         controller.visitableView.backgroundColor = Palette.canvas
         LogoDrawView.replaceSpinner(in: controller.visitableView.activityIndicatorView, side: 72)
         controller.visitableView.refreshControl.tintColor = Palette.inkMuted
+        PullToRefresh.install(on: controller)
 
         if case .list = AppRoute(url: url).kind {
             controller.navigationItem.largeTitleDisplayMode = .always
