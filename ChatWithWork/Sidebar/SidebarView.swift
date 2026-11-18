@@ -565,7 +565,7 @@ struct SidebarView: View {
         } else {
             // As the web's sidebar: below the sections, the rest under one heading.
             if !sections.isEmpty { sectionLabel("Other chats") }
-            ForEach(data.chats) { chat in chatRow(chat, pinned: false) }
+            ForEach(data.chats, id: \.rowID) { chat in chatRow(chat, pinned: false) }
             if data.next != nil {
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -730,7 +730,7 @@ struct SidebarView: View {
                 } else {
                     Spacer(minLength: 8).frame(height: 8)
                 }
-                ForEach(group.items) { bot in botRow(bot) }
+                ForEach(group.items, id: \.rowID) { bot in botRow(bot) }
             }
         }
     }
@@ -930,7 +930,7 @@ struct SidebarView: View {
         if found.isEmpty {
             muted(store.everyChat == nil ? String(localized: "Searching…") : String(localized: "No chats match."))
         } else {
-            ForEach(found) { chat in chatRow(chat, pinned: false) }
+            ForEach(found, id: \.rowID) { chat in chatRow(chat, pinned: false) }
         }
     }
 
