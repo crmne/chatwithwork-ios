@@ -74,6 +74,13 @@ nonisolated enum SidebarPage {
         return .place(url)
     }
 
+    /// Whether an outside link opens in Safari's sheet (web pages) rather
+    /// than in the app that owns its scheme (`mailto:`, `tel:`).
+    static func opensInSafariSheet(_ url: URL) -> Bool {
+        let scheme = url.scheme?.lowercased()
+        return scheme == "https" || scheme == "http"
+    }
+
     /// A message the page posted (`window.webkit.messageHandlers.sidebar`).
     enum Message: Equatable, Sendable {
         case ready

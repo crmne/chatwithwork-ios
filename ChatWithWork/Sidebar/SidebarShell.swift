@@ -1,4 +1,5 @@
 import HotwireNative
+import SafariServices
 import SwiftUI
 import UIKit
 
@@ -363,7 +364,7 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         sidebarPage.onUnavailable = { [weak self] in self?.showSidebarPage(false) }
         sidebarPage.onClose = { [weak self] in self?.setOpen(false, animated: true) }
         sidebarPage.onVisit = { [weak self] url in self?.open(url: url) }
-        sidebarPage.onExternal = { url in UIApplication.shared.open(url) }
+        sidebarPage.onExternal = { [weak self] url in self?.openOutside(url) }
         sidebarPage.onSignedOut = { [weak self] deliberate in
             guard let self else { return }
             self.setOpen(false, animated: false)
@@ -375,6 +376,22 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
                 self.navigator.reload()
             }
         }
+    }
+
+    /// A link off this server from the sidebar page (Help, a vendor's page):
+    /// a web page opens in Safari's sheet over the app, never in the drawer
+    /// or the navigator; mail and phone links go to their apps.
+    private func openOutside(_ url: URL) {
+        guard SidebarPage.opensInSafariSheet(url) else {
+            UIApplication.shared.open(url)
+            return
+        }
+        setOpen(false, animated: true)
+        var presenter: UIViewController = self
+        while let presented = presenter.presentedViewController { presenter = presented }
+        let safari = SFSafariViewController(url: url)
+        safari.preferredControlTintColor = Palette.ink
+        presenter.present(safari, animated: true)
     }
 
     private func showSidebarPage(_ shows: Bool) {

@@ -59,6 +59,19 @@ struct SidebarPageTests {
         #expect(SidebarPage.destination(of: page, page: nil, environment: environment) == .place(page))
     }
 
+    @Test("opens an outside web page in Safari's sheet, and mail and phone links in their apps")
+    func outsideLinks() {
+        let url = { (string: String) in URL(string: string)! }
+        // The person's menu's Help, posted as a visit with an absolute URL.
+        guard case .visit(let help) = SidebarPage.Message(body: ["event": "visit", "url": "https://help.chatwithwork.com/"], base: environment.baseURL) else {
+            Issue.record("Help should be a visit"); return
+        }
+        #expect(SidebarPage.destination(of: help, page: page, environment: environment) == .external(help))
+        #expect(SidebarPage.opensInSafariSheet(help))
+        #expect(!SidebarPage.opensInSafariSheet(url("mailto:support@chatwithwork.com")))
+        #expect(!SidebarPage.opensInSafariSheet(url("tel:+4930123")))
+    }
+
     @Test("reads what the page posts")
     func messages() {
         let base = environment.baseURL
