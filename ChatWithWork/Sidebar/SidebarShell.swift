@@ -89,10 +89,11 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     }
 
     /// Opens the new chat in place of a home the server doesn't have, as
-    /// the place at the root. False when `url` isn't the home.
+    /// the place at the root. False when `url` isn't the home. A sidebar
+    /// opened while the home loaded stays open: the person didn't pick this.
     func startWithoutHome(failed url: URL) -> Bool {
         guard let start = Self.startURLWithoutHome(failed: url, environment: environment, account: account, memory: memory) else { return false }
-        open(url: start)
+        open(url: start, closingSidebar: false)
         return true
     }
 
@@ -330,8 +331,8 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         open(url: environment.url(path: path))
     }
 
-    private func open(url: URL) {
-        setOpen(false, animated: true)
+    private func open(url: URL, closingSidebar: Bool = true) {
+        if closingSidebar { setOpen(false, animated: true) }
         let properties = navigator.session.pathConfiguration?.properties(for: url) ?? PathProperties()
         navigator.route(VisitProposal(url: url, options: VisitOptions(action: .advance), properties: Places.opening(properties)))
     }

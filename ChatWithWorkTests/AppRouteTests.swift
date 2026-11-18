@@ -1,5 +1,7 @@
 import Foundation
+import HotwireNative
 import Testing
+import UIKit
 @testable import ChatWithWork
 
 @Suite("Routes")
@@ -97,5 +99,23 @@ struct AppRouteTests {
         #expect(fallback("/home", acme) == "https://chatwithwork.com/482139075/chats/new?project_id=3")
         #expect(fallback("/482139075/chats/9", acme) == nil)
         #expect(fallback("/482139075/decisions", acme) == nil)
+    }
+
+    @MainActor
+    @Test("a server without the home leaves a sidebar opened meanwhile open")
+    func startWithoutHomeKeepsTheSidebarOpen() {
+        final class Delegate: NavigatorDelegate {}
+        let delegate = Delegate()
+        let environment = AppEnvironment.load(info: ["CWWBaseURL": "https://chatwithwork.com"], arguments: UserDefaults(suiteName: UUID().uuidString)!, variables: [:])
+        let memory = SessionMemory(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let shell = SidebarShell(environment: environment, account: AccountSlug("482139075")!, navigatorDelegate: delegate, memory: memory)
+        shell.view.frame = CGRect(x: 0, y: 0, width: 402, height: 874)
+        shell.view.layoutIfNeeded()
+
+        shell.setOpen(true, animated: false)
+        #expect(shell.startWithoutHome(failed: URL(string: "https://chatwithwork.com/482139075/home")!))
+        #expect(shell.isOpen, "The person opened it while the home loaded")
+        #expect(!shell.startWithoutHome(failed: URL(string: "https://chatwithwork.com/482139075/chats/9")!))
+        withExtendedLifetime(delegate) {}
     }
 }
