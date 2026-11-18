@@ -193,6 +193,7 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
                     self.sidebarPage.refresh()
                     return
                 }
+                self.sidebarPage.retryIfNeverReady()
                 self.store.markStale()
                 if self.isOpen { self.refreshSidebar() }
             }
@@ -435,7 +436,7 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             if let account { memory.setSidebarPagePath(path, in: account) }
             sidebarPage.load(environment.url(path: path))
         case .keep:
-            break
+            sidebarPage.retryIfNeverReady()
         }
         if let url = url ?? screen.routedURL, main.topViewController === screen {
             sidebarPage.setCurrent(url, belongsTo: connect.belongsTo)

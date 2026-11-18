@@ -83,6 +83,15 @@ final class SidebarWebController: UIViewController, WKNavigationDelegate, WKUIDe
         webView.load(URLRequest(url: url))
     }
 
+    /// Loads the page again when its last load finished without the page
+    /// saying it's drawn: offline, the service worker answers with its
+    /// offline page, which never does, and nothing else would try again.
+    /// A load still going is left alone.
+    func retryIfNeverReady() {
+        guard let pageURL, !isReady, isViewLoaded, !webView.isLoading else { return }
+        webView.load(URLRequest(url: pageURL))
+    }
+
     /// Stops showing the page: the server named none.
     func unload() {
         guard pageURL != nil else { return }
