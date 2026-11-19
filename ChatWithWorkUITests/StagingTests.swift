@@ -38,6 +38,9 @@ final class StagingTests: XCTestCase {
         let sidebar = app.buttons["shell.sidebar"]
         XCTAssertTrue(sidebar.waitForExistence(timeout: 40), "Signing in should land on the organization's home with the sidebar button")
         XCTAssertFalse(app.navigationBars.buttons["BackButton"].exists, "The home is a place, without back")
+        // The home lands on Decisions, or on New chat when nothing shows there.
+        let landed = app.navigationBars["Decisions"].waitForExistence(timeout: 15) || app.navigationBars["New chat"].exists
+        XCTAssertTrue(landed, "Starting should land on the organization's home: Decisions or New chat")
         settle(4)
         keep("home")
 
