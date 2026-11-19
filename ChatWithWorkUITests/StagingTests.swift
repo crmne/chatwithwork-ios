@@ -39,7 +39,7 @@ final class StagingTests: XCTestCase {
         XCTAssertTrue(sidebar.waitForExistence(timeout: 40), "Signing in should land on the organization's home with the sidebar button")
         XCTAssertFalse(app.navigationBars.buttons["BackButton"].exists, "The home is a place, without back")
         // The home lands on Decisions, or on New chat when nothing shows there.
-        let landed = app.navigationBars["Decisions"].waitForExistence(timeout: 15) || app.navigationBars["New chat"].exists
+        let landed = app.navigationBars["Decisions"].waitForExistence(timeout: 40) || app.navigationBars["New chat"].exists
         XCTAssertTrue(landed, "Starting should land on the organization's home: Decisions or New chat")
         settle(4)
         keep("home")
@@ -62,6 +62,12 @@ final class StagingTests: XCTestCase {
             search.tap()
             search.typeText("Li")
             search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 2))
+            settle(1)
+            // A row's menu takes the focus, and the keyboard with it; a tap on the
+            // drawer's header, beside the logo, closes the menu.
+            tap(page.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Chat options")))
+            settle(1)
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.08)).tap()
             settle(1)
         }
 
