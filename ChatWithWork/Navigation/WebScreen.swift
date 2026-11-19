@@ -169,35 +169,71 @@ private extension UIView {
 }
 
 /// Web pages follow the person's text size, as native text does, through
-/// each web view's page zoom. Capped at 120%: the pages are laid out for the
-/// default size, and larger zooms start to clip.
+/// WebKit's `-webkit-text-size-adjust` on the page's root, set by a script at
+/// document start and again on every open page when the size changes.
+///
+/// Not `pageZoom`: on an iPhone it scales CSS pixels without shrinking the
+/// layout viewport, so a page laid out for the screen's width is drawn wider
+/// than the screen and everything runs off its edge from 105% up.
+/// text-size-adjust scales every font size and fixed line height, as
+/// Android's text zoom does, but it also scales the root's font size, and so
+/// every rem length with it, which Android's doesn't. So it stops at 140%
+/// for now, until the pages are checked further at larger roots.
 enum TextSize {
     private static let webViews = NSHashTable<WKWebView>.weakObjects()
     private static var observer: NSObjectProtocol?
+    /// Starts the script, so the latest one is found again.
+    static let marker = "/* cww-text-size */"
 
-    static func pageZoom(for category: UIContentSizeCategory) -> CGFloat {
+    /// The pages' text size, in percent, for the person's text size.
+    static func percent(for category: UIContentSizeCategory) -> Int {
         switch category {
-        case .extraSmall: 0.85
-        case .small: 0.9
-        case .medium: 0.95
-        case .large: 1
-        case .extraLarge: 1.05
-        case .extraExtraLarge: 1.1
-        case .extraExtraExtraLarge: 1.15
-        default: category.isAccessibilityCategory ? 1.2 : 1
+        case .extraSmall: 85
+        case .small: 90
+        case .medium: 95
+        case .large: 100
+        case .extraLarge: 105
+        case .extraExtraLarge: 110
+        case .extraExtraExtraLarge: 115
+        case .accessibilityMedium: 120
+        case .accessibilityLarge: 125
+        case .accessibilityExtraLarge: 130
+        case .accessibilityExtraExtraLarge: 135
+        case .accessibilityExtraExtraExtraLarge: 140
+        default: 100
         }
     }
 
+    /// Sets it on the root, over the page's own (Tailwind's preflight says 100%).
+    static func script(percent: Int) -> String {
+        "\(marker) document.documentElement.style.setProperty('-webkit-text-size-adjust', '\(percent)%', 'important');"
+    }
+
     static func follow(_ webView: WKWebView) {
-        webView.pageZoom = pageZoom(for: UIApplication.shared.preferredContentSizeCategory)
         webViews.add(webView)
+        apply(percent(for: UIApplication.shared.preferredContentSizeCategory), to: webView)
 
         guard observer == nil else { return }
         observer = NotificationCenter.default.addObserver(forName: UIContentSizeCategory.didChangeNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated {
-                let zoom = pageZoom(for: UIApplication.shared.preferredContentSizeCategory)
-                webViews.allObjects.forEach { $0.pageZoom = zoom }
+                let percent = percent(for: UIApplication.shared.preferredContentSizeCategory)
+                webViews.allObjects.forEach { apply(percent, to: $0) }
             }
         }
+    }
+
+    /// For pages loaded from now on, and the page open now.
+    static func apply(_ percent: Int, to webView: WKWebView) {
+        install(percent, in: webView.configuration.userContentController)
+        webView.evaluateJavaScript(script(percent: percent) + " 0", completionHandler: nil)
+    }
+
+    /// Adds the script for pages loaded from now on, unless the latest one
+    /// already says this. Earlier ones stay: removing scripts would mean
+    /// adding back everyone else's, and the latest one runs last and wins.
+    static func install(_ percent: Int, in controller: WKUserContentController) {
+        let latest = controller.userScripts.last { $0.source.hasPrefix(marker) }
+        guard latest?.source != script(percent: percent) else { return }
+        controller.addUserScript(WKUserScript(source: script(percent: percent), injectionTime: .atDocumentStart, forMainFrameOnly: true))
     }
 }

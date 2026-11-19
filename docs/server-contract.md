@@ -151,9 +151,13 @@ If a public page ever renders differently for the apps, add
    their own under a bar with no surface and set it to `24px`.) The composer
    still overlays the bottom.
 
-   Two things the app does to every page: it scales it with the system's
-   text size (page zoom, 85% to 120%), so layouts must hold down to about
-   335 CSS pixels wide (a 402-point phone at 120%); and it sends
+   Two things the app does to every page: it scales its text with the
+   system's text size, through `-webkit-text-size-adjust` on the root (85%
+   to 140%, set at document start and again when the size changes), so
+   every font size, fixed line height and rem length grows with it while
+   the layout stays the screen's width (WebKit scales the root's font size,
+   so rem lengths grow too, unlike Android's text zoom, and a line-height in
+   rem grows twice: use unitless or px line-heights); and it sends
    `Accept-Language` in the device's language only if the app declares that
    language. The app declares English, the web app's one language today:
    when the web app adds a language, the apps add it in the same release
