@@ -16,8 +16,11 @@ import WebKit
 final class PullToRefresh: NSObject {
     private static var key: UInt8 = 0
     private weak var controller: VisitableViewController?
+    /// Counts pulls, so a pull that settles after a newer one started
+    /// leaves the newer one's spinner and fallback alone.
+    private(set) var generation = 0
 
-    private init(controller: VisitableViewController) {
+    init(controller: VisitableViewController?) {
         self.controller = controller
     }
 
@@ -42,7 +45,9 @@ final class PullToRefresh: NSObject {
             return
         }
 
-        webView.callAsyncJavaScript(Self.script, arguments: [:], in: nil, in: .page) { [weak controller] result in
+        let pull = begin()
+        webView.callAsyncJavaScript(Self.script, arguments: [:], in: nil, in: .page) { [weak self, weak controller] result in
+            guard let self, self.isCurrent(pull) else { return }
             if case let .success(value) = result, value as? Bool == true {
                 control.endRefreshing()
             } else if let controller {
@@ -53,4 +58,14 @@ final class PullToRefresh: NSObject {
             }
         }
     }
+
+    /// A new pull, numbered.
+    func begin() -> Int {
+        generation += 1
+        return generation
+    }
+
+    /// Whether `pull` is the latest pull, whose result may end the spinner
+    /// or fall back to Hotwire Native's refresh.
+    func isCurrent(_ pull: Int) -> Bool { pull == generation }
 }
