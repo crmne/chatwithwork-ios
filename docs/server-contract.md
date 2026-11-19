@@ -1991,10 +1991,13 @@ Accept: application/json, the web view's cookies
 
 `titled` is false while the chat has none yet ("New chat"); an empty object
 means the person turned off "Show the chat and its answer", and the
-organization's name heads the card as before. The app asks as a chat's
-composer first speaks (and again after 30 seconds), so the title is usually
-known when the answer starts; otherwise it waits at most 0.8 seconds, since
-ActivityKit starts activities only in front. Attributes can't change, so a
+organization's name heads the card as before. The app asks each time it
+starts an activity and waits at most 0.8 seconds for the answer, since
+ActivityKit starts activities only in front; it never uses a title asked for
+before, as the person may have turned "Show the chat and its answer" off
+since. If the answer doesn't come in time, or the app leaves the screen
+first, the card starts without the title. After a failure (an older server's
+404) it asks again only after 30 seconds. Attributes can't change, so a
 title summarized after the activity started (a new chat's first answer)
 shows from the chat's next answer on. The Lock Screen and the Dynamic
 Island's expanded view show it; compact and minimal keep the mark and the

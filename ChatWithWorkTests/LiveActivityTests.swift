@@ -50,6 +50,47 @@ struct LiveActivityTests {
         #expect(older.title == nil)
     }
 
+    @MainActor
+    @Test("asks for the title at every start, so one kept from before never shows")
+    func titleAskedEachStart() async {
+        let activities = LiveActivities()
+        var answers: [LiveActivityTitle?] = [LiveActivityTitle(title: "Acme renewal", titled: true), LiveActivityTitle()]
+        activities.fetchTitle = { _ in answers.removeFirst() }
+        #expect(await activities.title(for: "/1000001/chats/42")?.headline(newChat: "New chat") == "Acme renewal")
+        // The person turned off "Show the chat and its answer" since: the server answers {}.
+        let after = await activities.title(for: "/1000001/chats/42")
+        #expect(after != nil)
+        #expect(after?.headline(newChat: "New chat") == nil, "the title asked for before mustn't head the new card")
+    }
+
+    @MainActor
+    @Test("starts without a title when the server doesn't answer within the wait")
+    func titleWaitsAtMostItsLimit() async {
+        let activities = LiveActivities()
+        activities.fetchTitle = { _ in
+            try? await Task.sleep(for: .seconds(3))
+            return LiveActivityTitle(title: "Too late", titled: true)
+        }
+        let started = ContinuousClock.now
+        let title = await activities.title(for: "/1000001/chats/42")
+        #expect(title == nil)
+        #expect(ContinuousClock.now - started < .seconds(2), "it waited for the slow request")
+    }
+
+    @MainActor
+    @Test("asks an older server again only after a while")
+    func titleFailureHolds() async {
+        let activities = LiveActivities()
+        var asked = 0
+        activities.fetchTitle = { _ in
+            asked += 1
+            return nil
+        }
+        _ = await activities.title(for: "/1000001/chats/42")
+        _ = await activities.title(for: "/1000001/chats/42")
+        #expect(asked == 1)
+    }
+
     @Test("a person's chat shows the logo, a bot's run and an older server the bot")
     func mark() throws {
         let decode = { (json: String) in try JSONDecoder().decode(ChatActivityAttributes.ContentState.self, from: Data(json.utf8)) }
