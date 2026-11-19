@@ -528,7 +528,24 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         content.layer.cornerCurve = .continuous
         navigator.rootViewController.view.accessibilityElementsHidden = progress == 1
         if settled, progress == 1 {
+            if showsSidebarPage { nudgeSidebarPage() }
             UIAccessibility.post(notification: .screenChanged, argument: showsSidebarPage ? sidebarPage.view : sidebarHost.view)
+        }
+    }
+
+    /// WebKit keeps where the sidebar page sits on screen for VoiceOver and
+    /// hit tests, and moving the drawer doesn't tell it: after the search had
+    /// the keyboard and a row opened a chat, it went on reporting the page's
+    /// elements where the closed drawer had them. Changing the page's width
+    /// by a fraction and back makes it work its place out again.
+    private func nudgeSidebarPage() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.isOpen, let page = self.sidebarPage.view else { return }
+            page.frame.size.width -= 0.5
+            page.layoutIfNeeded()
+            // The constraints put it back.
+            self.sidebarPanel.setNeedsLayout()
+            self.sidebarPanel.layoutIfNeeded()
         }
     }
 
