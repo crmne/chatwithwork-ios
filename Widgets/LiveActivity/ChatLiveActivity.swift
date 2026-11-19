@@ -15,7 +15,7 @@ struct ChatLiveActivity: Widget {
             let road = context.openRoad
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading, priority: 1) {
-                    OrganizationLine(organization: context.attributes.organization)
+                    OrganizationLine(organization: context.attributes.organization, title: context.attributes.title)
                         .padding(.leading, 6)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .dynamicTypeSize(...DynamicTypeSize.large)
@@ -73,21 +73,33 @@ private struct ActivitySurface: View {
         .activityBackgroundTint(dimmed ? .clear : Road.canvas)
         .activitySystemActionForegroundColor(Road.ink)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(road.accessibilityLabel(organization: attributes.organization))
+        .accessibilityLabel(road.accessibilityLabel(organization: attributes.organization, title: attributes.title))
     }
 }
 
+/// The card's top line: the chat's title (or a bot's name and the title)
+/// where the app fetched it as the activity started, cut short on one line,
+/// and the organization's name, muted, where it didn't.
 private struct OrganizationLine: View {
     let organization: String
+    var title: String? = nil
 
     var body: some View {
         HStack(spacing: 7) {
             Image("Mark").resizable().scaledToFit().frame(width: 15, height: 15)
-            Text(organization)
-                .font(Road.organization)
-                .foregroundStyle(Road.inkMuted)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
+            if let title {
+                Text(title)
+                    .font(Road.chatTitle)
+                    .foregroundStyle(Road.ink)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            } else {
+                Text(organization)
+                    .font(Road.organization)
+                    .foregroundStyle(Road.inkMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
         }
     }
 }
@@ -118,12 +130,17 @@ private struct ActivityCard: View {
             VStack(spacing: 0) {
                 VStack(spacing: 0) {
                     HStack(spacing: 8) {
-                        OrganizationLine(organization: attributes.organization)
+                        // With a title in the headline, the organization keeps the top line.
+                        OrganizationLine(organization: attributes.organization, title: road.hasBand ? attributes.title : nil)
                         Spacer(minLength: 0)
                         StepsLine(road: road)
                     }
                     .frame(height: 16)
-                    if road.hasBand {
+                    if let title = attributes.title, !road.hasBand {
+                        TitleHeadline(title: title, road: road).padding(.top, 8)
+                        Headline(road: road, font: Road.stepLine, logoSize: 15, showsClock: false).padding(.top, 2).padding(.bottom, 6)
+                        RoadView(road: road, height: 40).padding(.bottom, 12)
+                    } else if road.hasBand {
                         RoadView(road: road, height: 48).padding(.top, 12).padding(.bottom, 10)
                     } else {
                         Headline(road: road).padding(.top, 10).padding(.bottom, 6)
@@ -141,9 +158,35 @@ private struct ActivityCard: View {
     }
 }
 
+/// The chat's title as the card's headline, with the clock, last baselines
+/// lined up; the step goes on the line under it.
+private struct TitleHeadline: View {
+    let title: String
+    let road: OpenRoad
+
+    var body: some View {
+        HStack(alignment: .lastTextBaseline, spacing: 12) {
+            Text(title)
+                .font(Road.headline)
+                .tracking(-0.42)
+                .foregroundStyle(Road.ink)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if road.stage != .stale {
+                ActivityClock(clock: road.clock, font: Road.clock, color: road.stage == .finished ? Road.positive : Road.ink)
+            }
+        }
+    }
+}
+
 /// The words and the clock, last baselines lined up.
 private struct Headline: View {
     let road: OpenRoad
+    /// The step's words at the headline's size, or smaller under a chat's title.
+    var font: Font = Road.headline
+    var logoSize: CGFloat = 20
+    var showsClock = true
 
     private var colour: Color {
         switch road.stage {
@@ -167,7 +210,7 @@ private struct Headline: View {
                         .foregroundStyle(Road.inkMuted)
                         .lineLimit(1)
                 }
-            } else {
+            } else if showsClock {
                 ActivityClock(clock: road.clock, font: Road.clock, color: road.stage == .finished ? Road.positive : Road.ink)
             }
         }
@@ -180,12 +223,12 @@ private struct Headline: View {
         HStack(spacing: 6) {
             if let split = road.splitHeadline, showsLogo {
                 line(split.verb)
-                if variant < 2, let logo { ServiceLogo(key: logo, size: 20) }
+                if variant < 2, let logo { ServiceLogo(key: logo, size: logoSize) }
                 if variant == 0 { line(split.name) }
                 if variant == 2 { line(split.name) }
             } else {
                 line(road.headline)
-                if variant < 2, let logo, road.hasOwnLogo { ServiceLogo(key: logo, size: 20) }
+                if variant < 2, let logo, road.hasOwnLogo { ServiceLogo(key: logo, size: logoSize) }
             }
         }
     }
@@ -194,7 +237,7 @@ private struct Headline: View {
 
     private func line(_ text: String) -> some View {
         Text(text)
-            .font(Road.headline)
+            .font(font)
             .tracking(-0.42)
             .foregroundStyle(colour)
             .lineLimit(1)

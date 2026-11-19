@@ -272,7 +272,18 @@ nonisolated struct OpenRoad: Equatable {
 
     /// One label for the whole card: words always say what a face or colour
     /// shows, and bot and road stay hidden from VoiceOver.
-    func accessibilityLabel(organization: String, now: Date = .now) -> String {
+    /// One spoken label for the card. `title`, a chat's title when the card
+    /// shows one, starts the states that don't already name the chat, so
+    /// VoiceOver says which chat waits, finished or failed.
+    func accessibilityLabel(organization: String, title: String? = nil, now: Date = .now) -> String {
+        let label = stateLabel(organization: title ?? organization, now: now)
+        switch stage {
+        case .starting, .working, .writing: return label
+        default: return title.map { "\($0). " + label } ?? label
+        }
+    }
+
+    private func stateLabel(organization: String, now: Date) -> String {
         let stepsPart = stepsLabel.map { " \($0)." } ?? ""
         var running = ""
         var since = ""

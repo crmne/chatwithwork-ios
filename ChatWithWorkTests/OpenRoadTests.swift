@@ -220,6 +220,11 @@ struct OpenRoadTests {
         #expect(decision.hasSuffix("Double-tap to review."))
         #expect(road(State(phase: "failed")).accessibilityLabel(organization: "Northwind Studio") == "The answer couldn't finish.")
         #expect(road(State(phase: "input_requested")).accessibilityLabel(organization: "Northwind Studio") == "A question is waiting for your answer.")
+        // A card headed by its chat's title says which chat, once.
+        #expect(road(State(phase: "input_requested")).accessibilityLabel(organization: "Northwind Studio", title: "Acme renewal") == "Acme renewal. A question is waiting for your answer.")
+        #expect(road(State(phase: "failed")).accessibilityLabel(organization: "Northwind Studio", title: "Acme renewal") == "Acme renewal. The answer couldn't finish.")
+        let titled = road(State(phase: "answering", message: "Searching Drive", step: "search", steps: 5)).accessibilityLabel(organization: "Northwind Studio", title: "Acme renewal", now: now)
+        #expect(titled.hasPrefix("Chat with Work, Acme renewal. Searching Drive."))
     }
 
     @Test("nothing a person reads claims a percentage, or an end ahead of it")

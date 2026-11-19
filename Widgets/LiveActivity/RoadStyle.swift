@@ -27,6 +27,10 @@ enum Road {
     static let headline = Font.custom("Geist-SemiBold", size: 21, relativeTo: .title3)
     static let clock = Font.custom("Unbounded-Medium", size: 20, relativeTo: .title3)
     static let organization = Font.custom("Geist-Medium", size: 12.5, relativeTo: .caption)
+    /// The chat's title on the card's top line, where the organization goes without one.
+    static let chatTitle = Font.custom("Geist-SemiBold", size: 13.5, relativeTo: .caption)
+    /// The step under a chat's title, when the title is the card's headline.
+    static let stepLine = Font.custom("Geist-Medium", size: 15, relativeTo: .subheadline)
     static let stepsCount = Font.custom("GeistMono-Medium", size: 11.5, relativeTo: .caption2)
     static let bandTitle = Font.custom("Geist-SemiBold", size: 17, relativeTo: .headline)
     static let bandSub = Font.custom("Geist-Medium", size: 12.5, relativeTo: .caption)

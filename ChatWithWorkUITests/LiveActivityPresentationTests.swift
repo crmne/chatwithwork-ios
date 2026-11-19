@@ -5,7 +5,8 @@ final class LiveActivityPresentationTests: XCTestCase {
     /// Every state of Open Road on the Lock Screen and in the Island. Set
     /// `TEST_RUNNER_CWW_ACTIVITY_SCENARIOS` to a subset, and
     /// `TEST_RUNNER_CWW_ACTIVITY_LOCK_ONLY` to skip the Island, and
-    /// `TEST_RUNNER_CWW_ACTIVITY_MARK` to `chat` for the logo a person's chat shows.
+    /// `TEST_RUNNER_CWW_ACTIVITY_MARK` to `chat` for the logo a person's chat shows,
+    /// and `TEST_RUNNER_CWW_ACTIVITY_TITLE` to a chat's title to head the card with.
     @MainActor
     func testSystemPresentations() {
         continueAfterFailure = false
@@ -18,6 +19,8 @@ final class LiveActivityPresentationTests: XCTestCase {
         for scenario in scenarios {
             app.launchArguments = ["-CWWLiveActivityPreview", scenario, "-CWWAskForNotifications", "NO"]
             if let mark = environment["CWW_ACTIVITY_MARK"] { app.launchArguments += ["-CWWLiveActivityMark", mark] }
+            let title = environment["CWW_ACTIVITY_TITLE"]
+            if let title { app.launchArguments += ["-CWWLiveActivityTitle", title] }
             app.launch()
             XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
             // ActivityKit requests the system surface asynchronously after activation.
@@ -26,7 +29,7 @@ final class LiveActivityPresentationTests: XCTestCase {
             let top = springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.002))
             top.press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.7)))
             // The card is one VoiceOver element, whatever it draws.
-            let card = springboard.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'Northwind' OR label CONTAINS 'waiting' OR label CONTAINS 'Answer ready' OR label CONTAINS 'finish' OR label CONTAINS 'Stopped' OR label CONTAINS 'update' OR label CONTAINS 'agents' OR label CONTAINS 'Running'")).firstMatch
+            let card = springboard.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@ OR label CONTAINS 'Northwind' OR label CONTAINS 'waiting' OR label CONTAINS 'Answer ready' OR label CONTAINS 'finish' OR label CONTAINS 'Stopped' OR label CONTAINS 'update' OR label CONTAINS 'agents' OR label CONTAINS 'Running'", title ?? "Northwind")).firstMatch
             let found = card.waitForExistence(timeout: 30)
             if !found { keep("missing-\(scenario)") }
             XCTAssertTrue(found, scenario)

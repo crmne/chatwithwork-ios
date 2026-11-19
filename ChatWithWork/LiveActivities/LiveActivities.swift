@@ -2,8 +2,12 @@ import ActivityKit
 import UIKit
 
 /// Live Activities for answers that keep working while the person is
-/// elsewhere: the organization, the step the answer is on ("Searching
-/// Todoist") and how long, never the chat's title or anything from it.
+/// elsewhere: the chat's title (or a bot's name), the step the answer is on
+/// ("Searching Todoist") and how long. No push carries the title: the app asks
+/// the server for it with the web session (`GET .../live_activity`) as a
+/// chat's composer first speaks, and starts the activity with it in its
+/// attributes, which stay on the phone. The organization heads the card when
+/// it couldn't ask.
 /// ActivityKit starts activities only while the app is in front, and iOS
 /// shows them only once the person leaves it, so the app starts one as soon
 /// as a chat's composer says its answer works and registers the activity's
@@ -27,6 +31,7 @@ final class LiveActivities {
         /// Synthetic system-surface previews, with no token or server registration.
         /// `-CWWLiveActivityPreview search|approval_waiting|answered|failed|stale`.
         /// `-CWWLiveActivityMark chat` draws the logo a person's chat shows.
+        /// `-CWWLiveActivityTitle "Q3 renewal plan"` heads it with a chat's title.
         /// Synthetic content for every state of Open Road. `*_bare` is what an
         /// end push carries today; `legacy` what an older server sends.
         static func previewState(_ scenario: String, now: Date) -> (state: ChatActivityAttributes.ContentState, age: TimeInterval) {
@@ -75,7 +80,7 @@ final class LiveActivities {
                 var (state, age) = previewState(scenario.replacingOccurrences(of: "minimal_", with: ""), now: now)
                 state.mark = UserDefaults.standard.string(forKey: "CWWLiveActivityMark")
                 let organization = scenario == "long" ? "Northwind Studio International Operations" : "Northwind Studio"
-                let attributes = ChatActivityAttributes(organization: organization, path: "/1000001/chats/99999", startedAt: now.addingTimeInterval(-age))
+                let attributes = ChatActivityAttributes(organization: organization, path: "/1000001/chats/99999", startedAt: now.addingTimeInterval(-age), title: UserDefaults.standard.string(forKey: "CWWLiveActivityTitle"))
                 let content = ActivityContent(state: state, staleDate: now.addingTimeInterval(scenario == "stale" ? 10 : 3600))
                 do {
                     let activity = try Activity.request(attributes: attributes, content: content, pushType: nil)
@@ -110,16 +115,30 @@ final class LiveActivities {
     private var watchers: [String: [Task<Void, Never>]] = [:]
     /// Activities this app ended, whose dismissal isn't the person's.
     private var endedByApp: Set<String> = []
+    /// Starts waiting for their titles, by path: the answer's run, and a mark
+    /// for this start, so a second `working` for the same answer doesn't start
+    /// another, and a new answer replaces the wait of one that ended.
+    private var requesting: [String: (run: String?, start: UUID)] = [:]
+    /// When a chat's title last failed to come (an older server answers 404),
+    /// so it isn't asked again at every change of the composer.
+    private var titleFailures: [String: Date] = [:]
+    /// Chats whose composer last said its answer works, so one that finished while its title came starts nothing.
+    private var working: Set<String> = []
+    /// How to start each activity waiting for its title without it, should the app leave first.
+    private var untitledStarts: [String: (start: UUID, run: () -> Void)] = [:]
+    private var leavingObserver: NSObjectProtocol?
 
     /// The composer on `chatURL` changed.
     func noteState(_ state: ComposerState, chatURL: URL?) {
         guard isSignedIn(), let chatURL, case .chat = AppRoute(url: chatURL).kind else { return }
         let path = chatURL.path(percentEncoded: false)
         if state.working {
+            working.insert(path)
             start(for: path, run: state.liveRun, mark: state.mark, csrfToken: state.csrfToken)
         } else if isInFront(), !state.waiting {
             // A wait keeps its activity: the answer goes on after it, and iOS
             // can't start another from the background.
+            working.remove(path)
             end(for: path)
         }
     }
@@ -135,6 +154,10 @@ final class LiveActivities {
         watchers.values.joined().forEach { $0.cancel() }
         watchers.removeAll()
         dismissals.removeAll()
+        requesting.removeAll()
+        titleFailures.removeAll()
+        untitledStarts.removeAll()
+        working.removeAll()
         return Task {
             for activity in Activity<ChatActivityAttributes>.activities where current.contains(activity.id) {
                 await activity.end(nil, dismissalPolicy: .immediate)
@@ -160,8 +183,49 @@ final class LiveActivities {
         }
     }
 
+    /// Starts the activity once its title is known: at once when it was
+    /// fetched already, otherwise after at most `titleWait`, since ActivityKit
+    /// starts activities only while the app is in front.
     private func request(for path: String, run: LiveRun?, mark: String?, csrfToken: String?) {
-        let attributes = ChatActivityAttributes(organization: organizationName() ?? "Chat with Work", path: path, startedAt: run?.startedAt ?? Date(), run: run?.id)
+        if let waiting = requesting[path], waiting.run == run?.id { return }
+        let start = UUID()
+        requesting[path] = (run?.id, start)
+        // Someone who sends and leaves at once mustn't lose the activity to
+        // the wait: ActivityKit refuses to start one from the background, so
+        // leaving starts it there and then, without a title.
+        untitledStarts[path] = (start, { [weak self] in self?.request(for: path, run: run, mark: mark, title: nil, csrfToken: csrfToken) })
+        watchLeaving()
+        Task { [weak self] in
+            guard let self else { return }
+            let title = await self.title(for: path)
+            // A newer answer's start, or leaving the screen, took this one's place.
+            guard self.requesting[path]?.start == start else { return }
+            self.requesting[path] = nil
+            self.untitledStarts[path] = nil
+            guard self.isSignedIn(), self.working.contains(path) else { return }
+            self.request(for: path, run: run, mark: mark, title: title?.headline(newChat: String(localized: "New chat")), csrfToken: csrfToken)
+        }
+    }
+
+    /// Activities waiting for their titles as the app leaves the screen start without them.
+    private func startWaitingUntitled() {
+        let waiting = untitledStarts
+        untitledStarts.removeAll()
+        for (path, pending) in waiting where requesting[path]?.start == pending.start {
+            requesting[path] = nil
+            if isSignedIn(), working.contains(path) { pending.run() }
+        }
+    }
+
+    private func watchLeaving() {
+        guard leavingObserver == nil else { return }
+        leavingObserver = NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.startWaitingUntitled() }
+        }
+    }
+
+    private func request(for path: String, run: LiveRun?, mark: String?, title: String?, csrfToken: String?) {
+        let attributes = ChatActivityAttributes(organization: organizationName() ?? "Chat with Work", path: path, startedAt: run?.startedAt ?? Date(), run: run?.id, title: title)
         var state = ChatActivityAttributes.ContentState.answering
         state.run = run?.id
         state.revision = run?.revision
@@ -231,6 +295,65 @@ final class LiveActivities {
         }
     }
 
+    // MARK: The chat's title
+
+    /// How long starting an activity waits for a title not fetched yet.
+    static let titleWait: Duration = .milliseconds(800)
+
+    /// How long a failure to get a chat's title holds before the server is
+    /// asked again, so an older server's 404 isn't asked at every start.
+    static let titleRetry: TimeInterval = 30
+
+    /// Asks the server for a chat's title (the network by default; tests stand in).
+    var fetchTitle: (String) async -> LiveActivityTitle? = { path in await LiveActivities.fetchTitle(for: path, environment: AppEnvironment.current) }
+
+    /// The chat's title as the server says it now, within `titleWait`; nil
+    /// otherwise. Never one asked for before this start: the person may have
+    /// turned off "Show the chat and its answer" since, and an activity's
+    /// title can't be taken back once it started.
+    func title(for path: String) async -> LiveActivityTitle? {
+        if let failed = titleFailures[path], Date().timeIntervalSince(failed) < Self.titleRetry { return nil }
+        // A fetch of its own, never one an earlier start began.
+        let fetch = Task { [weak self] () -> LiveActivityTitle? in
+            guard let self else { return nil }
+            let title = await self.fetchTitle(path)
+            self.titleFailures[path] = title == nil ? Date() : nil
+            return title
+        }
+        return await Self.first(of: fetch, within: Self.titleWait)
+    }
+
+    /// `fetch`'s value if it comes within `wait`, else nil at once, without
+    /// waiting for the fetch to finish.
+    static func first(of fetch: Task<LiveActivityTitle?, Never>, within wait: Duration) async -> LiveActivityTitle? {
+        let race = TitleRace()
+        return await withCheckedContinuation { continuation in
+            race.continuation = continuation
+            Task { race.finish(await fetch.value) }
+            Task {
+                try? await Task.sleep(for: wait)
+                race.finish(nil)
+            }
+        }
+    }
+
+    /// Asks the server for the chat's title with the web session.
+    private static func fetchTitle(for path: String, environment: AppEnvironment) async -> LiveActivityTitle? {
+        let route = AppRoute(path: path)
+        guard let account = route.account, case .chat(let number) = route.kind else { return nil }
+
+        var request = URLRequest(url: environment.url(path: "/\(account.rawValue)/chats/\(number)/live_activity"))
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 5
+        await WebSession.authorize(&request)
+
+        let session = URLSession(configuration: .ephemeral)
+        defer { session.finishTasksAndInvalidate() }
+        guard let (data, response) = try? await session.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return try? JSONDecoder().decode(LiveActivityTitle.self, from: data)
+    }
+
     /// Tells the server the activity's push token, so it can end it.
     private static func register(_ token: String, for path: String, run: String?, csrfToken: String?, environment: AppEnvironment) async -> LiveActivityRegistration.Outcome {
         let route = AppRoute(path: path)
@@ -259,5 +382,18 @@ final class LiveActivities {
             },
             pause: { attempt in try? await Task.sleep(for: .seconds(2 << attempt)) }
         )
+    }
+}
+
+/// The first of the title and the limit to arrive resumes the waiter; the
+/// other is dropped. Not generic: Swift 6.3's optimizer crashed on a generic
+/// one in Release builds.
+@MainActor
+private final class TitleRace {
+    var continuation: CheckedContinuation<LiveActivityTitle?, Never>?
+
+    func finish(_ value: LiveActivityTitle?) {
+        continuation?.resume(returning: value)
+        continuation = nil
     }
 }

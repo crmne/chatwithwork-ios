@@ -33,6 +33,64 @@ struct LiveActivityTests {
         #expect(ChatActivityAttributes.ContentState.answering.line == "Answering")
     }
 
+    @Test("heads the card with the chat's title, a bot's name before it, or New chat")
+    func title() throws {
+        let decode = { (json: String) in try JSONDecoder().decode(LiveActivityTitle.self, from: Data(json.utf8)) }
+        #expect(try decode(#"{"title":"Acme renewal","titled":true}"#).headline(newChat: "New chat") == "Acme renewal")
+        #expect(try decode(#"{"title":"Pipeline review","bot":"Morning plan","titled":true}"#).headline(newChat: "New chat") == "Morning plan · Pipeline review")
+        #expect(try decode(#"{"bot":"Morning plan","titled":false}"#).headline(newChat: "New chat") == "Morning plan")
+        #expect(try decode(#"{"titled":false}"#).headline(newChat: "New chat") == "New chat")
+        // Words kept out of notifications: the organization heads the card, as before.
+        #expect(try decode("{}").headline(newChat: "New chat") == nil)
+
+        let attributes = ChatActivityAttributes(organization: "Northwind Studio", path: "/1000001/chats/42", startedAt: .now, run: "r", title: "Acme renewal")
+        let restored = try JSONDecoder().decode(ChatActivityAttributes.self, from: JSONEncoder().encode(attributes))
+        #expect(restored.title == "Acme renewal")
+        let older = try JSONDecoder().decode(ChatActivityAttributes.self, from: Data(#"{"organization":"Northwind","path":"/1000001/chats/42","startedAt":0}"#.utf8))
+        #expect(older.title == nil)
+    }
+
+    @MainActor
+    @Test("asks for the title at every start, so one kept from before never shows")
+    func titleAskedEachStart() async {
+        let activities = LiveActivities()
+        var answers: [LiveActivityTitle?] = [LiveActivityTitle(title: "Acme renewal", titled: true), LiveActivityTitle()]
+        activities.fetchTitle = { _ in answers.removeFirst() }
+        #expect(await activities.title(for: "/1000001/chats/42")?.headline(newChat: "New chat") == "Acme renewal")
+        // The person turned off "Show the chat and its answer" since: the server answers {}.
+        let after = await activities.title(for: "/1000001/chats/42")
+        #expect(after != nil)
+        #expect(after?.headline(newChat: "New chat") == nil, "the title asked for before mustn't head the new card")
+    }
+
+    @MainActor
+    @Test("starts without a title when the server doesn't answer within the wait")
+    func titleWaitsAtMostItsLimit() async {
+        let activities = LiveActivities()
+        activities.fetchTitle = { _ in
+            try? await Task.sleep(for: .seconds(3))
+            return LiveActivityTitle(title: "Too late", titled: true)
+        }
+        let started = ContinuousClock.now
+        let title = await activities.title(for: "/1000001/chats/42")
+        #expect(title == nil)
+        #expect(ContinuousClock.now - started < .seconds(2), "it waited for the slow request")
+    }
+
+    @MainActor
+    @Test("asks an older server again only after a while")
+    func titleFailureHolds() async {
+        let activities = LiveActivities()
+        var asked = 0
+        activities.fetchTitle = { _ in
+            asked += 1
+            return nil
+        }
+        _ = await activities.title(for: "/1000001/chats/42")
+        _ = await activities.title(for: "/1000001/chats/42")
+        #expect(asked == 1)
+    }
+
     @Test("a person's chat shows the logo, a bot's run and an older server the bot")
     func mark() throws {
         let decode = { (json: String) in try JSONDecoder().decode(ChatActivityAttributes.ContentState.self, from: Data(json.utf8)) }

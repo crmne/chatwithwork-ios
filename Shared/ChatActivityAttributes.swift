@@ -2,8 +2,10 @@ import ActivityKit
 import Foundation
 
 /// A Live Activity for an answer still working after the person left the
-/// chat: the organization, what the answer is doing and how long it has
-/// been at it, and how it ended. Never the chat's title or anything from it
+/// chat: the chat's title (or a bot's name), what the answer is doing and how
+/// long it has been at it, and how it ended. Pushes carry nothing from the
+/// chat: the title is fetched by the app before it starts the activity and
+/// lives only in its attributes, which never leave the phone
 /// (docs/server-contract.md, "Live Activities"). Shared by the app, which
 /// starts it, and the widget extension, which draws it.
 nonisolated struct ChatActivityAttributes: ActivityAttributes {
@@ -90,6 +92,37 @@ nonisolated struct ChatActivityAttributes: ActivityAttributes {
     /// The answer this activity belongs to, which it keeps for its whole
     /// life; nil on an older server.
     var run: String? = nil
+    /// The headline: the chat's title, a bot's name and the title, or "New
+    /// chat" (`LiveActivityTitle.headline`). Fixed when the activity starts,
+    /// as ActivityKit fixes attributes and no push may carry the title; nil
+    /// when the app couldn't ask, or the person keeps words out of
+    /// notifications, and the organization's name heads the card as before.
+    var title: String? = nil
+}
+
+/// What `GET /:account/chats/:number/live_activity` answers before the app
+/// starts a Live Activity: the chat's title, a bot's name, and whether the
+/// chat has a title yet. Empty when the person turned off "Show the chat and
+/// its answer".
+nonisolated struct LiveActivityTitle: Decodable, Equatable, Sendable {
+    var title: String?
+    var bot: String?
+    var titled: Bool?
+
+    /// The title, the bot's name and the title after it (which the card cuts
+    /// short where there's no room), the bot's name alone, or [newChat] for a
+    /// chat with no title yet; nil for an empty answer.
+    func headline(newChat: String) -> String? {
+        let title = title?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        let bot = bot?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        if let bot { return [bot, title].compactMap { $0 }.joined(separator: " · ") }
+        if let title { return title }
+        return titled == false ? newChat : nil
+    }
+}
+
+private extension String {
+    nonisolated var nilIfEmpty: String? { isEmpty ? nil : self }
 }
 
 /// The app's own links, which widgets, Live Activities and the share
