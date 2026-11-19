@@ -123,6 +123,9 @@ final class LiveActivities {
     private var requesting: Set<String> = []
     /// Chats whose composer last said its answer works, so one that finished while its title came starts nothing.
     private var working: Set<String> = []
+    /// How to start each activity waiting for its title without it, should the app leave first.
+    private var untitledStarts: [String: () -> Void] = [:]
+    private var leavingObserver: NSObjectProtocol?
 
     /// The composer on `chatURL` changed.
     func noteState(_ state: ComposerState, chatURL: URL?) {
@@ -156,6 +159,7 @@ final class LiveActivities {
         titleFetches.removeAll()
         titles.removeAll()
         requesting.removeAll()
+        untitledStarts.removeAll()
         working.removeAll()
         return Task {
             for activity in Activity<ChatActivityAttributes>.activities where current.contains(activity.id) {
@@ -187,12 +191,34 @@ final class LiveActivities {
     /// starts activities only while the app is in front.
     private func request(for path: String, run: LiveRun?, mark: String?, csrfToken: String?) {
         guard requesting.insert(path).inserted else { return }
+        // Someone who sends and leaves at once mustn't lose the activity to
+        // the wait: ActivityKit refuses to start one from the background, so
+        // leaving starts it there and then, without a title.
+        untitledStarts[path] = { [weak self] in self?.request(for: path, run: run, mark: mark, title: nil, csrfToken: csrfToken) }
+        watchLeaving()
         Task { [weak self] in
             guard let self else { return }
             let title = await self.title(for: path)
-            self.requesting.remove(path)
+            guard self.requesting.remove(path) != nil else { return }
+            self.untitledStarts[path] = nil
             guard self.isSignedIn(), self.working.contains(path) else { return }
             self.request(for: path, run: run, mark: mark, title: title?.headline(newChat: String(localized: "New chat")), csrfToken: csrfToken)
+        }
+    }
+
+    /// Activities waiting for their titles as the app leaves the screen start without them.
+    private func startWaitingUntitled() {
+        let waiting = untitledStarts
+        untitledStarts.removeAll()
+        for (path, start) in waiting where requesting.remove(path) != nil {
+            if isSignedIn(), working.contains(path) { start() }
+        }
+    }
+
+    private func watchLeaving() {
+        guard leavingObserver == nil else { return }
+        leavingObserver = NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.startWaitingUntitled() }
         }
     }
 
