@@ -80,7 +80,8 @@ struct AskView: View {
                             Spacer()
                         }
                         .padding(.horizontal, 14)
-                        .frame(height: 44)
+                        // Taller only if the words need it at the larger text sizes.
+                        .frame(minHeight: 44)
                         .background(Capsule().fill(Color("Surface")))
                     }
                     Link(destination: AppLink.newChat(dictate: true)) {

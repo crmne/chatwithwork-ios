@@ -66,7 +66,23 @@ final class ComposerControl: UIButton {
         registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (control: ComposerControl, _: UITraitCollection) in
             control.restyle()
         }
+        // The bar's icons keep their size at every text size, as the
+        // system's bars do; at the accessibility sizes a long press shows
+        // the button large, with its name.
+        showsLargeContentViewer = true
+        scalesLargeContentImage = true
+        addInteraction(UILargeContentViewerInteraction())
         restyle()
+    }
+
+    override var largeContentTitle: String? {
+        get { accessibilityLabel }
+        set { super.largeContentTitle = newValue }
+    }
+
+    override var largeContentImage: UIImage? {
+        get { icon.image }
+        set { super.largeContentImage = newValue }
     }
 
     @available(*, unavailable)
@@ -196,6 +212,9 @@ final class ComposerModePill: UIButton {
     static let plateHeight: CGFloat = 34
     /// A long label from a newer server truncates here, so Send stays.
     static let widest: CGFloat = 150
+    /// At the accessibility text sizes, where the model has a row of its
+    /// own, the pill has room for its word whole at its largest.
+    static let widestAccessible: CGFloat = 200
     /// Follows Dynamic Type up to this, where it still sits on the plate.
     private static let largestPointSize: CGFloat = 17
 
@@ -203,6 +222,7 @@ final class ComposerModePill: UIButton {
     private let symbol = UIImageView()
     private let label = UILabel()
     private(set) var look: Look?
+    private var widthLimit: NSLayoutConstraint!
 
     init() {
         super.init(frame: .zero)
@@ -233,9 +253,10 @@ final class ComposerModePill: UIButton {
         row.translatesAutoresizingMaskIntoConstraints = false
         plate.addSubview(row)
 
+        widthLimit = widthAnchor.constraint(lessThanOrEqualToConstant: Self.widest)
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: ComposerControl.target),
-            widthAnchor.constraint(lessThanOrEqualToConstant: Self.widest),
+            widthLimit,
             plate.heightAnchor.constraint(equalToConstant: Self.plateHeight),
             plate.centerYAnchor.constraint(equalTo: centerYAnchor),
             plate.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
@@ -247,7 +268,21 @@ final class ComposerModePill: UIButton {
         registerForTraitChanges([UITraitUserInterfaceStyle.self, UITraitPreferredContentSizeCategory.self]) { (pill: ComposerModePill, _: UITraitCollection) in
             pill.restyle()
         }
+        // Its words stop growing at 17 points; past that a long press shows them large.
+        showsLargeContentViewer = true
+        scalesLargeContentImage = true
+        addInteraction(UILargeContentViewerInteraction())
         restyle()
+    }
+
+    override var largeContentTitle: String? {
+        get { label.text }
+        set { super.largeContentTitle = newValue }
+    }
+
+    override var largeContentImage: UIImage? {
+        get { symbol.isHidden ? nil : symbol.image }
+        set { super.largeContentImage = newValue }
     }
 
     @available(*, unavailable)
@@ -286,7 +321,11 @@ final class ComposerModePill: UIButton {
         // Locked, it steps back as the bar's other controls do.
         plate.alpha = !isEnabled ? 0.4 : isHighlighted ? 0.7 : 1
         symbol.tintColor = colors.ink
-        symbol.preferredSymbolConfiguration = UIImage.SymbolConfiguration(font: scaledFont)
+        // By point size: a configuration from the scaled font would scale
+        // again with the text size, past the plate.
+        let font = scaledFont
+        symbol.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: font.pointSize, weight: .medium)
+        widthLimit.constant = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? Self.widestAccessible : Self.widest
         label.textColor = colors.ink
         transform = isHighlighted ? CGAffineTransform(translationX: 0, y: 0.5) : .identity
     }

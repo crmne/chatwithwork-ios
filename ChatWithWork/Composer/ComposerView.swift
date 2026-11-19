@@ -65,6 +65,10 @@ final class ComposerView: UIView, UITextViewDelegate {
     private let webSearchButton = ComposerControl(style: .toggle)
     private let modePill = ComposerModePill()
     private let modelButton = UIButton(type: .system)
+    /// At the accessibility text sizes the bar has no room for the model's
+    /// name beside the controls, so the model takes this row of its own,
+    /// above them, where its name shows whole, wrapping if it must.
+    private let modelRow = UIView()
     /// Says the logo is still a menu, once the name has made room for a pill.
     private let modelChevron = UIImageView(image: UIImage(systemName: "chevron.up.chevron.down", withConfiguration: UIImage.SymbolConfiguration(pointSize: 10, weight: .semibold)))
     /// Send and Stop are the web's touch `.chat-prompt__send`, as every
@@ -182,6 +186,8 @@ final class ComposerView: UIView, UITextViewDelegate {
 
         placeholder.font = textView.font
         placeholder.adjustsFontForContentSizeCategory = true
+        // One line at the usual sizes; at the largest it wraps rather than cut.
+        placeholder.numberOfLines = 0
         placeholder.textColor = Palette.inkFaint
         placeholder.isUserInteractionEnabled = false
 
@@ -248,7 +254,10 @@ final class ComposerView: UIView, UITextViewDelegate {
         // The web's touch bar has no gap: the 44-point targets touch.
         controls.spacing = 0
 
-        let inner = UIStackView(arrangedSubviews: [chipsScroll, textView, dictationLine, controls])
+        modelRow.isHidden = true
+        modelRow.accessibilityIdentifier = "composer.modelRow"
+
+        let inner = UIStackView(arrangedSubviews: [chipsScroll, textView, dictationLine, modelRow, controls])
         inner.axis = .vertical
         inner.spacing = 2
         inner.translatesAutoresizingMaskIntoConstraints = false
@@ -449,6 +458,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         dictateButton.isEnabled = state?.locked != true
         let folded = webSearchFolded
         widthWhenRefreshed = bounds.width
+        placeModel()
         webSearchButton.isHidden = busy || state?.webSearch == nil || folded
         // "+" opens while it holds anything, the folded globe's switch included.
         plusButton.isEnabled = state?.locked != true && (state?.acceptsFiles != false || state?.permissionModes != nil || state?.narrowing != nil || (folded && state?.webSearch != nil))
@@ -512,7 +522,8 @@ final class ComposerView: UIView, UITextViewDelegate {
     /// whole button steps aside. Send and the pill are never the ones pushed out.
     /// Without a logo to say which model it is, its name stays, cut short.
     private func fitModel() {
-        let room = modePill.isHidden || bounds.width == 0 ? nil : modelRoom
+        defer { modelRow.setHidden(!modelHasOwnRow || modelButton.isHidden) }
+        let room = modelHasOwnRow || modePill.isHidden || bounds.width == 0 ? nil : modelRoom
         let hasLogo = modelButton.configuration?.image != nil
         let crowded = hasLogo && room.map { $0 < Self.modelNameNeeds } == true
         let name = crowded ? nil : state?.selectedModel?.name
@@ -527,6 +538,38 @@ final class ComposerView: UIView, UITextViewDelegate {
             modelButton.invalidateIntrinsicContentSize()
         }
         if let room, room < Self.modelLogoNeeds { modelButton.isHidden = true }
+    }
+
+    /// Whether the model sits on a row of its own: at the accessibility text
+    /// sizes, where its name beside the bar's controls would be a letter or two.
+    var modelHasOwnRow: Bool { Self.modelHasOwnRow(traitCollection.preferredContentSizeCategory) }
+
+    static func modelHasOwnRow(_ category: UIContentSizeCategory) -> Bool {
+        category.isAccessibilityCategory
+    }
+
+    /// Moves the model between the bar, before Send, and its own row.
+    private func placeModel() {
+        let own = modelHasOwnRow
+        if own, modelButton.superview !== modelRow {
+            controlsRow.removeArrangedSubview(modelButton)
+            modelButton.removeFromSuperview()
+            modelButton.translatesAutoresizingMaskIntoConstraints = false
+            modelRow.addSubview(modelButton)
+            NSLayoutConstraint.activate([
+                modelButton.topAnchor.constraint(equalTo: modelRow.topAnchor),
+                modelButton.bottomAnchor.constraint(equalTo: modelRow.bottomAnchor),
+                modelButton.leadingAnchor.constraint(equalTo: modelRow.leadingAnchor),
+                modelButton.trailingAnchor.constraint(lessThanOrEqualTo: modelRow.trailingAnchor),
+                modelButton.heightAnchor.constraint(greaterThanOrEqualToConstant: ComposerControl.target)
+            ])
+        } else if !own, modelButton.superview === modelRow {
+            modelButton.removeFromSuperview()
+            let send = controlsRow.arrangedSubviews.firstIndex(of: sendButton) ?? controlsRow.arrangedSubviews.count
+            controlsRow.insertArrangedSubview(modelButton, at: send)
+        }
+        let wrap: NSLineBreakMode = own ? .byWordWrapping : .byTruncatingTail
+        if modelButton.configuration?.titleLineBreakMode != wrap { modelButton.configuration?.titleLineBreakMode = wrap }
     }
 
     /// The bar's width less what's showing in it, the model aside.
@@ -624,11 +667,27 @@ final class ComposerView: UIView, UITextViewDelegate {
     }
 
     private func resizeText() {
-        let width = textView.bounds.width > 0 ? textView.bounds.width : 300
-        let fitting = textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height
-        let height = min(max(fitting, 40), 140)
+        // The field spans the bar; its own bounds may not be laid out yet.
+        let width = bounds.width > 0 ? barWidth : textView.bounds.width > 0 ? textView.bounds.width : 300
+        var fitting = textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height
+        if !placeholder.isHidden {
+            // A placeholder that wraps at the largest sizes keeps the field open under it.
+            placeholder.preferredMaxLayoutWidth = max(0, width - 22)
+            let lines = placeholder.sizeThatFits(CGSize(width: max(0, width - 22), height: .greatestFiniteMagnitude)).height
+            fitting = max(fitting, 8 + lines + 6)
+        }
+        let tallest = Self.tallestText(for: traitCollection.preferredContentSizeCategory)
+        let height = min(max(fitting, 40), tallest)
         if abs(textHeight.constant - height) > 0.5 { textHeight.constant = height }
-        textView.isScrollEnabled = fitting > 140
+        textView.isScrollEnabled = fitting > tallest
+    }
+
+    /// How tall the words grow before they scroll: 140 points at the usual
+    /// sizes, more as the text grows, up to 220 so the conversation still
+    /// shows above.
+    static func tallestText(for category: UIContentSizeCategory) -> CGFloat {
+        let traits = UITraitCollection(preferredContentSizeCategory: category)
+        return min(max(140, UIFontMetrics(forTextStyle: .body).scaledValue(for: 140, compatibleWith: traits)), 220)
     }
 }
 
@@ -636,6 +695,7 @@ final class ComposerView: UIView, UITextViewDelegate {
 /// remove button.
 private final class AttachmentChip: UIView {
     var onRemove: (() -> Void)?
+    private let remove = UIButton(type: .system)
 
     init(attachment: ComposerState.Attachment) {
         super.init(frame: .zero)
@@ -652,10 +712,9 @@ private final class AttachmentChip: UIView {
         name.textColor = Palette.ink
         name.lineBreakMode = .byTruncatingMiddle
         let meta = UILabel()
-        meta.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        meta.font = UIFontMetrics(forTextStyle: .caption2).scaledFont(for: .monospacedSystemFont(ofSize: 11, weight: .regular))
         meta.textColor = Palette.inkMuted
         meta.text = attachment.uploading ? "\(Int(attachment.progress ?? 0))%" : attachment.size
-        let remove = UIButton(type: .system)
         remove.setImage(UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 10, weight: .bold)), for: .normal)
         remove.tintColor = Palette.inkMuted
         remove.accessibilityLabel = String(localized: "Remove \(attachment.name)")
@@ -671,7 +730,8 @@ private final class AttachmentChip: UIView {
             stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -6),
             stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
-            name.widthAnchor.constraint(lessThanOrEqualToConstant: 150),
+            // The chips scroll sideways, so a name can widen with the text.
+            name.widthAnchor.constraint(lessThanOrEqualToConstant: min(UIFontMetrics(forTextStyle: .footnote).scaledValue(for: 150), 260)),
             remove.widthAnchor.constraint(equalToConstant: 24)
         ])
 
@@ -692,6 +752,15 @@ private final class AttachmentChip: UIView {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// The chip's whole trailing end removes it, top to bottom, and from a
+    /// little before the cross: a bigger target than the cross alone, and
+    /// inside the chip, where the touches arrive.
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard self.point(inside: point, with: event), !isHidden, isUserInteractionEnabled else { return nil }
+        if point.x >= remove.convert(remove.bounds, to: self).minX - 10 { return remove }
+        return super.hitTest(point, with: event)
+    }
 
     static func symbol(for contentType: String?) -> String {
         guard let contentType else { return "doc" }
@@ -732,12 +801,15 @@ final class DictationLine: UIView {
         label.adjustsFontForContentSizeCategory = true
         label.textColor = Palette.inkMuted
         label.setContentHuggingPriority(.required, for: .horizontal)
-        label.setContentCompressionResistancePriority(.required, for: .horizontal)
-        time.font = .monospacedDigitSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .footnote).pointSize, weight: .regular)
+        // The words wrap before they push the clock out; the waveform gives way first.
+        label.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        time.font = UIFontMetrics(forTextStyle: .footnote).scaledFont(for: .monospacedDigitSystemFont(ofSize: 13, weight: .regular))
+        time.adjustsFontForContentSizeCategory = true
         time.textColor = Palette.inkMuted
         time.setContentHuggingPriority(.required, for: .horizontal)
         time.setContentCompressionResistancePriority(.required, for: .horizontal)
         waveform.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        waveform.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let stack = UIStackView(arrangedSubviews: [dot, label, waveform, time])
         stack.axis = .horizontal
@@ -794,7 +866,8 @@ final class DictationLine: UIView {
         if case .failed = phase {
             label.numberOfLines = 2
         } else {
-            label.numberOfLines = 1
+            // "Transcribing…" at the largest sizes takes a second line rather than leave the box.
+            label.numberOfLines = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? 2 : 1
             label.textColor = Palette.inkMuted
         }
     }

@@ -97,11 +97,20 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         return true
     }
 
-    private var sidebarWidth: CGFloat { min(view.bounds.width * 0.84, 340) }
+    private var sidebarWidth: CGFloat { Self.sidebarWidth(in: view.bounds.width, category: traitCollection.preferredContentSizeCategory) }
+
+    /// Most of a phone's width, up to 340 points; at the accessibility text
+    /// sizes nearly all of it, up to 420, so names keep a few words a line.
+    static func sidebarWidth(in width: CGFloat, category: UIContentSizeCategory) -> CGFloat {
+        category.isAccessibilityCategory ? min(width * 0.92, 420) : min(width * 0.84, 340)
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = Palette.canvasSunken
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (shell: SidebarShell, _: UITraitCollection) in
+            shell.view.setNeedsLayout()
+        }
 
         content.translatesAutoresizingMaskIntoConstraints = false
         content.backgroundColor = Palette.canvas
