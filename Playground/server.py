@@ -534,10 +534,13 @@ LOCKS = {
 }
 
 
-def composer(handler, account, number=None, placeholder="Reply to Chat with Work", working=False, project=None, prefill="", lock=None):
+def composer(handler, account, number=None, placeholder="Reply to Chat with Work", working=False, project=None, prefill="", lock=None,
+             waiting=False):
     """The chat form (chats/_form, _model_picker, _submit_button), with a
     textarea standing in for the Lexxy editor and the contract's haptic.
-    `lock` is a key of LOCKS, else the one `/lock` set for every chat."""
+    `lock` is a key of LOCKS, else the one `/lock` set for every chat.
+    `waiting` is a change waiting for approval with no answer running
+    (Chat#waiting_for_approval?), which the form says as data-live-waiting."""
     if lock is None:
         lock = LOCKED["kind"]
     action = f"/{account}/chats/{number}/messages" if number else f"/{account}/messages"
@@ -589,7 +592,9 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
           <span>{reason}</span>
         </p>"""
     # Who's at work on the answer, for the Live Activity the app starts (docs/server-contract.md).
-    live_mark = ('data-live-mark="bot"' if number in BOT_CHATS else 'data-live-mark="chat"') if working else ""
+    live_mark = ('data-live-mark="bot"' if number in BOT_CHATS else 'data-live-mark="chat"') if working or waiting else ""
+    if waiting and not working:
+        live_mark += ' data-live-waiting="true"'
     return f"""
     <div id="new_message" class="composer rainbow-glow{' composer--working' if working else ''}{' composer--locked' if lock in LOCKS else ''}"
          data-controller="composer chat bridge--haptic bridge--composer" data-bridge-feedback="light"
@@ -838,7 +843,7 @@ def conversation(handler, account, number, lock=None):
           <div class="conversation__dock-inner">
             <button type="button" class="scroll-button" data-scroll-target="scrollButton" data-action="click->scroll#scrollToBottom"
                     aria-label="Scroll to the latest message" inert>{icon("arrow-down")}</button>
-            <turbo-frame id="chat_form">{composer(handler, account, number, working=processing(handler, number), lock=lock)}
+            <turbo-frame id="chat_form">{composer(handler, account, number, working=processing(handler, number), lock=lock, waiting=state == "waiting")}
             </turbo-frame>
           </div>
         </div>
@@ -1744,6 +1749,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.session["approval"] = "passed"
                 streams.append(turbo_stream("replace", "activity_14", recap_activity(account, number, "passed")))
                 streams.append(turbo_stream("update", "typing_indicator", '<div class="hidden"></div>'))
+                # Nothing waits any more: the server draws the composer again (Chat#broadcast_composer), without
+                # data-live-waiting, and its bridge connects again saying so.
+                streams.append(turbo_stream("update", "chat_form", composer(self, account, number, working=processing(self, number))))
             return self.send(200, "".join(streams), "text/vnd.turbo-stream.html; charset=utf-8")
         if m := re.fullmatch(r"/sidebar/sections/(\d+)/collapse", rest):
             # Sidebar::Sections::CollapsesController: POST closes, DELETE opens.

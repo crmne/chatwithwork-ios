@@ -1894,16 +1894,26 @@ Older servers omit these optional fields and retain the existing controls.
 The native composer uses the web’s exact surface/ink tokens and all five
 rainbow stops, with 70% opacity at rest and full opacity while editing.
 
-**The rainbow (2026-11-01).** The composer is the app's clearest mark, and it
-follows the web's `.composer` from `state` alone: `locked`, `working` and
-`waiting` need nothing new. A 2-point edge at 70% (full with focus, 60%
-locked), flowing to the right, one loop in 5 seconds, while `working`; a
-blurred glow around the box at 14% (30% with focus, 5% locked); and both amber
-while `waiting`, which outranks `working` and the glow's lock. Reduce Motion
-stops the flow on the loop's first frame and the fades. The glow is drawn once
-for a width and cached (`ComposerGlow`), so typing and the keyboard move a
-texture and never blur. Colours are `--rainbow`, `--rainbow-loop`,
-`--attention` and `--shadow-float`: change them on the web first.
+**The rainbow (2026-11-01, glow 2026-11-19).** The composer is the app's
+clearest mark, and it follows the web's `.composer` from `state` alone:
+`locked`, `working` and `waiting` need nothing new, and focus is the app's
+field taking the keyboard (the web's `:focus-within`). A 2-point edge at 70%
+(full with focus, 60% locked); a glow at 16% (30% with focus, 5% locked, 8%
+locked with focus) that is the edge blurred, as the web's has been since
+2026-11-19: the same box (inset 0, the box's 20-point corners), the same
+gradient at the same size and place, blurred by 22. While `working` both flow
+to the right, one loop of `--rainbow-loop` (two box widths) in 5 seconds,
+linear, by one animation with one begin time, so the glow beside any point of
+the edge is that point's colour. While `waiting` both are amber and still,
+the glow at 14% (30% with focus), outranking `working` and the lock. At rest
+nothing moves; the flow also stops off screen and in the background. Reduce
+Motion leaves both on the loop's first frame, as the web's reduced motion
+does, and drops the 0.22-second fades. Increase Contrast keeps the edge at
+full opacity in every state (the web has no such rule; the glow stays).
+The glow's shape is blurred once for a width and cached (`ComposerGlow`, an
+alpha mask over a gradient layer), so typing, the keyboard, states and themes
+never blur. Colours are `--rainbow`, `--rainbow-loop`, `--attention` and
+`--shadow-float`: change them on the web first.
 
 
 

@@ -509,12 +509,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         }
         styleStop()
         fitModel()
-        box.look = ComposerLook(
-            locked: state?.locked == true,
-            working: state?.working == true,
-            waiting: state?.waiting == true,
-            focused: textView.isFirstResponder
-        )
+        box.look = ComposerLook(state, focused: textView.isFirstResponder)
         resizeText()
     }
 
