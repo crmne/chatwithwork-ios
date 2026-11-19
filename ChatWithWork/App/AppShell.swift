@@ -50,7 +50,7 @@ final class AppShell: NSObject {
         let url = url.flatMap { environment.owns($0) ? $0 : nil }
         if memory.hasSignedIn || LaunchOptions.assumesSignedIn {
             // Straight into the page's organization and onto the page, rather
-            // than loading New chat first only to replace it.
+            // than loading the home first only to replace it.
             let account = url.flatMap { AppRoute(url: $0).account } ?? memory.lastAccount
             if account != memory.lastAccount { memory.lastAccount = account }
             showSignedIn(account: account, startingAt: url, animated: false)
@@ -76,8 +76,8 @@ final class AppShell: NSObject {
     // MARK: Shortcuts
 
     /// Puts up the first screen for a shortcut that launched the app: its page
-    /// when that's a place, rather than loading New chat or the chat left a
-    /// moment ago first; a form comes up over the shell's usual start.
+    /// when that's a place, rather than loading the home or the chat left a
+    /// moment ago first; a form (New chat, New bot) comes up over the home.
     func start(opening shortcut: Shortcut) {
         switch shortcut {
         case .newChat:
@@ -281,15 +281,14 @@ final class AppShell: NSObject {
         showSignedIn(account: target, continuingTo: opensOnTop(of: url) ? url : nil, startingAt: Self.startsAt(url))
     }
 
-    /// A link to New chat starts the rebuilt shell there rather than on the
-    /// organization's home, which may land on Decisions instead.
+    /// A link to New chat starts the rebuilt shell with it: its sheet comes
+    /// up over the organization's home (SidebarShell.start(at:)).
     static func startsAt(_ url: URL) -> URL? {
         AppRoute(url: url).kind == .newChat ? url : nil
     }
 
-    /// The new chat page isn't opened again after a rebuild: the shell starts
-    /// on it (in the list last chosen there), and it's what an organization
-    /// switcher links to. Nor is the chat list, which the sidebar replaced.
+    /// New chat isn't opened again after a rebuild: the shell starts with
+    /// it (startsAt). Nor is the chat list, which the sidebar replaced.
     private func opensOnTop(of url: URL) -> Bool {
         switch AppRoute(url: url).kind {
         case .newChat, .list(.chats), .authentication, .historicalLocation: false
@@ -314,6 +313,7 @@ final class AppShell: NSObject {
         memory.hasSignedIn = false
         memory.lastAccount = nil
         SidebarCache.clear()
+        NewChatDraft.clear()
         account = nil
         PushNotifications.shared.forgetKey()
         LiveActivities.shared.endAll()
@@ -387,12 +387,12 @@ extension AppShell: NavigatorDelegate {
             }
             // Going back from the one chat screen, with nothing over it
             // (deleting it, on a server that still recedes): there's nothing
-            // under it, so a new chat takes its place rather than leaving
-            // the deleted one up.
+            // under it, so the home takes its place rather than leaving the
+            // deleted one up. Not New chat, a sheet with nothing under it.
             if location == .recede, case .signedIn(let shell) = state {
                 let main = shell.navigator.rootViewController
                 if main.viewControllers.count <= 1, main.presentedViewController == nil {
-                    later { _ in shell.startNewChat() }
+                    later { _ in shell.openHome() }
                     return .reject
                 }
             }

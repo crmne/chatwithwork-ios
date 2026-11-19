@@ -42,7 +42,6 @@
     },
     {
       "patterns": [
-        "/chats/new(\\?|$)",
         "/chats/\\d+(\\?|#|$)"
       ],
       "properties": {

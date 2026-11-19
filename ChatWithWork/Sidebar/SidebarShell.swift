@@ -69,26 +69,26 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         foregroundObserver.map(NotificationCenter.default.removeObserver)
     }
 
-    /// The organization's home, which lands on Decisions or New chat as
-    /// signing in does (docs/server-contract.md, "Where the app starts"), or
-    /// the server's pick of organization.
+    /// The organization's home, which lands on Decisions (docs/server-contract.md,
+    /// "Where the app starts"), or the server's pick of organization. Never
+    /// New chat: it's a sheet, which needs a place under it.
     static func startURL(environment: AppEnvironment, account: AccountSlug?, memory: SessionMemory) -> URL {
         environment.url(path: AppPath.path(AppPath.home, in: account))
     }
 
     /// Where to start instead when the organization's home answers 404: a
     /// server older than it (self-hosted releases before 2026-11-17) starts
-    /// on the new chat last chosen in that organization, as builds before
-    /// the home did. None for any other page.
+    /// on the organization's chat list, a place there, with New chat a tap
+    /// away in the bar. Not New chat itself, a sheet in the bundled
+    /// configuration such a server leaves in charge, which would have
+    /// nothing under it. None for any other page.
     static func startURLWithoutHome(failed url: URL, environment: AppEnvironment, account: AccountSlug?, memory: SessionMemory) -> URL? {
         let route = AppRoute(url: url)
         guard route.path == AppPath.home else { return nil }
-        let account = route.account ?? account
-        let path = account.flatMap { memory.newChatPath(in: $0) } ?? AppPath.path(AppPath.newChat, in: account)
-        return environment.url(path: path)
+        return environment.url(path: AppPath.path(AppList.chats.path, in: route.account ?? account))
     }
 
-    /// Opens the new chat in place of a home the server doesn't have, as
+    /// Opens the chat list in place of a home the server doesn't have, as
     /// the place at the root. False when `url` isn't the home. A sidebar
     /// opened while the home loaded stays open: the person didn't pick this.
     func startWithoutHome(failed url: URL) -> Bool {
@@ -223,8 +223,9 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     }
 
     /// Starts the navigator at `url` when a notification launched the app
-    /// onto it, else at the new chat, or reopens a chat left moments ago
-    /// that is still answering or waiting for the person.
+    /// onto it (a form, New chat among them, comes up over the home), else at
+    /// the home, or reopens a chat left moments ago that is still answering
+    /// or waiting for the person.
     func start(at url: URL? = nil) {
         if let url {
             let properties = navigator.session.pathConfiguration?.properties(for: url) ?? PathProperties()
@@ -347,9 +348,18 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         navigator.route(VisitProposal(url: url, options: VisitOptions(action: .advance), properties: Places.opening(properties)))
     }
 
+    /// New chat, a sheet over the place on screen (the path configuration).
+    /// One already up keeps its words, rather than another stacking on it.
     func startNewChat() {
         setOpen(false, animated: true)
+        if ComposerController.onNewChat(navigator.rootViewController) != nil { return }
         navigator.route(environment.url(path: newChatPath))
+    }
+
+    /// The organization's home as the place at the root: where a chat that
+    /// went away leaves the person, since New chat is a sheet.
+    func openHome() {
+        open(url: Self.startURL(environment: environment, account: account, memory: memory))
     }
 
     /// Where New chat goes: the bar's button, the shortcuts, a recede with

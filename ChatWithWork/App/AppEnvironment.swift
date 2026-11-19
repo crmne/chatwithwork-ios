@@ -48,9 +48,12 @@ nonisolated struct AppEnvironment: Sendable, Equatable {
 
     var isProduction: Bool { name == .production }
 
-    /// The bundled path configuration, overridden by the server's copy.
+    /// The bundled path configuration, overridden by the server's copy. The
+    /// version is in the name: v3 shows New chat as a sheet over the place on
+    /// screen, where v2, which earlier sidebar builds read, made it a place
+    /// (docs/server-contract.md, "Places").
     var remotePathConfigurationURL: URL {
-        url(path: "/configurations/ios_v2.json")
+        url(path: "/configurations/ios_v3.json")
     }
 
     /// An absolute URL on this server for `path`, which may carry a query.

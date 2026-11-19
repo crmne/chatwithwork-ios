@@ -82,6 +82,7 @@ final class ComposerController: NSObject {
         view.onCancelDictating = { [weak self] in self?.cancelDictating() }
         view.onRetryDictating = { [weak self] in self?.retryDictating() }
         view.onLayout = { [weak self] in self?.reportLayout() }
+        view.onTextChange = { [weak self] text in self?.keepNewChatDraft(text) }
         view.levelSource = { [weak self] in self?.recorder.level ?? 0 }
         recorder.onLimit = { [weak self] in self?.finishDictating() }
     }
@@ -112,8 +113,16 @@ final class ComposerController: NSObject {
     func takePending() {
         guard let state = view.state else { return }
         // What the web composer holds already (a shared link, a draft) starts the native field,
-        // or sending would replace it.
-        if view.textView.text.isEmpty, !state.text.isEmpty { view.append(state.text) }
+        // or sending would replace it. New chat's sheet, closed with words in it, opens with
+        // them again, the web's words after them.
+        if view.textView.text.isEmpty {
+            if let account = newChatAccount, let draft = NewChatDraft.text(in: account) {
+                view.append(draft)
+                if !state.text.isEmpty, !draft.contains(state.text) { view.append("\n\n" + state.text) }
+            } else if !state.text.isEmpty {
+                view.append(state.text)
+            }
+        }
         // Shared words join whatever draft is there, unless the server already put them in it.
         if let shared = Self.pendingText {
             Self.pendingText = nil
@@ -158,10 +167,35 @@ final class ComposerController: NSObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.takeKeyboard(attempt: attempt + 1) }
     }
 
-    /// The composer of the new chat on screen, if that's what the shell shows.
+    /// The organization of the New chat this composer is on; nil on any other page.
+    private var newChatAccount: String? {
+        guard let url = screen?.currentVisitableURL, AppRoute(url: url).kind == .newChat else { return nil }
+        return AppRoute(url: url).account?.rawValue ?? ""
+    }
+
+    /// Keeps what's typed in New chat while its sheet is closed: the web
+    /// keeps no draft for a chat that doesn't exist yet, and the field's
+    /// words are the app's own until Send.
+    private func keepNewChatDraft(_ text: String) {
+        guard let account = newChatAccount else { return }
+        NewChatDraft.set(text, in: account)
+    }
+
+    /// The composer of the new chat on screen, if that's what the shell
+    /// shows: the sheet New chat comes up in over the main stack (path
+    /// configuration v3), or the root, where a server's older configuration
+    /// still makes it a place.
     static func onNewChat(_ navigator: UINavigationController) -> ComposerController? {
-        guard navigator.presentedViewController == nil, navigator.viewControllers.count == 1,
-              let screen = navigator.viewControllers.first as? VisitableViewController,
+        let stack: UINavigationController
+        if let sheet = navigator.presentedViewController {
+            guard let presented = sheet as? UINavigationController, !presented.isBeingDismissed, presented.presentedViewController == nil
+            else { return nil }
+            stack = presented
+        } else {
+            stack = navigator
+        }
+        guard stack.viewControllers.count == 1,
+              let screen = stack.viewControllers.first as? VisitableViewController,
               AppRoute(url: screen.currentVisitableURL).kind == .newChat,
               let composer = existing(on: screen), composer.view.state != nil
         else { return nil }
@@ -460,5 +494,25 @@ nonisolated final class PickedImages: @unchecked Sendable {
 
     var inOrder: [UIImage] {
         lock.withLock { images.keys.sorted().compactMap { images[$0] } }
+    }
+}
+
+/// The words typed in New chat, per organization, kept while the app runs:
+/// closing New chat's sheet without sending (Cancel, a swipe down) keeps
+/// them, the next New chat opens with them, and Send clears them.
+@MainActor
+enum NewChatDraft {
+    private static var texts: [String: String] = [:]
+
+    static func text(in account: String) -> String? {
+        texts[account]
+    }
+
+    static func set(_ text: String, in account: String) {
+        texts[account] = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : text
+    }
+
+    static func clear() {
+        texts = [:]
     }
 }

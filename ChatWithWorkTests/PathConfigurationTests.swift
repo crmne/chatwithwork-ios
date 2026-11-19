@@ -4,7 +4,7 @@ import Testing
 @testable import ChatWithWork
 
 /// The bundled path configuration, which the server's
-/// /configurations/ios_v2.json replaces (an exact copy of it). Its rules are part of the server
+/// /configurations/ios_v3.json replaces (an exact copy of it). Its rules are part of the server
 /// contract, so both must keep these behaviors.
 @Suite("Path configuration")
 struct PathConfigurationTests {
@@ -47,13 +47,26 @@ struct PathConfigurationTests {
         #expect(!properties(path).pullToRefreshEnabled)
     }
 
-    @Test("makes every chat, new or not, the one screen at the root, with pull to refresh", arguments: [
-        "/1000001/chats/new", "/chats/new", "/1000001/chats/new?project_id=3", "/1000001/chats/42", "/1000001/chats/42?message=7"
+    @Test("makes every chat the one screen at the root, with pull to refresh", arguments: [
+        "/1000001/chats/42", "/1000001/chats/42?message=7", "/1000001/chats/42#message_7"
     ])
     func chats(path: String) {
         #expect(properties(path).context == .default)
         #expect(properties(path).presentation == .replaceRoot)
         #expect(properties(path).pullToRefreshEnabled)
+    }
+
+    @Test("brings New chat up as a sheet like New bot, over the place on screen", arguments: [
+        "/1000001/chats/new", "/chats/new", "/1000001/chats/new?project_id=3", "/1000001/chats/new?title=Note&text=Hi"
+    ])
+    func newChat(path: String) {
+        let newChat = properties(path)
+        let newBot = properties("/1000001/bots/new")
+        #expect(newChat.context == .modal)
+        #expect(newChat.presentation == .default)
+        #expect(newChat.modalStyle == newBot.modalStyle)
+        #expect(!newChat.pullToRefreshEnabled)
+        #expect(newChat["skeleton"] as? String == "new_chat")
     }
 
     @Test("pushes shared chats without pull to refresh")

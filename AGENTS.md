@@ -48,10 +48,11 @@ Live Wire design system and the chat UI. Read the README here first, then
   (`crmne/chatwithwork-android`). Where Joe Masilotti's bridge-components has
   the component, keep his messages and only add optional keys.
 - Path configuration rules live in `ChatWithWork/Resources/path-configuration.json`,
-  an exact copy of the server's `/configurations/ios_v2.json`, which replaces
+  an exact copy of the server's `/configurations/ios_v3.json`, which replaces
   the bundled one at launch (a server test compares them). Change both, and
-  keep `PathConfigurationTests` passing. `ios_v1.json` stays on the server
-  for the tab builds.
+  keep `PathConfigurationTests` passing. `ios_v1.json` (the tab builds) and
+  `ios_v2.json` (the sidebar builds before New chat was a sheet) stay on the
+  server for the builds that read them.
 - Colors come from `Palette` (Live Wire's tokens); native text uses the
   system font. Check UI changes in light and dark mode.
 - Declare every language the web app serves in `CFBundleLocalizations` and

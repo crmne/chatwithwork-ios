@@ -392,20 +392,26 @@ or without pull to refresh), and load the server's copy on every launch, which
 **replaces** the bundled one entirely once it loads. Serve them as static
 files:
 
-- `public/configurations/ios_v2.json`: the rules of the sidebar builds
-  (section 11). `ChatWithWork/Resources/path-configuration.json` in the iOS
-  repo is an exact copy of it (a server test compares them).
+- `public/configurations/ios_v3.json`: the rules of the sidebar builds from
+  2026-11-19, where New chat is a sheet (section 11).
+  `ChatWithWork/Resources/path-configuration.json` in the iOS repo is an
+  exact copy of it (a server test reads which version `AppEnvironment` names
+  and compares them).
+- `public/configurations/ios_v2.json`: the sidebar builds' rules before
+  then, with New chat a place, kept unchanged for them.
 - `public/configurations/ios_v1.json`: the tab builds' rules, kept for builds
   from before the sidebar, unchanged.
-- `public/configurations/android_v2.json` and `android_v1.json`: the Android
-  repo's equivalents.
+- `public/configurations/android_v3.json`, `android_v2.json` and
+  `android_v1.json`: the Android repo's equivalents.
 
 Change a file to change navigation without an app release. Bump the name
 only when old app builds must not read the new rules (as v2 did: a tab build
-reading "replace the root" for every chat would lose its list); keep serving
-the old name for them.
+reading "replace the root" for every chat would lose its list; and v3: a
+build before it starts the navigator on New chat in places, a cold start
+from the New chat shortcut or a share before signing in, where a sheet
+would have nothing under it); keep serving the old name for them.
 
-The iOS rules (v2), in order (later matches override earlier ones; patterns
+The iOS rules (v3), in order (later matches override earlier ones; patterns
 are regular expressions matched against the path and query, without
 anchoring unless written):
 
@@ -414,22 +420,31 @@ anchoring unless written):
 | `.*` | default (push) | | on | `query_string_presentation: replace`: a visit to the page on screen with another query (a bot's tabs, a form redirecting back) replaces it rather than stacking a copy |
 | `/new(\?\|$)`, `/edit(\?\|$)` | modal (`large` sheet) | | off | every new and edit form |
 | `^/users/sign_in`, `^/users/sign_up`, `^/users(\?\|$)`, `^/users/password…`, `^/users/confirmation…`, `^/users/unlock…` | modal | | off | the sign-in pages |
-| `/chats/new(\?\|$)`, `/chats/\d+(\?\|#\|$)` | default | `replace_root` | on | a chat is always the one screen; nothing stacks under it |
+| `/chats/\d+(\?\|#\|$)` | default | `replace_root` | on | a chat is always the one screen; nothing stacks under it |
+| `/chats/new(\?\|$)` | | | | `skeleton: new_chat` only: New chat is the `/new` rule's sheet (v2 listed it with the chats above, a place) |
 | `/chats/\d+\?(.*&)?from=` | default | `default` (push) | on | a chat a page opens about something on it (a bot's "Change it in a chat", its runs, Decisions' "Open chat", a side chat), pushed with back to that page |
 | `^/shared/` | default | | off | |
 | `/settings\?` | default | | on | a Settings tab, pushed over the Settings list (`query_string_presentation: default`, since the list and its tabs share `/settings`) |
 | `^(/[0-9]+)?/home(\?\|$)`, `/decisions(\?\|$)`, `/bots(\?\|$)`, `/chats(\?\|$)`, `/projects(\?\|$)`, `/settings$` | default | `replace_root` | on | the places: home (where the app starts, below), Decisions, Bots, the chat lists, Projects, the Settings list |
 | `/chats/\d+/files/` | modal (`full`) | | off | a chat's file in its viewer, over the chat ([A file](#a-file-chatsfilesshow)) |
 
-**Where the app starts (2026-11-17).** The navigator starts on
+**Where the app starts (2026-11-17, 2026-11-19).** The navigator starts on
 `/<organization>/home` (`/home` before the app knows the organization,
-`SidebarShell.startURL`), which redirects as signing in does: to Decisions
-once a bot or something waiting gives it something to show, else to New
-chat. It's a place, so the page it lands on is the root. Builds before it
-started on `/<organization>/chats/new`, or the project's new chat the
-sidebar last chose. A server older than the home (self-hosted releases
-before 2026-11-17) answers its visit 404; the app then starts on that new
-chat instead (`SidebarShell.startURLWithoutHome`), as those builds did.
+`SidebarShell.startURL`), which redirects the sidebar builds to Decisions
+(`Authentication#home_path_for`, `NativeApp#sidebar?`): New chat is a sheet,
+which needs a place under it, and Decisions' All clear carries New chat's
+composer, suggestions and recipes, so a new login still lands somewhere to
+type. (Before 2026-11-19 it redirected as signing in on the web does: to
+Decisions once a bot or something waiting gave it something to show, else
+to New chat.) It's a place, so the page it lands on is the root. Builds
+before it started on `/<organization>/chats/new`, or the project's new chat
+the sidebar last chose. A server older than the home (self-hosted releases
+before 2026-11-17) answers its visit 404; the app then starts on that
+organization's chat list (`SidebarShell.startURLWithoutHome`), a place
+there: such a server serves no v3, so the bundled rules make New chat a
+sheet, which would have nothing under it. A link, shortcut or share that
+opens New chat starts the navigator on the home and brings New chat up over
+it (`SidebarShell.start(at:)`, `startingPlace`).
 The home's rule is anchored at the start of the path and allows a query
 (2026-11-18), so `/<organization>/home?...` is still the root, while another
 page whose query only mentions the home (`?return_to=/home`) keeps its own
@@ -723,10 +738,21 @@ Decisions with back to it; any other link to a chat replaces the root.
 
 ### New chat (`chats/new`)
 
-In sidebar builds it's the shell's root, where the app opens; in tab builds
-it opens as a sheet. After the first message the server redirects to the new
-chat (as now); the chat replaces it as the root (a tab build closes the
-sheet and pushes the chat). Nothing else to
+A sheet over the place on screen (v3, 2026-11-19; Carmine: "I don't
+understand why New chat is a navigation and New bot is a modal. I think they
+should probably both be modals"), the same `large` sheet as New bot, a form
+sheet on iPad, with Cancel on its leading side
+(`AppNavigationController`) and the app's composer at its foot. The bar's
+New chat, the sidebar's, a project's (`?project_id=`), the shortcuts, Siri,
+and a share (`chatwithwork://new-chat`) all bring it up; one already up takes
+a share's words and files and the focus rather than another stacking on it
+(`ComposerController.onNewChat`). After the first message the server
+redirects to the new chat (as now); Hotwire closes the sheet and the chat
+replaces the root. Closing the sheet without sending (Cancel, a swipe down)
+keeps what was typed in the app, per organization, until the next New chat
+opens with it or Send clears it (`NewChatDraft`): the web keeps no draft for
+a chat that doesn't exist yet. Sidebar builds before v3 made it the shell's
+root; tab builds open it as a sheet and push the chat. Nothing else to
 change, except that `MessagesController#create`'s HTML fallback
 (`redirect_to @chat`) must stay a 303 for Turbo.
 
@@ -822,11 +848,12 @@ end
 The chat's Delete menu item (`chat_path(@chat, recede: 1)` with
 `data-turbo-method="delete"`) pops the chat in tab builds and shows "Chat
 deleted." as a toast. Sidebar builds have nothing under their one chat
-screen, so the server answers them with a new chat in the deleted chat's
-list (`/chats/new?project_id=…`, which replaces the root) and the notice as
-a toast: nothing of the deleted chat, its title included, stays. Should a
-recede still reach the root (an older server), the app starts a new chat
-itself. Deleting another chat (from the chat list, or the sidebar's long
+screen, so the server answers them with Decisions, their home, which
+replaces the root (2026-11-19; before, a new chat in the deleted chat's
+list), and the notice as a toast: nothing of the deleted chat, its title
+included, stays. Should a recede still reach the root (an older server),
+the app opens the home itself (`SidebarShell.openHome`), never New chat's
+sheet, which would have nothing under it. Deleting another chat (from the chat list, or the sidebar's long
 press while a different chat shows) keeps its Turbo Stream and leaves the
 screen as it is. The same for other destroys reached from their own page
 (`ProjectsController#destroy` from a project's menu).
@@ -1433,7 +1460,8 @@ fallback for servers that name none.
   answer in place (pins, sections, the filter, Delete in a row's menu) stay
   in the page, which keeps itself live on the person's streams: the app
   fetches no JSON, polls nothing and ignores `changed` while it shows the
-  page. Deleting the chat on screen from its row sends a `visit` to New chat.
+  page. Deleting the chat on screen from its row sends a `visit` to Decisions
+  (New chat before 2026-11-19).
 - **A stale token.** The page stays loaded for hours, so its CSRF token can
   go stale (the person signed in again, the session rotated), and then its
   in-place requests answer 422. The app adds a script of its own to the page
@@ -1527,16 +1555,16 @@ is the server's switch for anything that differs.
 
 ### The shape
 
-- **One chat screen.** One navigator whose root is always a chat: the app
-  opens on the organization's new chat (`links.new_chat` from the JSON below,
-  remembered per organization, so it starts in the last list's project), or,
-  launched again within ten minutes of leaving a chat that is still answering
-  or waiting, on that chat. `/chats/new` and `/chats/<number>` replace the root
-  (path configuration v2), so switching chats never stacks screens and the
-  web view, shared by every screen, never reloads the app. Everything the
-  sidebar opens is a place, never a step (Carmine, 2026-11-05): a chat, New
-  chat, Decisions, Bots, a bot, Projects, a project, Settings,
-  Instructions. A place replaces the root (`replace_root` in the path
+- **One root screen.** One navigator whose root is the place on screen: the
+  app opens on the organization's home, Decisions ("Where the app starts",
+  section 5), or, launched again within ten minutes of leaving a chat that
+  is still answering or waiting, on that chat. `/chats/<number>` replaces
+  the root, so switching chats never stacks screens and the web view, shared
+  by every screen, never reloads the app; New chat is a sheet over the place
+  on screen (path configuration v3; v2 made it a place too). Everything the
+  sidebar opens is a place, never a step (Carmine, 2026-11-05): a chat,
+  Decisions, Bots, a bot, Projects, a project, Settings, Instructions; New
+  chat and New bot, its forms, come up as sheets. A place replaces the root (`replace_root` in the path
   configuration, and `Places` for what the configuration pushes elsewhere,
   like a bot from Bots), so places never stack and there's no back to an
   earlier one. Only drill-downs are pushed over a place, with back to it (a
@@ -2186,7 +2214,7 @@ changes on the server: they open the pages it already has, as any link does.
 
 | Shortcut | Opens |
 |---|---|
-| New chat | `/:account/chats/new` (the list last chosen, as the app's own New chat), the root, with the composer focused and its microphone one tap away; it never starts listening |
+| New chat | `/:account/chats/new` (the list last chosen, as the app's own New chat), its sheet over what's on screen (over the home on a cold start), with the composer focused and its microphone one tap away; it never starts listening |
 | New bot | `/:account/bots/new` (`bots.new_url` of the Bots view's list, once the sidebar said), its sheet over what's on screen |
 | Decisions | `/:account/decisions`, the root |
 

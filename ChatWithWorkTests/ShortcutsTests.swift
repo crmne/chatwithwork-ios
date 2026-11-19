@@ -37,7 +37,7 @@ struct ShortcutsTests {
         let configuration = PathConfiguration(sources: [.file(Bundle.main.url(forResource: "path-configuration", withExtension: "json")!)])
         let base = URL(string: "https://chatwithwork.com")!
         let properties = { (path: String) in configuration.properties(for: base.appending(path: path)) }
-        #expect(properties(Shortcut.newChat.path(in: account))["presentation"] as? String == "replace_root")
+        #expect(properties(Shortcut.newChat.path(in: account))["context"] as? String == "modal")
         #expect(properties(Shortcut.decisions.path(in: account))["presentation"] as? String == "replace_root")
         #expect(properties(Shortcut.newBot.path(in: account))["context"] as? String == "modal")
     }
