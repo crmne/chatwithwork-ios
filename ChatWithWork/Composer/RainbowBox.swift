@@ -184,6 +184,7 @@ final class RainbowBox: UIView {
             && edgeFlow.toValue as? CGFloat == glowFlow.toValue as? CGFloat
     }
     var glowOpacity: Float { glow.opacity }
+    var edgeOpacity: Float { edge.opacity }
     /// The colours the glow is drawn in now, the edge's own.
     var glowGradient: [CGColor] { glowColors.colors as? [CGColor] ?? [] }
     var edgeGradient: [CGColor] { edgeColors.colors as? [CGColor] ?? [] }
@@ -265,6 +266,9 @@ final class RainbowBox: UIView {
     override func didMoveToWindow() {
         super.didMoveToWindow()
         inBackground = window?.windowScene?.activationState == .background
+        // Its traits are the window's now: Increase Contrast may already be
+        // on, with no trait change or new look to say so.
+        if window != nil { brighten(animated: false) }
         updateFlow()
     }
 

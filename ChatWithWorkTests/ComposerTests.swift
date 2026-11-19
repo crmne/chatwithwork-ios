@@ -100,6 +100,21 @@ struct ComposerTests {
         #expect(abs(box.colourPhase(atBoxX: 311).edge - 0.5) < 0.0001)
     }
 
+    @Test("Increase Contrast keeps an idle composer's edge whole from the moment it shows")
+    func contrastOnFirstShow() {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.traitOverrides.accessibilityContrast = .high
+        let box = RainbowBox(frame: CGRect(x: 0, y: 0, width: 311, height: 96))
+        box.look = ComposerLook()
+        window.addSubview(box)
+        #expect(box.edgeOpacity == 1)
+        #expect(box.glowOpacity == 0.16)
+        window.traitOverrides.accessibilityContrast = .normal
+        window.layoutIfNeeded()
+        box.layoutIfNeeded()
+        #expect(box.edgeOpacity == 0.7)
+    }
+
     @Test("the edge and the glow flow together, only while an answer runs and the box is on screen, never under Reduce Motion")
     func edgeFlows() {
         let box = RainbowBox(frame: CGRect(x: 0, y: 0, width: 311, height: 96))
