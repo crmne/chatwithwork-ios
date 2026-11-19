@@ -63,11 +63,16 @@ final class StagingTests: XCTestCase {
         search.typeText("Li")
         search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 2))
         settle(1)
-        // A row's menu takes the focus, and the keyboard with it; a tap on the
-        // drawer's header, beside the logo, closes the menu.
-        tap(page.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Chat options")))
-        settle(1)
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.08)).tap()
+        // The keyboard goes: an iPad's own key hides it; on an iPhone a row's
+        // menu takes the focus, and a tap on the drawer's header closes the menu.
+        let hideKeyboard = app.keyboards.buttons.matching(NSPredicate(format: "label BEGINSWITH[c] %@ OR label BEGINSWITH[c] %@", "Hide", "Dismiss")).firstMatch
+        if hideKeyboard.exists {
+            hideKeyboard.tap()
+        } else {
+            tap(page.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Chat options")))
+            settle(1)
+            page.coordinate(withNormalizedOffset: CGVector(dx: 0.48, dy: 0.012)).tap()
+        }
         settle(1)
 
         let title = environment["CWW_UI_TEST_STAGING_CHAT"] ?? "Lisbon"
