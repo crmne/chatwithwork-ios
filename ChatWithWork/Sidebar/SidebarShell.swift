@@ -416,6 +416,7 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             pollTask?.cancel()
         } else if isOpen {
             refreshSidebar()
+            pollWhileOpen()
         }
     }
 
