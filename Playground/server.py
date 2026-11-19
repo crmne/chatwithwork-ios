@@ -1749,6 +1749,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.session["approval"] = "passed"
                 streams.append(turbo_stream("replace", "activity_14", recap_activity(account, number, "passed")))
                 streams.append(turbo_stream("update", "typing_indicator", '<div class="hidden"></div>'))
+                # Nothing waits any more: the server draws the composer again (Chat#broadcast_composer), without
+                # data-live-waiting, and its bridge connects again saying so.
+                streams.append(turbo_stream("update", "chat_form", composer(self, account, number, working=processing(self, number))))
             return self.send(200, "".join(streams), "text/vnd.turbo-stream.html; charset=utf-8")
         if m := re.fullmatch(r"/sidebar/sections/(\d+)/collapse", rest):
             # Sidebar::Sections::CollapsesController: POST closes, DELETE opens.
