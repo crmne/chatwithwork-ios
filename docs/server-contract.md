@@ -414,8 +414,8 @@ anchoring unless written):
 | `.*` | default (push) | | on | `query_string_presentation: replace`: a visit to the page on screen with another query (a bot's tabs, a form redirecting back) replaces it rather than stacking a copy |
 | `/new(\?\|$)`, `/edit(\?\|$)` | modal (`large` sheet) | | off | every new and edit form |
 | `^/users/sign_in`, `^/users/sign_up`, `^/users(\?\|$)`, `^/users/password…`, `^/users/confirmation…`, `^/users/unlock…` | modal | | off | the sign-in pages |
-| `/chats/new(\?\|$)`, `/chats/\d+(\?\|#\|$)` | default | `replace_root` | off | a chat is always the one screen; nothing stacks under it |
-| `/chats/\d+\?(.*&)?from=` | default | `default` (push) | off | a chat a page opens about something on it (a bot's "Change it in a chat", its runs, Decisions' "Open chat", a side chat), pushed with back to that page |
+| `/chats/new(\?\|$)`, `/chats/\d+(\?\|#\|$)` | default | `replace_root` | on | a chat is always the one screen; nothing stacks under it |
+| `/chats/\d+\?(.*&)?from=` | default | `default` (push) | on | a chat a page opens about something on it (a bot's "Change it in a chat", its runs, Decisions' "Open chat", a side chat), pushed with back to that page |
 | `^/shared/` | default | | off | |
 | `/settings\?` | default | | on | a Settings tab, pushed over the Settings list (`query_string_presentation: default`, since the list and its tabs share `/settings`) |
 | `^(/[0-9]+)?/home(\?\|$)`, `/decisions(\?\|$)`, `/bots(\?\|$)`, `/chats(\?\|$)`, `/projects(\?\|$)`, `/settings$` | default | `replace_root` | on | the places: home (where the app starts, below), Decisions, Bots, the chat lists, Projects, the Settings list |
@@ -856,6 +856,25 @@ deck the assistant made shows as its slides without PowerPoint on the phone.
   (`file_preview_pages`) again every second or so; nothing native.
 - The page allows zooming (no `maximum-scale`); Android turns on its web
   view's pinch zoom for these pages only.
+
+### Pull to refresh and coming back (2026-11-18)
+
+Pulling a page down at its top calls the page's `window.chatWithWork.refresh()`
+(`PullToRefresh`, in place of Hotwire Native's action on the visitable view's
+refresh control), awaited with `callAsyncJavaScript`: a chat's frame comes up
+to date in place, what's typed, the focus and the scroll kept, and any other
+page refreshes by morphing. The control spins until the promise settles. A
+page without `chatWithWork` (an older server) gets Hotwire Native's refresh,
+a cold reload of the whole page, which is what every refreshable page did
+before. The chats' rules turn `pull_to_refresh_enabled` on once this is
+released, in the bundled configuration and the server's `ios_v2.json`
+together; a chat loads all its messages, so nothing at its top competes with
+the pull.
+
+Coming back from the background needs nothing from the app: WKWebView fires
+`visibilitychange` as the app returns, and the page reopens its connection
+and brings a chat up to date in place itself (the server's docs/ui/chat.md,
+"Coming back").
 
 ### Links the app handles itself
 
