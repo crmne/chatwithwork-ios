@@ -58,33 +58,32 @@ final class StagingTests: XCTestCase {
         // and the drawer opening again once left every element of the page
         // reported where the closed drawer had it, for VoiceOver and hit tests (#55).
         let search = page.descendants(matching: .any).matching(NSPredicate(format: "placeholderValue CONTAINS %@ OR label CONTAINS %@", "Search", "Search")).firstMatch
-        if search.waitForExistence(timeout: 5) {
-            search.tap()
-            search.typeText("Li")
-            search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 2))
-            settle(1)
-            // A row's menu takes the focus, and the keyboard with it; a tap on the
-            // drawer's header, beside the logo, closes the menu.
-            tap(page.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Chat options")))
-            settle(1)
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.08)).tap()
-            settle(1)
-        }
+        XCTAssertTrue(search.waitForExistence(timeout: 10), "The sidebar page should offer its search")
+        search.tap()
+        search.typeText("Li")
+        search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 2))
+        settle(1)
+        // A row's menu takes the focus, and the keyboard with it; a tap on the
+        // drawer's header, beside the logo, closes the menu.
+        tap(page.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Chat options")))
+        settle(1)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.08)).tap()
+        settle(1)
 
-        let chat = page.links.matching(NSPredicate(format: "label CONTAINS %@", environment["CWW_UI_TEST_STAGING_CHAT"] ?? "Lisbon")).firstMatch
-        if chat.waitForExistence(timeout: 5) {
-            tap(page.links.matching(NSPredicate(format: "label CONTAINS %@", environment["CWW_UI_TEST_STAGING_CHAT"] ?? "Lisbon")))
-            settle(4)
-            XCTAssertTrue(sidebar.exists, "A chat the sidebar opens is a place, with the sidebar button")
-            keep("chat")
-            sidebar.tap()
-            settle(1.5)
-            // A row and Recent's filter must be where they're drawn, for VoiceOver and hit tests.
-            let row = page.links.matching(NSPredicate(format: "label CONTAINS %@", environment["CWW_UI_TEST_STAGING_CHAT"] ?? "Lisbon")).firstMatch
-            XCTAssertTrue(waitUntil(5) { row.isHittable }, "The chat's row should be where it's drawn, not at \(row.frame)")
-            let filters = page.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Bots"))
-            XCTAssertTrue(waitUntil(5) { filters.allElementsBoundByIndex.contains { $0.isHittable } }, "Recent's Bots filter should be where it's drawn, not at \(filters.firstMatch.frame)")
-        }
+        let title = environment["CWW_UI_TEST_STAGING_CHAT"] ?? "Lisbon"
+        let rows = page.links.matching(NSPredicate(format: "label CONTAINS %@", title))
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10), "The sidebar should list a chat named like \(title) (CWW_UI_TEST_STAGING_CHAT)")
+        tap(rows)
+        settle(4)
+        XCTAssertTrue(sidebar.exists, "A chat the sidebar opens is a place, with the sidebar button")
+        keep("chat")
+        sidebar.tap()
+        settle(1.5)
+        // A row and Recent's filter must be where they're drawn, for VoiceOver and hit tests.
+        let row = rows.firstMatch
+        XCTAssertTrue(waitUntil(5) { row.isHittable }, "The chat's row should be where it's drawn, not at \(row.frame)")
+        let filters = page.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Bots"))
+        XCTAssertTrue(waitUntil(5) { filters.allElementsBoundByIndex.contains { $0.isHittable } }, "Recent's Bots filter should be where it's drawn, not at \(filters.firstMatch.frame)")
 
         // Recent's filter: All, Chats, Bots. The page also holds a "Bots" off screen.
         let named = page.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Bots"))
