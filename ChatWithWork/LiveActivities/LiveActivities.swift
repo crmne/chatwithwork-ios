@@ -325,8 +325,8 @@ final class LiveActivities {
 
     /// `fetch`'s value if it comes within `wait`, else nil at once, without
     /// waiting for the fetch to finish.
-    static func first<Value: Sendable>(of fetch: Task<Value?, Never>, within wait: Duration) async -> Value? {
-        let race = Race<Value?>()
+    static func first(of fetch: Task<LiveActivityTitle?, Never>, within wait: Duration) async -> LiveActivityTitle? {
+        let race = TitleRace()
         return await withCheckedContinuation { continuation in
             race.continuation = continuation
             Task { race.finish(await fetch.value) }
@@ -385,12 +385,14 @@ final class LiveActivities {
     }
 }
 
-/// The first of several results to arrive resumes the waiter; the rest are dropped.
+/// The first of the title and the limit to arrive resumes the waiter; the
+/// other is dropped. Not generic: Swift 6.3's optimizer crashed on a generic
+/// one in Release builds.
 @MainActor
-private final class Race<Value: Sendable> {
-    var continuation: CheckedContinuation<Value, Never>?
+private final class TitleRace {
+    var continuation: CheckedContinuation<LiveActivityTitle?, Never>?
 
-    func finish(_ value: Value) {
+    func finish(_ value: LiveActivityTitle?) {
         continuation?.resume(returning: value)
         continuation = nil
     }
