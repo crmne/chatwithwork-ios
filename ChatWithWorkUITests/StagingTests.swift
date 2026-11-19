@@ -39,7 +39,7 @@ final class StagingTests: XCTestCase {
         XCTAssertTrue(sidebar.waitForExistence(timeout: 40), "Signing in should land on the organization's home with the sidebar button")
         XCTAssertFalse(app.navigationBars.buttons["BackButton"].exists, "The home is a place, without back")
         // The home lands on Decisions, or on New chat when nothing shows there.
-        let landed = app.navigationBars["Decisions"].waitForExistence(timeout: 15) || app.navigationBars["New chat"].exists
+        let landed = app.navigationBars["Decisions"].waitForExistence(timeout: 40) || app.navigationBars["New chat"].exists
         XCTAssertTrue(landed, "Starting should land on the organization's home: Decisions or New chat")
         settle(4)
         keep("home")
@@ -54,15 +54,41 @@ final class StagingTests: XCTestCase {
         settle(1.5)
         keep("sidebar")
 
-        let chat = page.links.matching(NSPredicate(format: "label CONTAINS %@", environment["CWW_UI_TEST_STAGING_CHAT"] ?? "Lisbon")).firstMatch
-        if chat.waitForExistence(timeout: 5) {
-            chat.tap()
-            settle(4)
-            XCTAssertTrue(sidebar.exists, "A chat the sidebar opens is a place, with the sidebar button")
-            keep("chat")
-            sidebar.tap()
-            settle(1.5)
+        // Searching brings the keyboard up; after it, a row opening a chat
+        // and the drawer opening again once left every element of the page
+        // reported where the closed drawer had it, for VoiceOver and hit tests (#55).
+        let search = page.descendants(matching: .any).matching(NSPredicate(format: "placeholderValue CONTAINS %@ OR label CONTAINS %@", "Search", "Search")).firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 10), "The sidebar page should offer its search")
+        search.tap()
+        search.typeText("Li")
+        search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 2))
+        settle(1)
+        // The keyboard goes: an iPad's own key hides it; on an iPhone a row's
+        // menu takes the focus, and a tap on the drawer's header closes the menu.
+        let hideKeyboard = app.keyboards.buttons.matching(NSPredicate(format: "label BEGINSWITH[c] %@ OR label BEGINSWITH[c] %@", "Hide", "Dismiss")).firstMatch
+        if hideKeyboard.exists {
+            hideKeyboard.tap()
+        } else {
+            tap(page.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Chat options")))
+            settle(1)
+            page.coordinate(withNormalizedOffset: CGVector(dx: 0.48, dy: 0.012)).tap()
         }
+        settle(1)
+
+        let title = environment["CWW_UI_TEST_STAGING_CHAT"] ?? "Lisbon"
+        let rows = page.links.matching(NSPredicate(format: "label CONTAINS %@", title))
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10), "The sidebar should list a chat named like \(title) (CWW_UI_TEST_STAGING_CHAT)")
+        tap(rows)
+        settle(4)
+        XCTAssertTrue(sidebar.exists, "A chat the sidebar opens is a place, with the sidebar button")
+        keep("chat")
+        sidebar.tap()
+        settle(1.5)
+        // A row and Recent's filter must be where they're drawn, for VoiceOver and hit tests.
+        let row = rows.firstMatch
+        XCTAssertTrue(waitUntil(5) { row.isHittable }, "The chat's row should be where it's drawn, not at \(row.frame)")
+        let filters = page.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Bots"))
+        XCTAssertTrue(waitUntil(5) { filters.allElementsBoundByIndex.contains { $0.isHittable } }, "Recent's Bots filter should be where it's drawn, not at \(filters.firstMatch.frame)")
 
         // Recent's filter: All, Chats, Bots. The page also holds a "Bots" off screen.
         let named = page.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Bots"))
