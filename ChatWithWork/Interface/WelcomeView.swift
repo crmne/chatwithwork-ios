@@ -13,54 +13,73 @@ struct WelcomeView: View {
             Color(Palette.canvas).ignoresSafeArea()
             DotGrid().ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                Spacer(minLength: 32)
+            // Scrolls only when the largest text sizes don't fit on the screen.
+            FitsOrScrolls {
+                VStack(spacing: 0) {
+                    Spacer(minLength: 32)
 
-                VStack(spacing: 20) {
-                    Image("Logotype")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: 280)
-                        .accessibilityLabel("Chat with Work")
+                    VStack(spacing: 20) {
+                        Image("Logotype")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: 280)
+                            .accessibilityLabel("Chat with Work")
 
-                    Text("AI bots in Europe. They work. You decide.")
-                        .font(.title3.weight(.medium))
-                        .foregroundStyle(Color(Palette.inkMuted))
-                        .multilineTextAlignment(.center)
+                        Text("AI bots in Europe. They work. You decide.")
+                            .font(.title3.weight(.medium))
+                            .foregroundStyle(Color(Palette.inkMuted))
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, 32)
+
+                    Spacer(minLength: 32)
+
+                    VStack(spacing: 12) {
+                        Button(action: onSignIn) {
+                            Text("Sign in")
+                                .font(.body.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 34)
+                        }
+                        .primaryActionStyle()
+                        .accessibilityIdentifier("welcome.signIn")
+
+                        Button(action: onSignUp) {
+                            Text("Create an account")
+                                .font(.body.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 34)
+                        }
+                        .secondaryActionStyle()
+                        .accessibilityIdentifier("welcome.signUp")
+
+                        if let host {
+                            Text(host)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(Color(Palette.inkFaint))
+                                .padding(.top, 8)
+                                .accessibilityLabel("Server: \(host)")
+                        }
+                    }
+                    .frame(maxWidth: 420)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
                 }
-                .padding(.horizontal, 32)
-
-                Spacer(minLength: 32)
-
-                VStack(spacing: 12) {
-                    Button(action: onSignIn) {
-                        Text("Sign in")
-                            .font(.body.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 34)
-                    }
-                    .primaryActionStyle()
-                    .accessibilityIdentifier("welcome.signIn")
-
-                    Button(action: onSignUp) {
-                        Text("Create an account")
-                            .font(.body.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 34)
-                    }
-                    .secondaryActionStyle()
-                    .accessibilityIdentifier("welcome.signUp")
-
-                    if let host {
-                        Text(host)
-                            .font(.caption.monospaced())
-                            .foregroundStyle(Color(Palette.inkFaint))
-                            .padding(.top, 8)
-                            .accessibilityLabel("Server: \(host)")
-                    }
-                }
-                .frame(maxWidth: 420)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 16)
             }
+        }
+    }
+}
+
+/// Its content at the screen's full height, as a plain stack would lay it
+/// out, scrolling only once the content needs more than that (the largest
+/// text sizes on a phone).
+struct FitsOrScrolls<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        GeometryReader { geometry in
+            ScrollView {
+                content.frame(maxWidth: .infinity, minHeight: geometry.size.height)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
     }
 }

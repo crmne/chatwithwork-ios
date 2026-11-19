@@ -6,6 +6,7 @@ import SwiftUI
 struct NativeErrorView: ErrorPresentableView {
     let error: HotwireNativeError
     let handler: ErrorPresenter.Handler?
+    @ScaledMetric(relativeTo: .title2) private var symbolSize: CGFloat = 40
 
     var body: some View {
         let copy = ErrorCopy(error)
@@ -13,36 +14,38 @@ struct NativeErrorView: ErrorPresentableView {
         ZStack {
             Color(Palette.canvas).ignoresSafeArea()
 
-            VStack(spacing: 14) {
-                Image(systemName: copy.symbol)
-                    .font(.system(size: 40, weight: .regular))
-                    .foregroundStyle(Color(Palette.inkMuted))
-                    .padding(.bottom, 6)
-                    .accessibilityHidden(true)
+            FitsOrScrolls {
+                VStack(spacing: 14) {
+                    Image(systemName: copy.symbol)
+                        .font(.system(size: symbolSize, weight: .regular))
+                        .foregroundStyle(Color(Palette.inkMuted))
+                        .padding(.bottom, 6)
+                        .accessibilityHidden(true)
 
-                Text(copy.title)
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(Color(Palette.ink))
-                    .multilineTextAlignment(.center)
+                    Text(copy.title)
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(Color(Palette.ink))
+                        .multilineTextAlignment(.center)
 
-                Text(copy.message)
-                    .font(.body)
-                    .foregroundStyle(Color(Palette.inkMuted))
-                    .multilineTextAlignment(.center)
+                    Text(copy.message)
+                        .font(.body)
+                        .foregroundStyle(Color(Palette.inkMuted))
+                        .multilineTextAlignment(.center)
 
-                if let handler {
-                    Button(action: handler) {
-                        Text("Try again")
-                            .font(.body.weight(.semibold))
-                            .padding(.horizontal, 8)
+                    if let handler {
+                        Button(action: handler) {
+                            Text("Try again")
+                                .font(.body.weight(.semibold))
+                                .padding(.horizontal, 8)
+                        }
+                        .retryStyle()
+                        .padding(.top, 10)
+                        .accessibilityIdentifier("error.retry")
                     }
-                    .retryStyle()
-                    .padding(.top, 10)
-                    .accessibilityIdentifier("error.retry")
                 }
+                .frame(maxWidth: 360)
+                .padding(32)
             }
-            .frame(maxWidth: 360)
-            .padding(32)
         }
     }
 }
