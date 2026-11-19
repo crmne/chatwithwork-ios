@@ -47,13 +47,13 @@ struct PathConfigurationTests {
         #expect(!properties(path).pullToRefreshEnabled)
     }
 
-    @Test("makes every chat, new or not, the one screen at the root", arguments: [
+    @Test("makes every chat, new or not, the one screen at the root, with pull to refresh", arguments: [
         "/1000001/chats/new", "/chats/new", "/1000001/chats/new?project_id=3", "/1000001/chats/42", "/1000001/chats/42?message=7"
     ])
     func chats(path: String) {
         #expect(properties(path).context == .default)
         #expect(properties(path).presentation == .replaceRoot)
-        #expect(!properties(path).pullToRefreshEnabled)
+        #expect(properties(path).pullToRefreshEnabled)
     }
 
     @Test("pushes shared chats without pull to refresh")
@@ -107,6 +107,7 @@ struct PathConfigurationTests {
     func drillDownChats(path: String) {
         #expect(properties(path).context == .default)
         #expect(properties(path).presentation == .default)
+        #expect(properties(path).pullToRefreshEnabled)
     }
 
     @Test("pushes a Settings tab over the Settings list it shares a path with")
