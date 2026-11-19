@@ -144,8 +144,8 @@ docs/             the server contract and design notes
   outside (`WebScreen`), never subclassed: a subclass recreating the bridge
   delegate is what crashed Cluster Headache Tracker's app. The web view
   shrinks above the keyboard, with the native composer floating over the
-  conversation and its clear gutters showing the chat behind it, its page zoom
-  follows the system text size, and its title follows the page's `<title>`
+  conversation and its clear gutters showing the chat behind it, its text
+  follows the system text size (`-webkit-text-size-adjust`, 85% to 140%), and its title follows the page's `<title>`
   whenever it changes. Files open in Quick Look.
 - **A page's skeleton** (`PageSkeleton`) shows the shape of a page from the
   moment its screen appears, whichever page it is: a chat's question bubbles
