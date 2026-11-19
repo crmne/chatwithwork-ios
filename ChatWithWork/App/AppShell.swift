@@ -271,14 +271,20 @@ final class AppShell: NSObject {
         // Without a link into an organization, the shell starts unprefixed and
         // the server picks the organization this person used last.
         let target = next.map(AppRoute.init(url:))
-        showSignedIn(account: target?.account, continuingTo: next.flatMap { opensOnTop(of: $0) ? $0 : nil })
+        showSignedIn(account: target?.account, continuingTo: next.flatMap { opensOnTop(of: $0) ? $0 : nil }, startingAt: next.flatMap(Self.startsAt))
         PushNotifications.shared.refreshRegistrationIfAuthorized()
     }
 
     private func switchAccount(to target: AccountSlug, continuingTo url: URL) {
         guard target != account else { return }
         memory.lastAccount = target
-        showSignedIn(account: target, continuingTo: opensOnTop(of: url) ? url : nil)
+        showSignedIn(account: target, continuingTo: opensOnTop(of: url) ? url : nil, startingAt: Self.startsAt(url))
+    }
+
+    /// A link to New chat starts the rebuilt shell there rather than on the
+    /// organization's home, which may land on Decisions instead.
+    static func startsAt(_ url: URL) -> URL? {
+        AppRoute(url: url).kind == .newChat ? url : nil
     }
 
     /// The new chat page isn't opened again after a rebuild: the shell starts

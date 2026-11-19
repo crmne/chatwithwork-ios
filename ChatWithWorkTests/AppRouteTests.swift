@@ -127,4 +127,13 @@ struct AppRouteTests {
         #expect(SidebarShell.newChatPath(usesSidebarPage: false, chosen: project, account: acme) == project)
         #expect(SidebarShell.newChatPath(usesSidebarPage: false, chosen: nil, account: acme) == "/482139075/chats/new")
     }
+
+    @Test("a link to New chat starts a rebuilt shell there, anything else on the home")
+    func rebuiltShellStarts() {
+        let url = { (path: String) in URL(string: "https://chatwithwork.com\(path)")! }
+        #expect(AppShell.startsAt(url("/482139075/chats/new")) == url("/482139075/chats/new"))
+        #expect(AppShell.startsAt(url("/482139075/chats/new?project_id=3")) == url("/482139075/chats/new?project_id=3"))
+        #expect(AppShell.startsAt(url("/482139075/chats/9")) == nil)
+        #expect(AppShell.startsAt(url("/482139075/decisions")) == nil)
+    }
 }
