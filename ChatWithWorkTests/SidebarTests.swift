@@ -72,6 +72,14 @@ struct SidebarTests {
         #expect(bots.chosenList("99")?.key == "all")
         #expect(bots.chosenList(nil)?.key == "all")
         #expect(bots.items(in: "recent").map(\.name) == ["Morning plan"])
+
+        // A bot's row and a chat's row never share an id, whatever their numbers.
+        let colliding = Self.listsJSON.replacingOccurrences(of: #""chats": []"#, with: #""chats": [{"number": 5, "title": "Board notes", "url": "/482139075/chats/5", "state": "idle", "waiting": false, "project": null, "asked_at": "2026-10-25T09:00:00Z", "group": "Today"}]"#)
+        let data = try SidebarData.decode(Data(colliding.utf8))
+        #expect(data.chats.map(\.number) == [5])
+        let chatRows = Set(data.chats.map(\.rowID) + data.pins.map(\.pinID))
+        #expect(chatRows.isDisjoint(with: bots.items(in: "all").map(\.rowID)))
+        #expect(bots.items(in: "all").first?.rowID == "bot-5")
         #expect(bots.items(in: "3").map(\.name) == ["Front desk"])
         #expect(bots.items(in: "all").count == 2)
     }
@@ -79,7 +87,9 @@ struct SidebarTests {
     @Test("the half already chosen opens its page, on the list its view shows")
     /// The pages a second tap on each half opens, from a server with lists and from an older one.
     func listPages() throws {
-        let data = try SidebarData.decode(Data(Self.listsJSON.utf8))
+        let colliding = Self.listsJSON.replacingOccurrences(of: #""chats": []"#, with: #""chats": [{"number": 5, "title": "Board notes", "url": "/482139075/chats/5", "state": "idle", "waiting": false, "project": null, "asked_at": "2026-10-25T09:00:00Z", "group": "Today"}]"#)
+        let data = try SidebarData.decode(Data(colliding.utf8))
+        #expect(data.chats.map(\.number) == [5])
 
         #expect(data.listPage(.chats, botListKey: nil) == "/482139075/chats?list=recent")
         #expect(data.listPage(.bots, botListKey: "3") == "/482139075/bots?list=3")

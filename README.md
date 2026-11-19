@@ -9,9 +9,9 @@ servers in Germany with every model in the EU, or on your own servers.
 The app is built with [Hotwire Native](https://native.hotwired.dev). Its
 screens are the web app's own pages, so every feature the web app gains
 reaches the app without a release, and it goes native wherever that makes it
-feel like an iOS app: it opens on a new chat, with a native sidebar that
-slides in from the left (your chats, projects, what waits for you, your
-bots, and Settings), large titles, sheets, a welcome screen, native menus, alerts,
+feel like an iOS app: it opens on Decisions or a new chat, as the web does,
+with the web app's own sidebar sliding in from the left (your chats, bots,
+projects, what waits for you, and Settings), which changes with the server, large titles, sheets, a welcome screen, native menus, alerts,
 toasts, haptics, search, the share sheet, sign-in and connecting services
 through the system's secure browser sheet, push notifications that show the
 answer's start or what waits for you (fetched from the server as they arrive,
@@ -105,7 +105,7 @@ before Xcode Cloud signs it.
 ChatWithWork/
   App/            launch, the scene, the environment, AppShell (what the window shows)
   Navigation/     the signed-out flow, web screens, routes
-  Sidebar/        the signed-in shell: one chat screen and the native sidebar
+  Sidebar/        the signed-in shell: the place on screen and the sidebar beside it
   Bridge/         the bridge components (native halves)
   Interface/      Live Wire colors, appearance, toasts, the error screen
   Notifications/  push notifications
@@ -130,13 +130,14 @@ docs/             the server contract and design notes
   says: a 401 or the sign-in page means no session, a recede while signed out
   means signed in, a link into another organization means switching. Each
   change rebuilds the shell rather than patching it.
-- **SidebarShell**: one navigator whose root is always a chat (the path
-  configuration replaces the root for every chat page), with the sidebar
-  beside it, which slides in from the left and pushes the chat aside. The
-  sidebar is SwiftUI, drawn from the server's `/native/sidebar` JSON, fetched
-  with the web views' own cookies (`SidebarStore`), with a Chats | Bots
-  switch near its top, and Decisions, a button of its own, just before
-  it. Everything the sidebar opens is a place that replaces the root
+- **SidebarShell**: one navigator whose root is always a place (a chat,
+  Decisions, Bots, Settings: the path configuration replaces the root for
+  each), with the sidebar beside it, which slides in from the left and
+  pushes the place aside. The
+  sidebar is the server's sidebar page, kept loaded in a web view of its own
+  (`SidebarWebController`), so it changes with the server; against a server
+  without it, it's SwiftUI, drawn from the server's `/native/sidebar` JSON,
+  fetched with the web views' own cookies (`SidebarStore`). Everything the sidebar opens is a place that replaces the root
   screen, with the sidebar button and no back; only drill-downs (a bot from
   Bots) are pushed, and forms are sheets.
 - **Web screens** are plain `HotwireWebViewController`s configured from

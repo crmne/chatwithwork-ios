@@ -99,6 +99,8 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
         /// (servers from 2026-10-27).
         struct Item: Decodable, Equatable, Sendable, Identifiable {
             let id: Int
+            /// Its row's id, apart from the chats' rows (`Chat.rowID`).
+            var rowID: String { "bot-\(id)" }
             let name: String
             /// What it does, which the search looks in (servers from 2026-11-01).
             let description: String?
@@ -204,6 +206,10 @@ nonisolated struct SidebarData: Decodable, Equatable, Sendable {
         let actions: [Action]?
 
         var id: Int { number }
+        /// Its row's id in the list. The chats and the bots share one lazy
+        /// stack, and a bot's id can equal a chat's number: with bare numbers
+        /// SwiftUI kept a chat's row where a bot's should show.
+        var rowID: String { "chat-\(number)" }
         /// Its row's id among the pins, apart from its row in the list.
         var pinID: String { "pin-\(number)" }
         /// Its row's id in a section (a chat sits in at most one of them).

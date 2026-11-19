@@ -30,9 +30,12 @@ Live Wire design system and the chat UI. Read the README here first, then
 - There are no tabs. One navigator's root is always a place (a chat,
   Decisions, Bots, Settings: `replace_root` in the path configuration, and
   whatever the sidebar opens, `Places`), never with a back button; only
-  drill-downs from it are pushed. The native sidebar beside it is drawn from the
-  server's `/native/sidebar` JSON, and its data comes with the web views' own
-  cookies, never a token of the app's.
+  drill-downs from it are pushed. The sidebar beside it is the server's
+  sidebar page in a web view of its own (`SidebarWebController`,
+  docs/server-contract.md, "The sidebar page"), so changes to it ship with
+  the server; the native sidebar drawn from `/native/sidebar`'s JSON is the
+  fallback for servers without it. Both use the web views' own cookies, never
+  a token of the app's.
 - Navigation bar buttons go through `NavigationBarItems`, one slot per
   source (the shell's sidebar and New chat buttons have their own), never
   `navigationItem.rightBarButtonItem` directly, so components don't replace

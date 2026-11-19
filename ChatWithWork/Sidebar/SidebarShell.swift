@@ -1,11 +1,14 @@
 import HotwireNative
+import SafariServices
 import SwiftUI
 import UIKit
 
 /// The signed-in shell for one organization: a single navigator whose root
 /// is the place on screen (a chat, Decisions, Bots, Settings, or whatever
 /// else the sidebar opened: Places), and the sidebar, which slides in from
-/// the left and pushes the root aside. Drill-downs from a place (a bot from
+/// the left and pushes the root aside. The sidebar is the server's sidebar
+/// page in a web view of its own (`SidebarWebController`) where the server
+/// names one, else the native one drawn from its JSON. Drill-downs from a place (a bot from
 /// Bots) are pushed over it with back; forms come up as sheets.
 ///
 /// Opened by the bar's sidebar button or a swipe from the screen's left
@@ -26,7 +29,9 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     private let memory: SessionMemory
     private let content = UIView()
     private let dim = UIView()
+    private let sidebarPanel = UIView()
     private var sidebarHost: UIHostingController<SidebarHostView>!
+    private var sidebarPage: SidebarWebController!
     private var sidebarLeading: NSLayoutConstraint!
     private var sidebarWidthConstraint: NSLayoutConstraint!
     private var progress: CGFloat = 0
@@ -35,6 +40,13 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     nonisolated(unsafe) private var foregroundObserver: NSObjectProtocol?
 
     var isOpen: Bool { progress > 0.5 }
+
+    /// Signing out from the person's menu in the sidebar page (AppShell).
+    var onSignOut: (() -> Void)?
+
+    /// Whether the drawer shows the server's sidebar page, which keeps itself
+    /// live, rather than the native one, which fetches its JSON.
+    var showsSidebarPage: Bool { sidebarPage?.isReady == true }
 
     init(environment: AppEnvironment, account: AccountSlug?, navigatorDelegate: NavigatorDelegate, memory: SessionMemory = .standard) {
         self.environment = environment
@@ -57,11 +69,32 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         foregroundObserver.map(NotificationCenter.default.removeObserver)
     }
 
-    /// The new chat in the list last chosen in this organization (its
-    /// project, if it was one), or the server's pick of organization.
+    /// The organization's home, which lands on Decisions or New chat as
+    /// signing in does (docs/server-contract.md, "Where the app starts"), or
+    /// the server's pick of organization.
     static func startURL(environment: AppEnvironment, account: AccountSlug?, memory: SessionMemory) -> URL {
+        environment.url(path: AppPath.path(AppPath.home, in: account))
+    }
+
+    /// Where to start instead when the organization's home answers 404: a
+    /// server older than it (self-hosted releases before 2026-11-17) starts
+    /// on the new chat last chosen in that organization, as builds before
+    /// the home did. None for any other page.
+    static func startURLWithoutHome(failed url: URL, environment: AppEnvironment, account: AccountSlug?, memory: SessionMemory) -> URL? {
+        let route = AppRoute(url: url)
+        guard route.path == AppPath.home else { return nil }
+        let account = route.account ?? account
         let path = account.flatMap { memory.newChatPath(in: $0) } ?? AppPath.path(AppPath.newChat, in: account)
         return environment.url(path: path)
+    }
+
+    /// Opens the new chat in place of a home the server doesn't have, as
+    /// the place at the root. False when `url` isn't the home. A sidebar
+    /// opened while the home loaded stays open: the person didn't pick this.
+    func startWithoutHome(failed url: URL) -> Bool {
+        guard let start = Self.startURLWithoutHome(failed: url, environment: environment, account: account, memory: memory) else { return false }
+        open(url: start, closingSidebar: false)
+        return true
     }
 
     private var sidebarWidth: CGFloat { min(view.bounds.width * 0.84, 340) }
@@ -92,23 +125,37 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         dim.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(panToClose(_:))))
         content.addSubview(dim)
 
+        sidebarPanel.translatesAutoresizingMaskIntoConstraints = false
+        sidebarPanel.backgroundColor = Palette.canvasSunken
+        sidebarPanel.accessibilityViewIsModal = true
+        sidebarPanel.isHidden = true
+        view.addSubview(sidebarPanel)
+
         let host = UIHostingController(rootView: SidebarHostView(store: store, actions: actions, currentPath: { [weak self] in self?.currentPath }))
         host.view.backgroundColor = Palette.canvasSunken
         host.view.translatesAutoresizingMaskIntoConstraints = false
-        host.view.accessibilityViewIsModal = true
-        host.view.isHidden = true
         addChild(host)
-        view.addSubview(host.view)
+        sidebarPanel.addSubview(host.view)
         host.didMove(toParent: self)
         sidebarHost = host
 
-        sidebarLeading = host.view.leadingAnchor.constraint(equalTo: view.leadingAnchor)
-        sidebarWidthConstraint = host.view.widthAnchor.constraint(equalToConstant: 300)
+        // Over the native sidebar, inside the safe area, shown once its page is drawn.
+        let page = SidebarWebController(environment: environment)
+        addChild(page)
+        page.view.translatesAutoresizingMaskIntoConstraints = false
+        page.view.isHidden = true
+        sidebarPanel.addSubview(page.view)
+        page.didMove(toParent: self)
+        sidebarPage = page
+        wireSidebarPage()
+
+        sidebarLeading = sidebarPanel.leadingAnchor.constraint(equalTo: view.leadingAnchor)
+        sidebarWidthConstraint = sidebarPanel.widthAnchor.constraint(equalToConstant: 300)
         NSLayoutConstraint.activate([
             content.topAnchor.constraint(equalTo: view.topAnchor),
             content.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             content.widthAnchor.constraint(equalTo: view.widthAnchor),
-            content.leadingAnchor.constraint(equalTo: host.view.trailingAnchor),
+            content.leadingAnchor.constraint(equalTo: sidebarPanel.trailingAnchor),
             main.view.topAnchor.constraint(equalTo: content.topAnchor),
             main.view.bottomAnchor.constraint(equalTo: content.bottomAnchor),
             main.view.leadingAnchor.constraint(equalTo: content.leadingAnchor),
@@ -117,8 +164,16 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             dim.bottomAnchor.constraint(equalTo: content.bottomAnchor),
             dim.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             dim.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            host.view.topAnchor.constraint(equalTo: view.topAnchor),
-            host.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            sidebarPanel.topAnchor.constraint(equalTo: view.topAnchor),
+            sidebarPanel.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            host.view.topAnchor.constraint(equalTo: sidebarPanel.topAnchor),
+            host.view.bottomAnchor.constraint(equalTo: sidebarPanel.bottomAnchor),
+            host.view.leadingAnchor.constraint(equalTo: sidebarPanel.leadingAnchor),
+            host.view.trailingAnchor.constraint(equalTo: sidebarPanel.trailingAnchor),
+            page.view.topAnchor.constraint(equalTo: sidebarPanel.safeAreaLayoutGuide.topAnchor),
+            page.view.bottomAnchor.constraint(equalTo: sidebarPanel.safeAreaLayoutGuide.bottomAnchor),
+            page.view.leadingAnchor.constraint(equalTo: sidebarPanel.safeAreaLayoutGuide.leadingAnchor),
+            page.view.trailingAnchor.constraint(equalTo: sidebarPanel.trailingAnchor),
             sidebarWidthConstraint,
             sidebarLeading
         ])
@@ -133,9 +188,19 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         }
         foregroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.store.markStale()
-                if self?.isOpen == true { self?.refreshSidebar() }
+                guard let self else { return }
+                if self.showsSidebarPage {
+                    self.sidebarPage.refresh()
+                    return
+                }
+                self.sidebarPage.retryIfNeverReady()
+                self.store.markStale()
+                if self.isOpen { self.refreshSidebar() }
             }
+        }
+        // The page the server named here last time, at once, before the first page connects.
+        if let account, let path = memory.sidebarPagePath(in: account) {
+            sidebarPage.load(environment.url(path: path))
         }
         apply(progress: 0)
     }
@@ -264,16 +329,32 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     /// What the sidebar opens is a place: the root screen, never pushed over
     /// what was there (Places).
     private func open(path: String) {
-        setOpen(false, animated: true)
-        let url = environment.url(path: path)
+        open(url: environment.url(path: path))
+    }
+
+    private func open(url: URL, closingSidebar: Bool = true) {
+        if closingSidebar { setOpen(false, animated: true) }
         let properties = navigator.session.pathConfiguration?.properties(for: url) ?? PathProperties()
         navigator.route(VisitProposal(url: url, options: VisitOptions(action: .advance), properties: Places.opening(properties)))
     }
 
     func startNewChat() {
         setOpen(false, animated: true)
-        let path = store.newChatPath ?? account.flatMap { memory.newChatPath(in: $0) } ?? AppPath.path(AppPath.newChat, in: account)
-        navigator.route(environment.url(path: path))
+        navigator.route(environment.url(path: newChatPath))
+    }
+
+    /// Where New chat goes: the bar's button, the shortcuts, a recede with
+    /// nothing under it. The native sidebar's chosen list may be a project's,
+    /// and New chat starts in it; the sidebar page has no such choice, and
+    /// its New chat is the organization's, so with the page in the drawer
+    /// so is the bar's, never a project the native sidebar chose before.
+    var newChatPath: String {
+        Self.newChatPath(usesSidebarPage: sidebarPage?.pageURL != nil, chosen: store.newChatPath ?? account.flatMap { memory.newChatPath(in: $0) }, account: account)
+    }
+
+    static func newChatPath(usesSidebarPage: Bool, chosen: String?, account: AccountSlug?) -> String {
+        let plain = AppPath.path(AppPath.newChat, in: account)
+        return usesSidebarPage ? plain : chosen ?? plain
     }
 
     /// The page on screen, as a path, to mark its row.
@@ -291,9 +372,83 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         }
     }
 
+    // MARK: The sidebar page
+
+    private func wireSidebarPage() {
+        sidebarPage.onReady = { [weak self] in self?.showSidebarPage(true) }
+        sidebarPage.onUnavailable = { [weak self] in self?.showSidebarPage(false) }
+        sidebarPage.onClose = { [weak self] in self?.setOpen(false, animated: true) }
+        sidebarPage.onVisit = { [weak self] url in self?.open(url: url) }
+        sidebarPage.onExternal = { [weak self] url in self?.openOutside(url) }
+        sidebarPage.onSignedOut = { [weak self] deliberate in
+            guard let self else { return }
+            self.setOpen(false, animated: false)
+            if deliberate, let onSignOut = self.onSignOut {
+                onSignOut()
+            } else {
+                // The page's own load found no session: the navigator's next
+                // visit finds the same, and the app signs out as for any page.
+                self.navigator.reload()
+            }
+        }
+    }
+
+    /// A link off this server from the sidebar page (Help, a vendor's page):
+    /// a web page opens in Safari's sheet over the app, never in the drawer
+    /// or the navigator; mail and phone links go to their apps.
+    private func openOutside(_ url: URL) {
+        guard SidebarPage.opensInSafariSheet(url) else {
+            UIApplication.shared.open(url)
+            return
+        }
+        setOpen(false, animated: true)
+        var presenter: UIViewController = self
+        while let presented = presenter.presentedViewController { presenter = presented }
+        let safari = SFSafariViewController(url: url)
+        safari.preferredControlTintColor = Palette.ink
+        presenter.present(safari, animated: true)
+    }
+
+    private func showSidebarPage(_ shows: Bool) {
+        sidebarPage.view.isHidden = !shows
+        sidebarHost.view.isHidden = shows
+        if shows {
+            pollTask?.cancel()
+        } else if isOpen {
+            refreshSidebar()
+            pollWhileOpen()
+        }
+    }
+
+    /// A page's `sidebar` component connected: the drawer follows the sidebar
+    /// page it names (an older server names none: the native sidebar), and
+    /// marks the row of the page on screen. Only the main stack's pages
+    /// count; a sheet's page isn't the one the sidebar opened.
+    func sidebarPageNamed(_ connect: SidebarPage.Connect, by screen: UIViewController?, at url: URL?) {
+        let main = navigator.rootViewController
+        guard let screen, main.viewControllers.contains(screen) else { return }
+
+        switch SidebarPage.choose(connect, loaded: sidebarPage.pageURL?.path(percentEncoded: false)) {
+        case .native:
+            if let account { memory.setSidebarPagePath(nil, in: account) }
+            sidebarPage.unload()
+            showSidebarPage(false)
+        case .load(let path):
+            if let account { memory.setSidebarPagePath(path, in: account) }
+            sidebarPage.load(environment.url(path: path))
+        case .keep:
+            sidebarPage.retryIfNeverReady()
+        }
+        if let url = url ?? screen.routedURL, main.topViewController === screen {
+            sidebarPage.setCurrent(url, belongsTo: connect.belongsTo)
+        }
+    }
+
     // MARK: The sidebar's list
 
     func sidebarChanged() {
+        // The sidebar page hears the same streams itself.
+        if showsSidebarPage { return }
         store.markStale()
         if isOpen { refreshSidebar() }
     }
@@ -309,7 +464,7 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(5))
-                guard let self, self.isOpen, !Task.isCancelled else { return }
+                guard let self, self.isOpen, !self.showsSidebarPage, !Task.isCancelled else { return }
                 if self.store.data?.isAnythingWorking == true { await self.store.refresh() }
             }
         }
@@ -324,8 +479,10 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     func setOpen(_ open: Bool, animated: Bool) {
         if open {
             view.endEditing(true)
-            Task { await store.refreshIfStale() }
-            pollWhileOpen()
+            if !showsSidebarPage {
+                Task { await store.refreshIfStale() }
+                pollWhileOpen()
+            }
         } else {
             pollTask?.cancel()
             releaseSidebarFocus()
@@ -345,14 +502,14 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     }
 
     private func prepareForMotion() {
-        sidebarHost.view.isHidden = false
+        sidebarPanel.isHidden = false
         dim.isHidden = false
     }
 
     /// A closed sidebar's search field keeps nothing: left focused, it
     /// would hold the keyboard up and go on taking what's typed.
     private func releaseSidebarFocus() {
-        sidebarHost.view.endEditing(true)
+        sidebarPanel.endEditing(true)
     }
 
     /// Puts the sidebar `value` of the way open. Once `settled`, a closed
@@ -364,14 +521,14 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         if settled {
             let resting = progress == 0
             if resting { releaseSidebarFocus() }
-            sidebarHost.view.isHidden = resting
+            sidebarPanel.isHidden = resting
             dim.isHidden = resting
         }
         content.layer.cornerRadius = 22 * progress
         content.layer.cornerCurve = .continuous
         navigator.rootViewController.view.accessibilityElementsHidden = progress == 1
         if settled, progress == 1 {
-            UIAccessibility.post(notification: .screenChanged, argument: sidebarHost.view)
+            UIAccessibility.post(notification: .screenChanged, argument: showsSidebarPage ? sidebarPage.view : sidebarHost.view)
         }
     }
 
@@ -393,7 +550,10 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         case .began:
             panStart = progress
             prepareForMotion()
-            if opening { view.endEditing(true); Task { await store.refreshIfStale() } }
+            if opening {
+                view.endEditing(true)
+                if !showsSidebarPage { Task { await store.refreshIfStale() } }
+            }
         case .changed:
             apply(progress: panStart + dx / sidebarWidth, settled: false)
             view.layoutIfNeeded()

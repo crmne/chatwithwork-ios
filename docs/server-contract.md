@@ -418,8 +418,22 @@ anchoring unless written):
 | `/chats/\d+\?(.*&)?from=` | default | `default` (push) | off | a chat a page opens about something on it (a bot's "Change it in a chat", its runs, Decisions' "Open chat", a side chat), pushed with back to that page |
 | `^/shared/` | default | | off | |
 | `/settings\?` | default | | on | a Settings tab, pushed over the Settings list (`query_string_presentation: default`, since the list and its tabs share `/settings`) |
-| `/decisions(\?\|$)`, `/bots(\?\|$)`, `/chats(\?\|$)`, `/projects(\?\|$)`, `/settings$` | default | `replace_root` | on | the places: Decisions, Bots, the chat lists, Projects, the Settings list |
+| `^(/[0-9]+)?/home(\?\|$)`, `/decisions(\?\|$)`, `/bots(\?\|$)`, `/chats(\?\|$)`, `/projects(\?\|$)`, `/settings$` | default | `replace_root` | on | the places: home (where the app starts, below), Decisions, Bots, the chat lists, Projects, the Settings list |
 | `/chats/\d+/files/` | modal (`full`) | | off | a chat's file in its viewer, over the chat ([A file](#a-file-chatsfilesshow)) |
+
+**Where the app starts (2026-11-17).** The navigator starts on
+`/<organization>/home` (`/home` before the app knows the organization,
+`SidebarShell.startURL`), which redirects as signing in does: to Decisions
+once a bot or something waiting gives it something to show, else to New
+chat. It's a place, so the page it lands on is the root. Builds before it
+started on `/<organization>/chats/new`, or the project's new chat the
+sidebar last chose. A server older than the home (self-hosted releases
+before 2026-11-17) answers its visit 404; the app then starts on that new
+chat instead (`SidebarShell.startURLWithoutHome`), as those builds did.
+The home's rule is anchored at the start of the path and allows a query
+(2026-11-18), so `/<organization>/home?...` is still the root, while another
+page whose query only mentions the home (`?return_to=/home`) keeps its own
+rule.
 
 v1, for the tab builds, opened `/chats/new` as a sheet, pushed chats, and
 treated `/chats`, `/projects` and `/settings` as tab roots.
@@ -857,7 +871,8 @@ Nothing to do, but worth knowing:
   replace the root with it, as with every place.
 - A link into another organization rebuilds the shell there.
 - `recede_or_redirect_to(url, notice:)`, `refresh_…` and `resume_…` show the
-  notice (or `alert`) as a toast.
+  notice (or `alert`) on their URL as a toast (`AppShell.notice(in:)`): the
+  page beneath isn't loaded again, so its own flash would never show.
 
 ### Offline chats (2026-11-04)
 
@@ -1337,6 +1352,89 @@ The scheme is `CWW_CALLBACK_SCHEME` in the iOS build settings; the same on
 Android.
 
 ## 11. The sidebar
+
+### The sidebar page (2026-11-17)
+
+Where the server names one, the drawer shows the server's own sidebar: the
+web sidebar's column alone, as a page, kept loaded in a web view of its own
+beside the navigator (`SidebarWebController`). What it shows changes with the
+server, never with an app release; the native sidebar below stays as the
+fallback for servers that name none.
+
+- **Which page.** Every signed-in page's hidden `bridge--sidebar` element
+  sends `connect` `{page, belongsTo}`: `page` is the organization's sidebar
+  page (`/<organization>/sidebar`, `SidebarsController`), `belongsTo` the path
+  the page on screen belongs under (its `data-sidebar-belongs-to`, so a bot's
+  chat raises its bot's row) or null. An older server sends `{}`. The first
+  `page` loads; a different one (another organization's) loads in its place;
+  a connect without one unloads it and the native sidebar shows. The app
+  remembers the page per organization (`SessionMemory.sidebarPagePath`) and
+  loads it at launch, before the first page connects. Only pages in the main
+  stack count, not a sheet's.
+- **The web view.** The default website data store, so it shares the
+  navigator's cookies, kept to the app-bound domains like the navigator's, laid
+  out inside the safe area on the sidebar's sunken canvas, transparent until
+  it paints, with no zoom, no bounce and no scrolling of its own (the page's
+  list scrolls inside it). Its user agent is WebKit's with the app's tokens
+  (`Chat with Work; platform=ios; version=…; build=…;`) and nothing after
+  them: no `Hotwire Native`, `Turbo Native` or `bridge-components`, so the
+  server draws it for the app (`data-native-app`) while none of the page's
+  bridge controllers load where nothing would answer them, and the page never
+  keeps it as the app's user agent (`app_user_agent`). It's shown once the
+  page says `ready`; until then the native sidebar shows.
+- **Page to app**, JSON objects through `window.webkit.messageHandlers.sidebar`
+  (the main frame, from this server only):
+  - `{event: "ready"}`: drawn and listening. The app shows it and answers
+    with `current`.
+  - `{event: "visit", url}`: a row, New chat, Decisions, Settings, a form's
+    redirect, anything Turbo would visit. The app closes the drawer and opens
+    `url` as a place (Places), as a native row does; another organization's
+    page switches organization and the sign-in form signs out, as any
+    proposal does. A link off this server (the person's menu's Help, a
+    `target=_blank` link) comes as a visit with an absolute URL: a web page
+    opens in Safari's sheet over the app (`SFSafariViewController`), never in
+    the drawer or the navigator, and `mailto:` and `tel:` links open in their
+    apps.
+  - `{event: "close"}`: the header's close button.
+  - `{event: "confirm", id, title, description, confirm, dismiss,
+    destructive}`: Turbo's `data-turbo-confirm`, worded as `bridge--confirm`
+    words it. The app asks in its own alert and answers with `answer`.
+- **App to page**, on `window.chatWithWorkSidebar`:
+  - `current(url, belongsTo)`: the page on the main stack's top screen, after
+    each `connect` from it and on `ready`. The page marks its row.
+  - `refresh()`: back in the foreground, where the page's streams may have
+    missed something; the page reloads itself while online.
+  - `answer(id, confirmed)`.
+- **Navigation.** Only the page itself may load in the web view. Any other
+  main-frame navigation (a link Turbo doesn't follow, `target=_blank`, a
+  redirect) is cancelled and goes where a `visit` would; the sign-in form,
+  reached by the page's own load or a 401, means the session is gone and the
+  navigator reloads, which signs out as any page does, while one the person
+  reached from the menu's Sign out signs out straight away. Requests that
+  answer in place (pins, sections, the filter, Delete in a row's menu) stay
+  in the page, which keeps itself live on the person's streams: the app
+  fetches no JSON, polls nothing and ignores `changed` while it shows the
+  page. Deleting the chat on screen from its row sends a `visit` to New chat.
+- **A stale token.** The page stays loaded for hours, so its CSRF token can
+  go stale (the person signed in again, the session rotated), and then its
+  in-place requests answer 422. The app adds a script of its own to the page
+  (`SidebarPage.staleScript`): when a Turbo request answers 422 it posts
+  `{event: "stale"}` to the app, which loads the page again, with a fresh
+  token, while it stays on screen. The page needs to do nothing for it; a
+  request made outside Turbo (a plain `fetch`) isn't seen, and a server
+  whose own validation answers 422 in place would reload the page too.
+- **Failing.** A 404 (a server without the page), another error, or no
+  network before the page ever showed hands the drawer back to the native
+  sidebar, and the next `connect` tries again; a page that showed stays as it
+  was drawn. Offline, the page's service worker serves its last copy where it
+  runs (the app-bound domains), else the native sidebar shows its cached JSON.
+- **Retiring the JSON.** The server keeps `/native/sidebar` and `changed` for
+  builds before this one. Once the stores' builds in use all know the page,
+  it drops them; this app keeps the native sidebar only for self-hosted
+  servers older than the page, and drops it once those have updated.
+
+### The native sidebar
+
 
 **Same head in both views (2026-11-01).** The native sidebar draws what the
 web's does at a phone's width, and both views open the same way, so switching

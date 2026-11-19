@@ -64,13 +64,32 @@ struct PathConfigurationTests {
     }
 
     @Test("makes every place the one screen at the root, with pull to refresh", arguments: [
-        "/1000001/decisions", "/1000001/decisions?decision=t7&view=now", "/1000001/bots", "/1000001/bots?list=mine",
+        "/1000001/home", "/1000001/decisions", "/1000001/decisions?decision=t7&view=now", "/1000001/bots", "/1000001/bots?list=mine",
         "/1000001/chats", "/1000001/chats?list=recent", "/1000001/projects", "/1000001/settings"
     ])
     func places(path: String) {
         #expect(properties(path).context == .default)
         #expect(properties(path).presentation == .replaceRoot)
         #expect(properties(path).pullToRefreshEnabled)
+    }
+
+    @Test("makes the home the root with or without a query", arguments: ["/home", "/1000001/home", "/1000001/home?source=shortcut"])
+    func home(path: String) {
+        #expect(properties(path).context == .default)
+        #expect(properties(path).presentation == .replaceRoot)
+    }
+
+    @Test("keeps a page whose query only mentions the home as it was", arguments: [
+        "/1000001/bots/7?return_to=/home", "/1000001/triggers/4?return_to=%2Fhome", "/1000001/projects/3?return_to=/1000001/home"
+    ])
+    func returnToHome(path: String) {
+        #expect(properties(path).context == .default)
+        #expect(properties(path).presentation == .default)
+    }
+
+    @Test("keeps the sign-in sheet when it returns to the home")
+    func signInReturningHome() {
+        #expect(properties("/users/sign_in?return_to=/home").context == .modal)
     }
 
     @Test("pushes a drill-down, and replaces it with another query of its own", arguments: [

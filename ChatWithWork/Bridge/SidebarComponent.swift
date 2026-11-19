@@ -1,13 +1,16 @@
 import HotwireNative
 import UIKit
 
-/// `sidebar`: tells the app the person's chat list changed, so the native
-/// sidebar fetches it again (docs/server-contract.md, "The sidebar"). Its
+/// `sidebar`: names the sidebar page the drawer shows (docs/server-contract.md,
+/// "The sidebar page") and the path the page on screen belongs under, or,
+/// from an older server, tells the app the person's chat list changed, so the
+/// native sidebar fetches it again (docs/server-contract.md, "The sidebar"). Its
 /// name in the user agent also tells the server this build draws the
 /// sidebar itself: no tabs, New chat in the bar, and services connected in
 /// the system browser.
 ///
-/// Web → native: `connect` `{}`, which the app answers to send a chat's
+/// Web → native: `connect` `{page, belongsTo}` (`{}` from an older server),
+/// which the shell's drawer follows, and which the app answers to send a chat's
 /// action from the sidebar; `changed` `{}`, refetch if the sidebar is open,
 /// else when it next opens. Native → web: a reply to `connect`,
 /// `{action: "perform", url, method, confirm?, destructive?}`, which the
@@ -22,6 +25,8 @@ final class SidebarComponent: BridgeComponent {
         switch message.event {
         case "connect":
             Self.connected.add(self)
+            let connect: SidebarPage.Connect = message.data() ?? SidebarPage.Connect(page: nil, belongsTo: nil)
+            SidebarShell.current?.sidebarPageNamed(connect, by: destinationViewController, at: URL(string: message.metadata?.url ?? ""))
         case "changed":
             SidebarShell.current?.sidebarChanged()
         default:

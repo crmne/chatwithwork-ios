@@ -119,7 +119,7 @@ final class AppShell: NSObject {
         case .newBot:
             if case .signedIn(let shell) = state { chosen = shell.store.newBotPath }
         case .newChat:
-            if case .signedIn(let shell) = state { chosen = shell.store.newChatPath }
+            if case .signedIn(let shell) = state { chosen = shell.newChatPath }
             chosen = chosen ?? account.flatMap { memory.newChatPath(in: $0) }
         case .decisions:
             break
@@ -245,6 +245,7 @@ final class AppShell: NSObject {
 
     private func showSignedIn(account: AccountSlug?, continuingTo url: URL? = nil, startingAt start: URL? = nil, animated: Bool = true) {
         let shell = SidebarShell(environment: environment, account: account, navigatorDelegate: self, memory: memory)
+        shell.onSignOut = { [weak self] in self?.later { $0.showSignedOut(reason: .signedOut) } }
         self.account = account
         state = .signedIn(shell)
 
@@ -270,14 +271,20 @@ final class AppShell: NSObject {
         // Without a link into an organization, the shell starts unprefixed and
         // the server picks the organization this person used last.
         let target = next.map(AppRoute.init(url:))
-        showSignedIn(account: target?.account, continuingTo: next.flatMap { opensOnTop(of: $0) ? $0 : nil })
+        showSignedIn(account: target?.account, continuingTo: next.flatMap { opensOnTop(of: $0) ? $0 : nil }, startingAt: next.flatMap(Self.startsAt))
         PushNotifications.shared.refreshRegistrationIfAuthorized()
     }
 
     private func switchAccount(to target: AccountSlug, continuingTo url: URL) {
         guard target != account else { return }
         memory.lastAccount = target
-        showSignedIn(account: target, continuingTo: opensOnTop(of: url) ? url : nil)
+        showSignedIn(account: target, continuingTo: opensOnTop(of: url) ? url : nil, startingAt: Self.startsAt(url))
+    }
+
+    /// A link to New chat starts the rebuilt shell there rather than on the
+    /// organization's home, which may land on Decisions instead.
+    static func startsAt(_ url: URL) -> URL? {
+        AppRoute(url: url).kind == .newChat ? url : nil
     }
 
     /// The new chat page isn't opened again after a rebuild: the shell starts
@@ -348,14 +355,21 @@ final class AppShell: NSObject {
     // MARK: Notices
 
     /// `recede_or_redirect_to(url, notice: "...")` puts the notice on the
-    /// historical location it sends the app to; show it the native way.
+    /// historical location it sends the app to (`recede_`, `resume_` or
+    /// `refresh_historical_location`). The page beneath isn't loaded again,
+    /// so its flash would never show: the app shows it as a toast.
     private func showNotice(in url: URL) {
+        guard let notice = Self.notice(in: url) else { return }
+        ToastCenter.shared.show(notice.message, style: notice.style)
+    }
+
+    /// The notice, or else the alert, on a historical location's URL.
+    static func notice(in url: URL) -> (message: String, style: ToastStyle)? {
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        if let notice = items.first(where: { $0.name == "notice" })?.value, !notice.isEmpty {
-            ToastCenter.shared.show(notice, style: .notice)
-        } else if let alert = items.first(where: { $0.name == "alert" })?.value, !alert.isEmpty {
-            ToastCenter.shared.show(alert, style: .alert)
-        }
+        let value = { (name: String) in items.first(where: { $0.name == name })?.value.flatMap { $0.isEmpty ? nil : $0 } }
+        if let notice = value("notice") { return (notice, .notice) }
+        if let alert = value("alert") { return (alert, .alert) }
+        return nil
     }
 }
 
@@ -442,6 +456,11 @@ extension AppShell: NavigatorDelegate {
             }
             return
         }
+        // A server older than the organization's home (docs/server-contract.md,
+        // "Where the app starts") starts on New chat instead.
+        if error.statusCode == 404, case .signedIn(let shell) = state, shell.startWithoutHome(failed: visitable.currentVisitableURL) {
+            return
+        }
 
         visitable.visitableViewController.presentError(error, retryHandler: retryHandler)
     }
@@ -484,7 +503,7 @@ extension AppShell: NavigatorDelegate {
         if route.account != nil { return true }
         switch route.kind {
         case .list, .newChat, .chat, .historicalLocation(.recede): return true
-        default: return route.path == "/accounts"
+        default: return route.path == "/accounts" || route.path == AppPath.home
         }
     }
 }

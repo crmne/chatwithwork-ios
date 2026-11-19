@@ -1,8 +1,9 @@
 import XCTest
 
 /// The signed-in shell against staging's synthetic data, as Maya in
-/// Northwind Studio: sign in, the new chat, the sidebar, what waits for her,
-/// a chat, Bots and Settings. Screenshots are kept as attachments.
+/// Northwind Studio: sign in to her home, the drawer's sidebar page, a chat,
+/// its Bots half and Settings from her menu. Screenshots are kept as
+/// attachments.
 ///
 /// Needs the demo login's password in CWW_UI_TEST_STAGING_PASSWORD
 /// (TEST_RUNNER_CWW_UI_TEST_STAGING_PASSWORD through xcodebuild); skipped
@@ -35,40 +36,71 @@ final class StagingTests: XCTestCase {
         app.webViews.buttons["Sign in"].firstMatch.tap()
 
         let sidebar = app.buttons["shell.sidebar"]
-        XCTAssertTrue(sidebar.waitForExistence(timeout: 40), "Signing in should land on a new chat with the sidebar button")
+        XCTAssertTrue(sidebar.waitForExistence(timeout: 40), "Signing in should land on the organization's home with the sidebar button")
+        XCTAssertFalse(app.navigationBars.buttons["BackButton"].exists, "The home is a place, without back")
+        // The home lands on Decisions, or on New chat when nothing shows there.
+        let landed = app.navigationBars["Decisions"].waitForExistence(timeout: 15) || app.navigationBars["New chat"].exists
+        XCTAssertTrue(landed, "Starting should land on the organization's home: Decisions or New chat")
         settle(4)
-        keep("new-chat")
+        keep("home")
 
+        // Staging names the sidebar page, so the drawer shows the server's
+        // sidebar rather than the native one (docs/server-contract.md, "The sidebar page").
         sidebar.tap()
-        XCTAssertTrue(app.buttons["sidebar.newChat"].waitForExistence(timeout: 15), "The sidebar should load its JSON from staging")
+        let page = app.webViews["sidebar.page"]
+        XCTAssertTrue(page.waitForExistence(timeout: 20), "The drawer should show staging's sidebar page")
+        XCTAssertTrue(page.links["New chat"].waitForExistence(timeout: 15), "The page should be the web sidebar, with its New chat")
+        XCTAssertFalse(app.buttons["sidebar.newChat"].exists, "The native sidebar should stay hidden under the page")
         settle(1.5)
         keep("sidebar")
 
-        app.buttons["sidebar.waiting"].tap()
-        settle(1)
-        keep("waiting")
-
-        let chat = app.buttons.matching(identifier: "sidebar.chat").firstMatch
+        let chat = page.links.matching(NSPredicate(format: "label CONTAINS %@", environment["CWW_UI_TEST_STAGING_CHAT"] ?? "Lisbon")).firstMatch
         if chat.waitForExistence(timeout: 5) {
             chat.tap()
             settle(4)
+            XCTAssertTrue(sidebar.exists, "A chat the sidebar opens is a place, with the sidebar button")
             keep("chat")
             sidebar.tap()
+            settle(1.5)
         }
 
-        let bots = app.buttons["sidebar.bots"]
-        XCTAssertTrue(bots.waitForExistence(timeout: 10))
-        bots.tap()
-        settle(4)
+        // Recent's filter: All, Chats, Bots. The page also holds a "Bots" off screen.
+        let named = page.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Bots"))
+        XCTAssertTrue(named.firstMatch.waitForExistence(timeout: 10), "The open drawer should offer Recent's Bots filter")
+        tap(named)
+        settle(2)
         keep("bots")
-        app.navigationBars.buttons.element(boundBy: 0).tap()
 
-        sidebar.tap()
-        app.buttons["sidebar.person"].tap()
-        app.buttons["Settings"].firstMatch.tap()
-        XCTAssertTrue(app.buttons["sheet.close"].waitForExistence(timeout: 15), "Settings should come up as a sheet")
-        settle(4)
+        let menu = page.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "open your menu")).firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 10), "The page should offer the person's menu")
+        tap(page.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "open your menu")))
+        settle(1)
+        let settings = page.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Settings")).firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        tap(page.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Settings")))
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 15), "Settings should open as a place")
+        settle(3)
         keep("settings")
+    }
+
+    /// Taps the first of `query`'s elements that can be hit. After the drawer
+    /// moves, WebKit can report the page's elements where they were rather than
+    /// where they're drawn for a while, so a tap falls back to the first one's
+    /// place.
+    @MainActor
+    private func tap(_ query: XCUIElementQuery) {
+        var hit: XCUIElement?
+        _ = waitUntil(5) {
+            hit = query.allElementsBoundByIndex.first { $0.isHittable }
+            return hit != nil
+        }
+        if let hit { hit.tap() } else { query.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
+    }
+
+    private func waitUntil(_ timeout: TimeInterval = 5, _ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < deadline { settle(0.25) }
+        return condition()
     }
 
     private func settle(_ seconds: TimeInterval) {
