@@ -12,20 +12,41 @@ struct ComposerTests {
     func rainbowLook() {
         #expect(ComposerLook() == ComposerLook(locked: false, working: false, waiting: false, focused: false))
         let rest = ComposerLook()
-        #expect(rest.edge == .rainbow && rest.edgeOpacity == 0.7 && rest.glowOpacity == 0.14 && !rest.glowsAmber)
+        #expect(rest.edge == .rainbow && rest.edgeOpacity == 0.7 && rest.glowOpacity == 0.16 && !rest.glowsAmber)
         let focused = ComposerLook(focused: true)
-        #expect(focused.edgeOpacity == 1 && focused.glowOpacity == 0.3)
+        #expect(focused.edge == .rainbow && focused.edgeOpacity == 1 && focused.glowOpacity == 0.3)
         let working = ComposerLook(working: true)
-        #expect(working.edge == .flowing && working.glowOpacity == 0.14)
+        #expect(working.edge == .flowing && working.edgeOpacity == 0.7 && working.glowOpacity == 0.16)
+        #expect(ComposerLook(working: true, focused: true).glowOpacity == 0.3)
         let locked = ComposerLook(locked: true)
         #expect(locked.edge == .rainbow && locked.edgeOpacity == 0.6 && locked.glowOpacity == 0.05)
+        #expect(ComposerLook(locked: true, focused: true).glowOpacity == 0.08)
         // Amber outranks the flow, and the lock's dim glow.
         let waiting = ComposerLook(locked: true, working: true, waiting: true)
         #expect(waiting.edge == .attention && waiting.glowsAmber && waiting.glowOpacity == 0.14)
+        #expect(ComposerLook(waiting: true).edgeOpacity == 0.7 && ComposerLook(waiting: true).glowOpacity == 0.14)
         #expect(ComposerLook(waiting: true, focused: true).glowOpacity == 0.3)
+        // Increase Contrast keeps the edge whole, and leaves the glow.
+        #expect(ComposerLook(locked: true).contrasted(true).edgeOpacity == 1)
+        #expect(ComposerLook(locked: true).contrasted(true).glowOpacity == 0.05)
+        #expect(ComposerLook().contrasted(false) == ComposerLook())
     }
 
-    @Test("the glow is blurred once for a width: a taller box and other looks never blur again")
+    @Test("each state the web composer sends shows its look: idle, working, waiting, locked")
+    func lookFromState() throws {
+        func look(_ json: String, focused: Bool = false) throws -> ComposerLook {
+            let state = try #require(message("state", json).data() as ComposerState?)
+            return ComposerLook(state, focused: focused)
+        }
+        #expect(ComposerLook(nil, focused: false) == ComposerLook())
+        #expect(try look(#"{}"#) == ComposerLook())
+        #expect(try look(#"{}"#, focused: true).glowOpacity == 0.3)
+        #expect(try look(#"{"working":true,"run":"a1"}"#).edge == .flowing)
+        #expect(try look(#"{"waiting":true,"run":"a1"}"#).edge == .attention)
+        #expect(try look(#"{"locked":true,"lockReason":"credits"}"#).glowOpacity == 0.05)
+    }
+
+    @Test("the glow's shape is blurred once for a width: a taller box, other looks and themes never blur again")
     func glowIsCached() {
         let box = RainbowBox(frame: CGRect(x: 0, y: 0, width: 311, height: 96))
         box.layoutIfNeeded()
@@ -36,23 +57,69 @@ struct ComposerTests {
         }
         box.look = ComposerLook(focused: true)
         box.look = ComposerLook(working: true)
+        box.look = ComposerLook(waiting: true)
+        box.overrideUserInterfaceStyle = .dark
         box.layoutIfNeeded()
         #expect(ComposerGlow.renders == drawn)
         #expect(box.glowOpacity == 0.14)
 
-        let image = ComposerGlow.image(width: 311, attention: nil, dark: false)
-        #expect(image?.width == 311 + 134)
-        #expect(image?.height == 80 + 134)
+        let image = ComposerGlow.mask(width: 311)
+        #expect(image?.width == 311 + 132)
+        #expect(image?.height == 80 + 132)
+        // Its alpha is the halo: none far out, all of it under the box.
+        let alpha = image.flatMap(Self.alphaChannel)
+        #expect(alpha?.at(0, 0) == 0)
+        #expect(alpha.map { $0.at(66 + 155, 66 + 40) } ?? 0 > 240)
+        #expect(alpha.map { $0.at(66 + 155, 66 - 22) } ?? 0 > 10)
     }
 
-    @Test("the edge flows only while an answer runs, and not under Reduce Motion")
+    @Test("the glow is the edge blurred: the same box, the same colours at the same places")
+    func glowMatchesEdge() {
+        let box = RainbowBox(frame: CGRect(x: 0, y: 0, width: 311, height: 96))
+        box.layoutIfNeeded()
+        for look in [ComposerLook(), ComposerLook(working: true), ComposerLook(waiting: true)] {
+            box.look = look
+            for x in stride(from: 0.0, through: 311, by: 31.1) {
+                let phase = box.colourPhase(atBoxX: x)
+                let apart = abs(phase.edge - phase.glow)
+                #expect(min(apart, 1 - apart) < 0.0001 || look.edge == .attention)
+            }
+        }
+        box.look = ComposerLook()
+        #expect(box.glowGradient == box.edgeGradient && box.glowGradient == RainbowBox.rainbow)
+        box.look = ComposerLook(waiting: true)
+        #expect(box.glowGradient == box.edgeGradient)
+        #expect(box.glowGradient.allSatisfy { UIColor(cgColor: $0) == Palette.attention.resolvedColor(with: box.traitCollection) })
+        // While it flows, both hold the same loop: the glow's one more of it, for its margin.
+        box.look = ComposerLook(working: true)
+        #expect(Array(box.glowGradient.prefix(6)) == Array(box.edgeGradient.prefix(6)))
+        #expect(box.edgeGradient == RainbowBox.loops(2) && box.glowGradient == RainbowBox.loops(3))
+        // The web's flow: from 0 to -200% of a 200% image, one loop to the right in 5 seconds; the box's left edge
+        // starts on the loop's first colour.
+        #expect(box.colourPhase(atBoxX: 0).edge < 0.0001)
+        #expect(abs(box.colourPhase(atBoxX: 311).edge - 0.5) < 0.0001)
+    }
+
+    @Test("the edge and the glow flow together, only while an answer runs and the box is on screen, never under Reduce Motion")
     func edgeFlows() {
         let box = RainbowBox(frame: CGRect(x: 0, y: 0, width: 311, height: 96))
         box.layoutIfNeeded()
+        box.look = ComposerLook(working: true)
+        // Off the window nobody sees it.
+        #expect(!box.isFlowing)
+
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.addSubview(box)
+        #expect(box.isFlowing == !UIAccessibility.isReduceMotionEnabled)
+        #expect(box.glowFlowsWithEdge == !UIAccessibility.isReduceMotionEnabled)
+        box.look = ComposerLook(working: true, focused: true)
+        #expect(box.glowFlowsWithEdge == !UIAccessibility.isReduceMotionEnabled)
+        box.look = ComposerLook(working: true, waiting: true)
+        #expect(!box.isFlowing && !box.glowFlowsWithEdge)
+        box.look = ComposerLook()
         #expect(!box.isFlowing)
         box.look = ComposerLook(working: true)
-        #expect(box.isFlowing == !UIAccessibility.isReduceMotionEnabled)
-        box.look = ComposerLook(working: true, waiting: true)
+        box.removeFromSuperview()
         #expect(!box.isFlowing)
     }
 
@@ -99,6 +166,22 @@ struct ComposerTests {
      "acceptsFiles":true,
      "metadata":{"url":"https://chatwithwork.com/482139075/chats/42"}}
     """
+
+    /// An image's alpha, read back through a bitmap of its own.
+    private static func alphaChannel(_ image: CGImage) -> (width: Int, bytes: [UInt8], at: (Int, Int) -> UInt8)? {
+        var bytes = [UInt8](repeating: 0, count: image.width * image.height)
+        let drawn = bytes.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: image.width, height: image.height, bitsPerComponent: 8,
+                                          bytesPerRow: image.width, space: CGColorSpaceCreateDeviceGray(),
+                                          bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue) else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            return true
+        }
+        guard drawn else { return nil }
+        let width = image.width
+        let copy = bytes
+        return (width, copy, { x, y in copy[y * width + x] })
+    }
 
     private func message(_ event: String, _ json: String) -> Message {
         Message(id: "1", component: "composer", event: event, metadata: .init(url: "https://chatwithwork.com/482139075/chats/42"), jsonData: json)

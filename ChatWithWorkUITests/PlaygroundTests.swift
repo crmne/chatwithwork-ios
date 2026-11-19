@@ -145,6 +145,53 @@ final class PlaygroundTests: XCTestCase {
         }
     }
 
+    /// The composer's colours in each of the web's states, one chat each in
+    /// the playground: at rest (a finished chat), with focus (the field takes
+    /// the keyboard), working (an answer running: the edge and glow flow) and
+    /// a change waiting (amber). The look itself is ComposerTests'; this keeps
+    /// what each state draws, in the app against the real stylesheet's page.
+    @MainActor
+    func testComposerColourStates() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground, "-CWWAskForNotifications", "NO"]
+        app.launch()
+        app.buttons["welcome.signIn"].tap()
+        let signIn = app.webViews.buttons["Sign in"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 20))
+        signIn.tap()
+        // "Signed in." goes by itself; tapping it raced its leaving on iPad.
+        _ = app.descendants(matching: .any)["toast"].waitForNonExistence(timeout: 10)
+
+        let field = app.textViews["composer.text"]
+        openChat(app, titled: "Which customers asked about SSO?")
+        XCTAssertTrue(field.waitForExistence(timeout: 20))
+        settle()
+        keep("composer-colour-idle")
+        field.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10))
+        settle(0.8)
+        keep("composer-colour-focused")
+
+        // In a project the sidebar keeps closed, so by its link.
+        openAppLink(app, "chatwithwork://open?path=/1000001/chats/41")
+        XCTAssertTrue(app.buttons["composer.stop"].waitForExistence(timeout: 20), "An answer runs in this chat")
+        settle()
+        keep("composer-colour-working")
+        settle(1.25)
+        keep("composer-colour-working-later")
+
+        openChat(app, titled: "Q3 launch commitments for Acme")
+        XCTAssertTrue(app.webViews.staticTexts["Waiting for your approval."].waitForExistence(timeout: 20))
+        settle()
+        keep("composer-colour-waiting")
+
+        // New chat's sheet draws the same composer, at rest.
+        openNewChat(app)
+        XCTAssertTrue(field.waitForExistence(timeout: 20))
+        settle()
+        keep("composer-colour-new-chat")
+    }
+
     /// Locks every chat's composer in the playground (`/lock`), or none.
     private func lockChats(_ kind: String) throws {
         _ = try Data(contentsOf: URL(string: "\(playground)/lock?kind=\(kind)")!)
@@ -600,13 +647,14 @@ final class PlaygroundTests: XCTestCase {
         if open.waitForExistence(timeout: 10) { open.tap() }
     }
 
-    /// Opens a chat from the sidebar.
+    /// Opens a chat from the sidebar: its first row, where a section of the
+    /// person's also holds it.
     @MainActor
     private func openChat(_ app: XCUIApplication, titled title: String) {
         let sidebar = app.buttons["shell.sidebar"]
         XCTAssertTrue(sidebar.waitForExistence(timeout: 20))
         sidebar.tap()
-        let row = app.buttons[title]
+        let row = app.buttons[title].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         row.tap()
     }
@@ -626,7 +674,20 @@ final class PlaygroundTests: XCTestCase {
 
     @MainActor
     private func keep(_ name: String) {
-        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        let screenshot = XCUIScreen.main.screenshot()
+        // Result bundles drop attachments on iPad simulators, so a folder can take them too.
+        if let folder = ProcessInfo.processInfo.environment["CWW_UI_TEST_SHOTS"] {
+            let base = URL(fileURLWithPath: folder).appendingPathComponent("\(name)\(suffix)")
+            try? screenshot.pngRepresentation.write(to: base.appendingPathExtension("png"))
+            // Where the composer was, in points, to crop it out beside the web's.
+            let box = XCUIApplication().descendants(matching: .any)["composer"].firstMatch
+            if box.exists {
+                let frame = box.frame
+                let json = #"{"x":\#(frame.minX),"y":\#(frame.minY),"width":\#(frame.width),"height":\#(frame.height),"scale":\#(UIScreen.main.scale)}"#
+                try? Data(json.utf8).write(to: base.appendingPathExtension("json"))
+            }
+        }
+        let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = "playground-\(name)\(suffix)"
         attachment.lifetime = .keepAlways
         add(attachment)
