@@ -45,45 +45,39 @@ struct SidebarView: View {
     @ScaledMetric(relativeTo: .footnote) private var smallSize: CGFloat = 13
     @ScaledMetric(relativeTo: .caption) private var captionSize: CGFloat = 12
     @ScaledMetric(relativeTo: .caption2) private var microSize: CGFloat = 11
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    // Icon boxes that grow with their labels, so a large glyph never spills onto its words.
+    @ScaledMetric(relativeTo: .subheadline) private var decisionsIconWidth: CGFloat = 20
+    @ScaledMetric(relativeTo: .subheadline) private var avatarScaled: CGFloat = 32
+    /// The person's initials' circle: 32 points, growing with the name to 48.
+    private var avatarSide: CGFloat { min(avatarScaled, 48) }
+
+    /// At the accessibility text sizes the head scrolls with the list, so
+    /// the list keeps room, and names take up to three lines rather than a
+    /// letter or two.
+    private var accessible: Bool { dynamicTypeSize.isAccessibilitySize }
+    private var nameLines: Int { Self.nameLines(dynamicTypeSize) }
+
+    static func nameLines(_ size: DynamicTypeSize) -> Int { size.isAccessibilitySize ? 3 : 1 }
 
     private var words: [Substring] { query.lowercased().split(separator: " ") }
 
     var body: some View {
         VStack(spacing: 0) {
             if let data = store.data {
-                VStack(spacing: 8) {
-                    // Decisions first, just before the switch (or at the top
-                    // where there's none), as the web's decisions/_sidebar_button.
-                    if let decisions = data.waiting.url ?? data.links.decisions {
-                        decisionsButton(count: data.waiting.count, path: decisions)
-                    }
-                    if store.offersBots, let bots = data.bots {
-                        halfSwitch(attention: bots.attention)
-                    }
-                    head(data)
-                    searchField(data)
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 8)
-
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 1) {
-                        if store.showsBots, let bots = data.bots {
-                            botsList(bots)
-                        } else {
-                            places(data)
-                            if query.isEmpty {
-                                pinnedChats(data)
-                                chatsList(data)
-                            } else {
-                                searchResults(data)
-                            }
+                if accessible {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            top(data)
+                            list(data)
                         }
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.bottom, 16)
+                    .scrollDismissesKeyboard(.immediately)
+                } else {
+                    top(data)
+                    ScrollView { list(data) }
+                        .scrollDismissesKeyboard(.immediately)
                 }
-                .scrollDismissesKeyboard(.immediately)
 
                 personFooter(data)
             } else {
@@ -92,6 +86,43 @@ struct SidebarView: View {
         }
         .background(Color(Palette.canvasSunken).ignoresSafeArea())
         .tint(Color(Palette.ink))
+    }
+
+    /// Decisions, the switch, the head and the search.
+    private func top(_ data: SidebarData) -> some View {
+        VStack(spacing: 8) {
+            // Decisions first, just before the switch (or at the top
+            // where there's none), as the web's decisions/_sidebar_button.
+            if let decisions = data.waiting.url ?? data.links.decisions {
+                decisionsButton(count: data.waiting.count, path: decisions)
+            }
+            if store.offersBots, let bots = data.bots {
+                halfSwitch(attention: bots.attention)
+            }
+            head(data)
+            searchField(data)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+    }
+
+    /// The view's rows: the bots, or the chats.
+    private func list(_ data: SidebarData) -> some View {
+        LazyVStack(alignment: .leading, spacing: 1) {
+            if store.showsBots, let bots = data.bots {
+                botsList(bots)
+            } else {
+                places(data)
+                if query.isEmpty {
+                    pinnedChats(data)
+                    chatsList(data)
+                } else {
+                    searchResults(data)
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.bottom, 16)
     }
 
     // MARK: Head
@@ -148,7 +179,8 @@ struct SidebarView: View {
                     .background(Circle().fill(Color(Palette.surface)).padding(-1.5))
                     .offset(x: 8.5, y: 8.5)
             }
-            .frame(width: 36, height: 36)
+            // A 44-point target where the text is large; 36 as on the web otherwise.
+            .frame(width: accessible ? 44 : 36, height: accessible ? 44 : 36)
             .background(RoundedRectangle(cornerRadius: 10).fill(Color(Palette.surface)))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(isCurrent ? Palette.lineStrong : Palette.line), lineWidth: 1))
             .contentShape(Rectangle())
@@ -203,7 +235,7 @@ struct SidebarView: View {
                 Text(list.name)
                     .font(.system(size: rowSize, weight: .semibold))
                     .foregroundStyle(Color(Palette.ink))
-                    .lineLimit(1)
+                    .lineLimit(nameLines)
                 if waiting > 0 {
                     HStack(spacing: 5) {
                         Circle().fill(Color(Palette.attention)).frame(width: 6, height: 6)
@@ -340,7 +372,7 @@ struct SidebarView: View {
                 Image(systemName: "checklist")
                     .font(.system(size: rowSize, weight: .semibold))
                     .foregroundStyle(Color(Palette.inkMuted))
-                    .frame(width: 20)
+                    .frame(width: decisionsIconWidth)
                 Text("Decisions")
                     .font(.system(size: rowSize, weight: .semibold))
                     .foregroundStyle(Color(Palette.ink))
@@ -423,8 +455,8 @@ struct SidebarView: View {
                             .frame(width: 18)
                             VStack(alignment: .leading, spacing: 1) {
                                 // Who asks first, as the web's decision row leads with it.
-                                Text(item.asker?.name ?? item.title).lineLimit(1).foregroundStyle(Color(Palette.ink))
-                                Text(waitingLabel(item)).font(.caption).foregroundStyle(Color(Palette.inkMuted)).lineLimit(1)
+                                Text(item.asker?.name ?? item.title).lineLimit(nameLines).foregroundStyle(Color(Palette.ink))
+                                Text(waitingLabel(item)).font(.caption).foregroundStyle(Color(Palette.inkMuted)).lineLimit(nameLines)
                                 // Question or Permission, under the summary as the web's tag.
                                 if let tag = item.tag {
                                     Text(tag)
@@ -485,7 +517,10 @@ struct SidebarView: View {
             withAnimation(.snappy) { store.view = half }
         } label: {
             HStack(spacing: 7) {
-                icon().frame(width: 16, height: 16).accessibilityHidden(true)
+                // At the accessibility sizes the label alone fills its half; an icon beside it would push it onto two lines.
+                if !accessible {
+                    icon().frame(width: 16, height: 16).accessibilityHidden(true)
+                }
                 Text(title)
                     .font(.system(size: smallSize, weight: .medium))
                     .overlay(alignment: .trailing) {
@@ -596,7 +631,7 @@ struct SidebarView: View {
     private func seeAll(_ list: SidebarData.List, page: String) -> some View {
         Button { actions.open(page) } label: {
             HStack(spacing: 6) {
-                Text(list.isProject ? String(localized: "Open \(list.name)") : String(localized: "See all, by date")).lineLimit(1)
+                Text(list.isProject ? String(localized: "Open \(list.name)") : String(localized: "See all, by date")).lineLimit(nameLines)
                 Image(systemName: "arrow.right").font(.system(size: captionSize, weight: .medium))
             }
             .font(.system(size: smallSize))
@@ -621,7 +656,7 @@ struct SidebarView: View {
                     .frame(width: 12)
                 Text(section.name)
                     .font(.caption.weight(.semibold))
-                    .lineLimit(1)
+                    .lineLimit(nameLines)
                 Text("\(section.chats.count)")
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(Color(Palette.inkFaint))
@@ -666,11 +701,11 @@ struct SidebarView: View {
                     Text("BOTS IN \(data.organization.name.uppercased())")
                         .font(.caption2.monospaced())
                         .foregroundStyle(Color(Palette.inkMuted))
-                        .lineLimit(1)
+                        .lineLimit(nameLines)
                     Text(botCount(items.count))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color(Palette.ink))
-                        .lineLimit(1)
+                        .lineLimit(nameLines)
                     if working > 0 || waiting > 0 {
                         HStack(spacing: 8) {
                             if working > 0 { stateText(String(localized: "\(working) working"), tone: "live") }
@@ -769,7 +804,7 @@ struct SidebarView: View {
                             Text(line)
                                 .font(.system(size: captionSize))
                                 .foregroundStyle(Color(lineInk(bot.lineTone)))
-                                .lineLimit(1)
+                                .lineLimit(nameLines)
                             Spacer(minLength: 0)
                             if bot.waiting > 0 { waitingCount(bot.waiting) }
                         }
@@ -814,7 +849,7 @@ struct SidebarView: View {
     @ViewBuilder
     private func botName(_ bot: SidebarData.Bots.Item, current: Bool, paused: Bool, emphasized: Bool) -> some View {
         Text(bot.name)
-            .lineLimit(1)
+            .lineLimit(nameLines)
             .font(.system(size: rowSize, weight: emphasized ? .medium : .regular))
             .foregroundStyle(Color(paused ? Palette.inkFaint : current || emphasized ? Palette.ink : Palette.inkMuted))
         if bot.project != nil {
@@ -881,7 +916,7 @@ struct SidebarView: View {
             if let color = toneColor(tone) {
                 Circle().fill(color).frame(width: 6, height: 6)
             }
-            Text(label).font(.caption).foregroundStyle(Color(Palette.inkMuted)).lineLimit(1)
+            Text(label).font(.caption).foregroundStyle(Color(Palette.inkMuted)).lineLimit(nameLines)
         }
     }
 
@@ -965,7 +1000,7 @@ struct SidebarView: View {
                         .padding(.trailing, -4)
                 }
                 Text(chat.title)
-                    .lineLimit(1)
+                    .lineLimit(nameLines)
                     .font(.system(size: rowSize))
                     .foregroundStyle(Color(current ? Palette.ink : Palette.inkMuted))
                 Spacer(minLength: 0)
@@ -1045,12 +1080,15 @@ struct SidebarView: View {
                 Text(data.person.initials)
                     .accessibilityHidden(true)
                     .font(.caption.weight(.bold))
+                    // Two letters stay inside their circle at any text size.
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .minimumScaleFactor(0.5)
                     .foregroundStyle(.white)
-                    .frame(width: 32, height: 32)
+                    .frame(width: avatarSide, height: avatarSide)
                     .background(Circle().fill(LinearGradient(colors: [Color(Palette.live), Color(red: 0.48, green: 0.24, blue: 0.94)], startPoint: .topLeading, endPoint: .bottomTrailing)))
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(data.person.name).font(.subheadline.weight(.semibold)).foregroundStyle(Color(Palette.ink)).lineLimit(1)
-                    Text(data.organization.name).font(.caption).foregroundStyle(Color(Palette.inkMuted)).lineLimit(1)
+                    Text(data.person.name).font(.subheadline.weight(.semibold)).foregroundStyle(Color(Palette.ink)).lineLimit(nameLines)
+                    Text(data.organization.name).font(.caption).foregroundStyle(Color(Palette.inkMuted)).lineLimit(nameLines)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "ellipsis")
