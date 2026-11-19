@@ -33,6 +33,8 @@ final class ComposerView: UIView, UITextViewDelegate {
     var onCancelDictating: (() -> Void)?
     var onRetryDictating: (() -> Void)?
     var onLayout: (() -> Void)?
+    /// The field's words changed: typed, dictated, or cleared by Send.
+    var onTextChange: ((String) -> Void)?
 
     private(set) var state: ComposerState?
     private(set) var mode: Mode = .typing
@@ -600,6 +602,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         onAction?(.send(text: text))
         textView.text = ""
         refreshControls()
+        onTextChange?("")
     }
 
     /// The globe switches web search like the sheet's switch. Where the
@@ -655,6 +658,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         let joiner = current.isEmpty || current.hasSuffix(" ") || current.hasSuffix("\n") ? "" : " "
         textView.text = current + joiner + words
         refreshControls()
+        onTextChange?(textView.text ?? "")
     }
 
     // MARK: UITextViewDelegate
@@ -664,6 +668,7 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     func textViewDidChange(_ textView: UITextView) {
         refreshControls()
+        onTextChange?(textView.text ?? "")
     }
 
     private func resizeText() {

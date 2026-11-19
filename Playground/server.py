@@ -1596,7 +1596,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, LOCKED["kind"] or "none", "text/plain; charset=utf-8")
         if path.startswith("/playground/"):
             return self.static(ROOT / path.removeprefix("/playground/"))
-        if path in ("/configurations/ios_v1.json", "/configurations/ios_v2.json"):
+        if path in ("/configurations/ios_v1.json", "/configurations/ios_v2.json", "/configurations/ios_v3.json"):
             return self.static(REPO / "ChatWithWork/Resources/path-configuration.json")
         if re.fullmatch(r"(/\d{7,})?/(recede|resume|refresh)_historical_location", path):
             return self.send(200, "Going back…")
@@ -1635,9 +1635,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, json.dumps(sidebar_json(self, account, query)), "application/json")
         if rest == "/home":
             # Where the app starts (docs/server-contract.md, "Where the app
-            # starts"): the server's home picks Decisions or New chat; here
-            # always New chat, where the tests begin.
-            return self.redirect(f"/{account}/chats/new", 302)
+            # starts"): the server's home sends the sidebar builds to
+            # Decisions, since New chat is a sheet over a place.
+            return self.redirect(f"/{account}/decisions", 302)
 
         page = None
         if rest == "/bots":
