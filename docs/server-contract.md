@@ -1965,14 +1965,40 @@ While a chat's composer says `working`, the app keeps a Live Activity for
 it (ActivityKit, push type `token`), which iOS shows once the person leaves
 the app: the organization, current work and a timer since it
 started. (ActivityKit starts activities only while the app is in front, so
-the app starts it as the answer starts, not as the person leaves.) Never the chat's title or anything from it. It registers the
-activity's push token with the server:
+the app starts it as the answer starts, not as the person leaves.) Its pushes
+carry nothing from the chat. It registers the activity's push token with the
+server:
 
 ```
 POST /:account/chats/:number/live_activity
 Content-Type: application/json, X-CSRF-Token: <the composer's csrfToken>, the web view's cookies
 { "live_activity": { "token": "<hex>", "app_id": "com.chatwithwork.app", "environment": "sandbox" | "production", "run": "<the composer's run>" } }
 ```
+
+**The chat's title (2026-11-18).** The card's top line is the chat's title,
+or a bot's name and the title (` · `, cut short on one line), or "New chat",
+where the organization's name went. No push may carry it, and a Live
+Activity's pushes update it without running the app's code, so the app asks
+for it with the web session before it starts the activity, and starts it with
+the title in `attributes.title`, which ActivityKit keeps on the phone:
+
+```
+GET /:account/chats/:number/live_activity
+Accept: application/json, the web view's cookies
+
+{ "title": "Q3 renewal plan", "bot": "Morning plan", "titled": true }
+```
+
+`titled` is false while the chat has none yet ("New chat"); an empty object
+means the person turned off "Show the chat and its answer", and the
+organization's name heads the card as before. The app asks as a chat's
+composer first speaks (and again after 30 seconds), so the title is usually
+known when the answer starts; otherwise it waits at most 0.8 seconds, since
+ActivityKit starts activities only in front. Attributes can't change, so a
+title summarized after the activity started (a new chat's first answer)
+shows from the chat's next answer on. The Lock Screen and the Dynamic
+Island's expanded view show it; compact and minimal keep the mark and the
+state.
 
 **Runs (2026-10-31).** While the composer says `working` or `waiting`, its state
 also says `run`, `revision`, `startedAt` (unix seconds) and `mark` (`chat`, a person's chat, which draws Chat with Work's logo, or `bot`), null otherwise, and

@@ -2,8 +2,12 @@ import ActivityKit
 import UIKit
 
 /// Live Activities for answers that keep working while the person is
-/// elsewhere: the organization, the step the answer is on ("Searching
-/// Todoist") and how long, never the chat's title or anything from it.
+/// elsewhere: the chat's title (or a bot's name), the step the answer is on
+/// ("Searching Todoist") and how long. No push carries the title: the app asks
+/// the server for it with the web session (`GET .../live_activity`) as a
+/// chat's composer first speaks, and starts the activity with it in its
+/// attributes, which stay on the phone. The organization heads the card when
+/// it couldn't ask.
 /// ActivityKit starts activities only while the app is in front, and iOS
 /// shows them only once the person leaves it, so the app starts one as soon
 /// as a chat's composer says its answer works and registers the activity's
@@ -27,6 +31,7 @@ final class LiveActivities {
         /// Synthetic system-surface previews, with no token or server registration.
         /// `-CWWLiveActivityPreview search|approval_waiting|answered|failed|stale`.
         /// `-CWWLiveActivityMark chat` draws the logo a person's chat shows.
+        /// `-CWWLiveActivityTitle "Q3 renewal plan"` heads it with a chat's title.
         /// Synthetic content for every state of Open Road. `*_bare` is what an
         /// end push carries today; `legacy` what an older server sends.
         static func previewState(_ scenario: String, now: Date) -> (state: ChatActivityAttributes.ContentState, age: TimeInterval) {
@@ -75,7 +80,7 @@ final class LiveActivities {
                 var (state, age) = previewState(scenario.replacingOccurrences(of: "minimal_", with: ""), now: now)
                 state.mark = UserDefaults.standard.string(forKey: "CWWLiveActivityMark")
                 let organization = scenario == "long" ? "Northwind Studio International Operations" : "Northwind Studio"
-                let attributes = ChatActivityAttributes(organization: organization, path: "/1000001/chats/99999", startedAt: now.addingTimeInterval(-age))
+                let attributes = ChatActivityAttributes(organization: organization, path: "/1000001/chats/99999", startedAt: now.addingTimeInterval(-age), title: UserDefaults.standard.string(forKey: "CWWLiveActivityTitle"))
                 let content = ActivityContent(state: state, staleDate: now.addingTimeInterval(scenario == "stale" ? 10 : 3600))
                 do {
                     let activity = try Activity.request(attributes: attributes, content: content, pushType: nil)
@@ -110,16 +115,28 @@ final class LiveActivities {
     private var watchers: [String: [Task<Void, Never>]] = [:]
     /// Activities this app ended, whose dismissal isn't the person's.
     private var endedByApp: Set<String> = []
+    /// Each chat's title as the server last said it, by path, and when.
+    private var titles: [String: (title: LiveActivityTitle, at: Date)] = [:]
+    /// Title requests under way, by path, so one chat asks once at a time.
+    private var titleFetches: [String: Task<LiveActivityTitle?, Never>] = [:]
+    /// Chats whose activity waits for its title, so a second `working` doesn't start another.
+    private var requesting: Set<String> = []
+    /// Chats whose composer last said its answer works, so one that finished while its title came starts nothing.
+    private var working: Set<String> = []
 
     /// The composer on `chatURL` changed.
     func noteState(_ state: ComposerState, chatURL: URL?) {
         guard isSignedIn(), let chatURL, case .chat = AppRoute(url: chatURL).kind else { return }
         let path = chatURL.path(percentEncoded: false)
+        // Known before an answer starts wherever the chat was open first, so starting waits for nothing.
+        prefetchTitle(for: path)
         if state.working {
+            working.insert(path)
             start(for: path, run: state.liveRun, mark: state.mark, csrfToken: state.csrfToken)
         } else if isInFront(), !state.waiting {
             // A wait keeps its activity: the answer goes on after it, and iOS
             // can't start another from the background.
+            working.remove(path)
             end(for: path)
         }
     }
@@ -135,6 +152,11 @@ final class LiveActivities {
         watchers.values.joined().forEach { $0.cancel() }
         watchers.removeAll()
         dismissals.removeAll()
+        titleFetches.values.forEach { $0.cancel() }
+        titleFetches.removeAll()
+        titles.removeAll()
+        requesting.removeAll()
+        working.removeAll()
         return Task {
             for activity in Activity<ChatActivityAttributes>.activities where current.contains(activity.id) {
                 await activity.end(nil, dismissalPolicy: .immediate)
@@ -160,8 +182,22 @@ final class LiveActivities {
         }
     }
 
+    /// Starts the activity once its title is known: at once when it was
+    /// fetched already, otherwise after at most `titleWait`, since ActivityKit
+    /// starts activities only while the app is in front.
     private func request(for path: String, run: LiveRun?, mark: String?, csrfToken: String?) {
-        let attributes = ChatActivityAttributes(organization: organizationName() ?? "Chat with Work", path: path, startedAt: run?.startedAt ?? Date(), run: run?.id)
+        guard requesting.insert(path).inserted else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            let title = await self.title(for: path)
+            self.requesting.remove(path)
+            guard self.isSignedIn(), self.working.contains(path) else { return }
+            self.request(for: path, run: run, mark: mark, title: title?.headline(newChat: String(localized: "New chat")), csrfToken: csrfToken)
+        }
+    }
+
+    private func request(for path: String, run: LiveRun?, mark: String?, title: String?, csrfToken: String?) {
+        let attributes = ChatActivityAttributes(organization: organizationName() ?? "Chat with Work", path: path, startedAt: run?.startedAt ?? Date(), run: run?.id, title: title)
         var state = ChatActivityAttributes.ContentState.answering
         state.run = run?.id
         state.revision = run?.revision
@@ -229,6 +265,62 @@ final class LiveActivities {
                 await activity.end(nil, dismissalPolicy: .immediate)
             }
         }
+    }
+
+    // MARK: The chat's title
+
+    /// How long starting an activity waits for a title not fetched yet.
+    static let titleWait: Duration = .milliseconds(800)
+
+    private func prefetchTitle(for path: String) {
+        if let kept = titles[path], Date().timeIntervalSince(kept.at) < 30 { return }
+        _ = titleFetch(for: path)
+    }
+
+    private func titleFetch(for path: String) -> Task<LiveActivityTitle?, Never> {
+        if let fetch = titleFetches[path] { return fetch }
+        let fetch = Task { [weak self, environment] in
+            let title = await Self.fetchTitle(for: path, environment: environment)
+            if let title, !Task.isCancelled { self?.titles[path] = (title, Date()) }
+            self?.titleFetches[path] = nil
+            return title
+        }
+        titleFetches[path] = fetch
+        return fetch
+    }
+
+    /// The chat's title, kept or fetched within `titleWait`; nil otherwise.
+    private func title(for path: String) async -> LiveActivityTitle? {
+        if let kept = titles[path] { return kept.title }
+        let fetch = titleFetch(for: path)
+        let wait = Self.titleWait
+        return await withTaskGroup(of: LiveActivityTitle?.self) { group in
+            group.addTask { await fetch.value }
+            group.addTask {
+                try? await Task.sleep(for: wait)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
+    /// Asks the server for the chat's title with the web session.
+    private static func fetchTitle(for path: String, environment: AppEnvironment) async -> LiveActivityTitle? {
+        let route = AppRoute(path: path)
+        guard let account = route.account, case .chat(let number) = route.kind else { return nil }
+
+        var request = URLRequest(url: environment.url(path: "/\(account.rawValue)/chats/\(number)/live_activity"))
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 5
+        await WebSession.authorize(&request)
+
+        let session = URLSession(configuration: .ephemeral)
+        defer { session.finishTasksAndInvalidate() }
+        guard let (data, response) = try? await session.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return try? JSONDecoder().decode(LiveActivityTitle.self, from: data)
     }
 
     /// Tells the server the activity's push token, so it can end it.

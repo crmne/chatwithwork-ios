@@ -15,7 +15,7 @@ struct ChatLiveActivity: Widget {
             let road = context.openRoad
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading, priority: 1) {
-                    OrganizationLine(organization: context.attributes.organization)
+                    OrganizationLine(organization: context.attributes.organization, title: context.attributes.title)
                         .padding(.leading, 6)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .dynamicTypeSize(...DynamicTypeSize.large)
@@ -73,21 +73,33 @@ private struct ActivitySurface: View {
         .activityBackgroundTint(dimmed ? .clear : Road.canvas)
         .activitySystemActionForegroundColor(Road.ink)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(road.accessibilityLabel(organization: attributes.organization))
+        .accessibilityLabel(road.accessibilityLabel(organization: attributes.title ?? attributes.organization))
     }
 }
 
+/// The card's top line: the chat's title (or a bot's name and the title)
+/// where the app fetched it as the activity started, cut short on one line,
+/// and the organization's name, muted, where it didn't.
 private struct OrganizationLine: View {
     let organization: String
+    var title: String? = nil
 
     var body: some View {
         HStack(spacing: 7) {
             Image("Mark").resizable().scaledToFit().frame(width: 15, height: 15)
-            Text(organization)
-                .font(Road.organization)
-                .foregroundStyle(Road.inkMuted)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
+            if let title {
+                Text(title)
+                    .font(Road.chatTitle)
+                    .foregroundStyle(Road.ink)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            } else {
+                Text(organization)
+                    .font(Road.organization)
+                    .foregroundStyle(Road.inkMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
         }
     }
 }
@@ -118,7 +130,7 @@ private struct ActivityCard: View {
             VStack(spacing: 0) {
                 VStack(spacing: 0) {
                     HStack(spacing: 8) {
-                        OrganizationLine(organization: attributes.organization)
+                        OrganizationLine(organization: attributes.organization, title: attributes.title)
                         Spacer(minLength: 0)
                         StepsLine(road: road)
                     }
