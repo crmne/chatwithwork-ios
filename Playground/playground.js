@@ -20,6 +20,22 @@ import ToastController from "/web/controllers/bridge/toast_controller.js"
 
 const application = Application.start()
 
+// The page's own refresh, which pulling down calls (docs/server-contract.md,
+// "Pull to refresh"): the server morphs a fresh copy in; here a Turbo visit
+// to the same page stands in, settling once it has drawn. Opened first with
+// `?cold_refresh`, the playground leaves it out, as an older server does, so the app's
+// fallback to Hotwire Native's own refresh can be tried too.
+if (!new URLSearchParams(location.search).has("cold_refresh")) {
+  window.chatWithWork = Object.assign(window.chatWithWork || {}, {
+    refresh() {
+      return new Promise((resolve) => {
+        document.addEventListener("turbo:load", () => resolve(), { once: true })
+        window.Turbo.visit(location.href, { action: "replace" })
+      })
+    }
+  })
+}
+
 application.register("bridge--auth-session", AuthSessionController)
 application.register("bridge--button", ButtonController)
 application.register("bridge--confirm", ConfirmController)
