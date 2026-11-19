@@ -105,7 +105,7 @@ before Xcode Cloud signs it.
 ChatWithWork/
   App/            launch, the scene, the environment, AppShell (what the window shows)
   Navigation/     the signed-out flow, web screens, routes
-  Sidebar/        the signed-in shell: one chat screen and the native sidebar
+  Sidebar/        the signed-in shell: the place on screen and the sidebar beside it
   Bridge/         the bridge components (native halves)
   Interface/      Live Wire colors, appearance, toasts, the error screen
   Notifications/  push notifications
@@ -130,9 +130,10 @@ docs/             the server contract and design notes
   says: a 401 or the sign-in page means no session, a recede while signed out
   means signed in, a link into another organization means switching. Each
   change rebuilds the shell rather than patching it.
-- **SidebarShell**: one navigator whose root is always a chat (the path
-  configuration replaces the root for every chat page), with the sidebar
-  beside it, which slides in from the left and pushes the chat aside. The
+- **SidebarShell**: one navigator whose root is always a place (a chat,
+  Decisions, Bots, Settings: the path configuration replaces the root for
+  each), with the sidebar beside it, which slides in from the left and
+  pushes the place aside. The
   sidebar is the server's sidebar page, kept loaded in a web view of its own
   (`SidebarWebController`), so it changes with the server; against a server
   without it, it's SwiftUI, drawn from the server's `/native/sidebar` JSON,
