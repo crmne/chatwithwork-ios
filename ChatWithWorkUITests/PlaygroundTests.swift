@@ -2,7 +2,7 @@ import XCTest
 
 /// The signed-in shell, against the contract playground (Playground/server.py)
 /// rather than a real server: sign in, the sidebar, a conversation with its
-/// native menus, the composer over the keyboard, Bots, Settings, and New chat. Screenshots
+/// native menus, the composer over the keyboard, Bots, Settings, and New chat's sheet. Screenshots
 /// are kept as attachments in the result bundle.
 ///
 /// Start the playground first, then run with the ChatWithWorkUITests scheme
@@ -33,6 +33,7 @@ final class PlaygroundTests: XCTestCase {
         let signIn = app.webViews.buttons["Sign in"]
         XCTAssertTrue(signIn.waitForExistence(timeout: 20))
         signIn.tap()
+        openNewChat(app)
         let model = app.buttons["composer.model"]
         XCTAssertTrue(model.waitForExistence(timeout: 20))
         let toast = app.descendants(matching: .any)["toast"]
@@ -85,6 +86,7 @@ final class PlaygroundTests: XCTestCase {
         let signIn = app.webViews.buttons["Sign in"]
         XCTAssertTrue(signIn.waitForExistence(timeout: 20))
         signIn.tap()
+        openNewChat(app)
         let composer = app.textViews["composer.text"]
         XCTAssertTrue(composer.waitForExistence(timeout: 20))
         composer.tap()
@@ -198,14 +200,14 @@ final class PlaygroundTests: XCTestCase {
         app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", playground, "-CWWToastSeconds", "30", "-CWWAskForNotifications", "NO"]
         app.launch()
 
-        // Signing in opens on a new chat, with the sidebar button and New
-        // chat in the bar.
+        // Signing in opens on Decisions, the home, with the sidebar button
+        // and New chat in the bar.
         app.buttons["welcome.signIn"].tap()
         let signIn = app.webViews.buttons["Sign in"]
         XCTAssertTrue(signIn.waitForExistence(timeout: 20))
         signIn.tap()
 
-        XCTAssertTrue(app.webViews.staticTexts["What are we working on, Carmine?"].waitForExistence(timeout: 20), "Signing in should land on a new chat")
+        XCTAssertTrue(app.navigationBars["Decisions"].waitForExistence(timeout: 20), "Signing in should land on Decisions")
         XCTAssertTrue(app.buttons["shell.sidebar"].waitForExistence(timeout: 5), "The sidebar button should be in the bar")
         XCTAssertTrue(app.buttons["shell.newChat"].exists, "New chat should be in the bar")
         XCTAssertFalse(app.tabBars.firstMatch.exists, "No tab bar any more")
@@ -216,7 +218,15 @@ final class PlaygroundTests: XCTestCase {
         signedIn.tap()
         XCTAssertTrue(signedIn.waitForNonExistence(timeout: 5), "A tap should put the toast away")
         settle()
+        keep("home")
+
+        // New chat is a sheet over it, like New bot.
+        openNewChat(app)
+        XCTAssertTrue(app.webViews.staticTexts["What are we working on, Carmine?"].waitForExistence(timeout: 20))
+        settle()
         keep("new-chat")
+        app.buttons["sheet.close"].tap()
+        XCTAssertTrue(app.buttons["sheet.close"].waitForNonExistence(timeout: 10), "Cancel should close New chat's sheet")
 
         XCTAssertFalse(app.buttons["shell.decisions"].exists, "Decisions is in the sidebar, not the bar")
 
@@ -423,17 +433,19 @@ final class PlaygroundTests: XCTestCase {
         keep("settings")
         app.buttons["sheet.close"].tap()
 
-        // New chat from the bar replaces the chat.
-        app.buttons["shell.newChat"].tap()
+        // New chat from the bar comes up as a sheet over the chat.
+        openNewChat(app)
         XCTAssertTrue(app.webViews.staticTexts["What are we working on, Carmine?"].waitForExistence(timeout: 20))
 
-        // Text shared into the app (the share extension's link) waits in a
-        // new chat's composer, never sent by itself.
+        // Text shared into the app (the share extension's link) waits in
+        // the new chat's composer, never sent by itself: the sheet already up
+        // takes it.
         openAppLink(app, "chatwithwork://new-chat?text=Read%20this%20before%20Monday&url=https%3A%2F%2Fexample.com%2Fplan")
-        let filled = NSPredicate(format: "value CONTAINS %@", "Read this before Monday")
-        expectation(for: filled, evaluatedWith: app.textViews["composer.text"])
-        waitForExpectations(timeout: 20)
+        let shared = app.textViews.matching(NSPredicate(format: "identifier == 'composer.text' AND value CONTAINS %@", "Read this before Monday")).firstMatch
+        XCTAssertTrue(shared.waitForExistence(timeout: 20), "The shared words should wait in New chat's composer")
         keep("shared-text")
+        app.buttons["sheet.close"].tap()
+        XCTAssertTrue(app.buttons["sheet.close"].waitForNonExistence(timeout: 10))
 
         // A chat still answering, opened from a Live Activity's link: Stop in
         // the composer. Leaving the app starts its Live Activity.
@@ -601,6 +613,15 @@ final class PlaygroundTests: XCTestCase {
 
     private func settle(_ seconds: TimeInterval = 1.5) {
         Thread.sleep(forTimeInterval: seconds)
+    }
+
+    /// New chat from the bar: a sheet over the place on screen (path configuration v3).
+    @MainActor
+    private func openNewChat(_ app: XCUIApplication) {
+        let newChat = app.buttons["shell.newChat"]
+        XCTAssertTrue(newChat.waitForExistence(timeout: 20), "New chat should be in the bar")
+        newChat.tap()
+        XCTAssertTrue(app.buttons["sheet.close"].waitForExistence(timeout: 20), "New chat should come up as a sheet")
     }
 
     @MainActor
