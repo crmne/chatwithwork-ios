@@ -203,16 +203,14 @@ private struct Headline: View {
                 ForEach(0..<3, id: \.self) { words(variant: $0) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            if !showsClock {
-                EmptyView()
-            } else if road.stage == .stale {
+            if road.stage == .stale {
                 if road.heardAt != nil {
                     Text("Open to check")
                         .font(Road.organization)
                         .foregroundStyle(Road.inkMuted)
                         .lineLimit(1)
                 }
-            } else {
+            } else if showsClock {
                 ActivityClock(clock: road.clock, font: Road.clock, color: road.stage == .finished ? Road.positive : Road.ink)
             }
         }
