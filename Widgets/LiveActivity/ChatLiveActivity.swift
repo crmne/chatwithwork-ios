@@ -73,7 +73,7 @@ private struct ActivitySurface: View {
         .activityBackgroundTint(dimmed ? .clear : Road.canvas)
         .activitySystemActionForegroundColor(Road.ink)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(road.accessibilityLabel(organization: attributes.title ?? attributes.organization))
+        .accessibilityLabel(road.accessibilityLabel(organization: attributes.organization, title: attributes.title))
     }
 }
 
