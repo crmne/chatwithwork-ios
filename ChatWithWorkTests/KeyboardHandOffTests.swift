@@ -67,6 +67,10 @@ struct KeyboardHandOffTests {
         }
 
         #expect(try await focuses(leaving: nil))
+        // One of the composer's buttons with the focus hands it to the field.
+        _ = try? await webView.evaluateJavaScript(#"const b = document.createElement("button"); b.type = "button"; document.getElementById("new_message").append(b); b.focus(); void 0"#)
+        #expect(try await webView.evaluateJavaScript(KeyboardHandOff.focusScript()) as? Bool == true)
+        #expect(try await webView.evaluateJavaScript("document.activeElement.tagName") as? String == "TEXTAREA")
         let leaving = KeyboardHandOff.markLeaving(webView)
         #expect(try await !focuses(leaving: leaving))
         // Another New chat's mark isn't this page's.

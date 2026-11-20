@@ -95,8 +95,8 @@ enum KeyboardHandOff {
 
     private static let leavingKey = "nativeHandOffLeaving"
 
-    /// Focuses New chat's composer, unless something else in the page has
-    /// the focus; true once the composer has it. Never on the page marked
+    /// Focuses New chat's composer, unless something outside it has the
+    /// focus; true once its field has it (not one of its buttons). Never on the page marked
     /// `leaving`, nor on Turbo's preview of a page from its cache.
     static func focusScript(leaving: String? = nil) -> String {
         let mark = leaving.map { "\"\($0)\"" } ?? "null"
@@ -111,8 +111,8 @@ enum KeyboardHandOff {
           if (!editable) return false
           const active = document.activeElement
           if (active && active !== document.body && !composer.contains(active)) return false
-          if (!composer.contains(active)) editable.focus({ preventScroll: true })
-          return composer.contains(document.activeElement)
+          if (!editable.contains(active)) editable.focus({ preventScroll: true })
+          return editable.contains(document.activeElement)
         })()
         """
     }

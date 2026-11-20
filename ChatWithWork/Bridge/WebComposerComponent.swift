@@ -61,9 +61,10 @@ final class WebComposerComponent: BridgeComponent {
         }
     }
 
-    /// Whether the composer's latest word still lets it take `action`.
+    /// Whether the composer's latest word still lets it take `action`, on
+    /// New chat still: a composer that connected again elsewhere doesn't.
     private func stillTakes(_ action: WebComposerAction) -> Bool {
-        guard let state else { return false }
+        guard let state, let url, AppRoute(url: url).kind == .newChat else { return false }
         switch action {
         case .attach: return state.acceptsFiles
         case .dictate: return state.dictates
