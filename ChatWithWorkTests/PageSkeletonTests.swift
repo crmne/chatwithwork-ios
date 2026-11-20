@@ -62,11 +62,10 @@ struct PageSkeletonTests {
 
     // MARK: New chat
 
-    @Test("puts the greeting at 40% of the way to the composer, and three suggestions under it")
-    func newChat() {
+    @Test("puts the greeting at 40% of the way to the foot, the composer where it shows, and three suggestions")
+    func newChat() throws {
         let layout = PageSkeletonLayout.newChat(bounds: screen, insets: insets)
         let composer = ChatSkeletonLayout(bounds: screen, insets: insets).composer
-        #expect(layout.composer == composer)
         #expect(layout.boxes.isEmpty)
         #expect(layout.bones.count == 4)
         let greeting = layout.bones[0].frame
@@ -76,7 +75,17 @@ struct PageSkeletonTests {
         let pills = layout.bones.dropFirst().map(\.frame)
         #expect(pills.map(\.width) == [0.44, 0.58, 0.36].map { (column * $0).rounded() })
         #expect(pills.allSatisfy { $0.height == 32 })
-        #expect(pills[0].minY == greeting.maxY + 20)
+        if BridgeRegistry.drawsComposer {
+            // The app's composer, at rest at the foot of the screen.
+            #expect(layout.composer == composer)
+            #expect(pills[0].minY == greeting.maxY + 20)
+        } else {
+            // The web composer, in the page under the greeting, then the suggestions.
+            let web = try #require(layout.composer)
+            #expect(web.size == composer.size && web.minX == composer.minX)
+            #expect(web.minY == greeting.maxY + 20)
+            #expect(pills[0].minY == web.maxY + 20)
+        }
         #expect(pills[1].minY == pills[0].maxY + 8)
         #expect(layout.bones.allSatisfy { abs($0.frame.midX - screen.midX) <= 1 })
     }
@@ -136,7 +145,7 @@ struct PageSkeletonTests {
         let small = CGRect(x: 0, y: 0, width: 402, height: 500)
         for kind in [PageSkeleton.Kind.list, .settings, .form, .page, .newChat] {
             let layout = PageSkeletonLayout(kind: kind, bounds: small, insets: insets)
-            let floor = kind == .newChat ? layout.composer!.minY : small.height - insets.bottom
+            let floor = kind == .newChat && BridgeRegistry.drawsComposer ? layout.composer!.minY : small.height - insets.bottom
             #expect(layout.bones.allSatisfy { $0.frame.maxY <= floor }, "\(kind)")
             #expect(layout.boxes.allSatisfy { $0.frame.maxY <= floor }, "\(kind)")
         }

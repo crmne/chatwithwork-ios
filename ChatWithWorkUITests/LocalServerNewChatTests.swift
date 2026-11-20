@@ -10,7 +10,7 @@ import XCTest
 ///
 /// `testMeasure` walks one case at a time for the before and after videos
 /// (CWW_UI_TEST_CASE: sidebar, decisions, bots, chat, rotate, offline,
-/// lost, suggestions),
+/// lost, suggestions, web),
 /// printing `CWWMARK <event> <seconds since 1970>` at each tap, and works on
 /// builds where New chat is a sheet too, to compare.
 ///
@@ -45,7 +45,12 @@ final class LocalServerNewChatTests: XCTestCase {
         XCTAssertFalse(app.buttons["sheet.close"].exists, "New chat isn't a sheet")
         XCTAssertTrue(backButton(app).waitForExistence(timeout: 5), "New chat from the bar has Back to Decisions")
         var field = composerField(app)
-        XCTAssertTrue(waitForFocus(field), "New chat opened by a tap takes the keyboard")
+        let native = drawsComposer(app)
+        if native {
+            XCTAssertTrue(waitForFocus(field), "New chat opened by a tap takes the keyboard")
+        } else if !waitForFocus(field, timeout: 3) {
+            field.tap()
+        }
         keep("new-chat-pushed")
 
         field.typeText("Draft that should stay")
@@ -62,11 +67,17 @@ final class LocalServerNewChatTests: XCTestCase {
         XCTAssertTrue(app.buttons["shell.sidebar"].exists, "The sidebar's New chat is a place, with the sidebar button")
         XCTAssertFalse(backButton(app).exists, "A place has no back")
         field = composerField(app)
-        XCTAssertEqual(field.value as? String, "Draft that should stay", "New chat should open with the words left in it")
+        if native {
+            XCTAssertEqual(field.value as? String, "Draft that should stay", "New chat should open with the words left in it")
+        } else {
+            // The web composer keeps no draft for a chat that doesn't exist yet.
+            if !waitForFocus(field, timeout: 3) { field.tap() }
+            if (field.value as? String)?.contains("Draft that should stay") != true { field.typeText("Draft that should stay") }
+        }
         keep("sidebar-new-chat")
 
         // Send: the page turns into the chat where it stands, the root still.
-        app.buttons["composer.send"].firstMatch.tap()
+        sendButton(app).tap()
         let question = app.webViews.staticTexts["Draft that should stay"].firstMatch
         XCTAssertTrue(question.waitForExistence(timeout: 5), "The question should be on screen at once")
         keep("sent")
@@ -233,7 +244,10 @@ final class LocalServerNewChatTests: XCTestCase {
                 let field = composerField(app)
                 XCTAssertTrue(field.waitForExistence(timeout: 20))
                 settle(2)
-                if place == "new-chat" { field.typeText("A draft the suggestion replaces") }
+                if place == "new-chat", field.elementType == .textView, field.identifier == "composer.text" {
+                    if !waitForFocus(field, timeout: 2) { field.tap() }
+                    if waitForFocus(field, timeout: 5) { field.typeText("A draft the suggestion replaces") }
+                }
                 app.swipeDown()
                 settle(1)
                 let suggestion = app.webViews.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'week' OR label CONTAINS[c] 'notes' OR label CONTAINS[c] 'help'")).allElementsBoundByIndex.first(where: \.isHittable)
@@ -268,6 +282,57 @@ final class LocalServerNewChatTests: XCTestCase {
             settle(3)
             keep("new-bot-example-back")
             print("CWWRESULT example-back title=\(app.navigationBars.firstMatch.identifier)")
+        case "web":
+            // The web composer, where the app doesn't draw its own (BridgeRegistry.drawsComposer).
+            XCTAssertFalse(app.textViews["composer.text"].exists, "No native composer")
+            mark("tap-web-1")
+            app.buttons["shell.newChat"].tap()
+            XCTAssertTrue(app.navigationBars["New chat"].waitForExistence(timeout: 20))
+            settle(3)
+            keep("web-new-chat")
+            let field = app.webViews.textViews.firstMatch
+            XCTAssertTrue(field.waitForExistence(timeout: 10), "The web composer's field")
+            mark("composer")
+            field.tap()
+            settle(1.5)
+            field.typeText("In one short sentence, which planet is smallest?")
+            settle(1)
+            keep("web-typing-keyboard")
+            mark("send")
+            webButton(app, "Send").tap()
+            settle(0.4)
+            keep("web-sent-at-once")
+            settle(8)
+            keep("web-chat-answered")
+            mark("chat-keyboard-open")
+            app.webViews.textViews.firstMatch.tap()
+            settle(1.5)
+            keep("web-chat-keyboard-open")
+            mark("chat-keyboard-close")
+            app.swipeDown()
+            settle(1.5)
+            keep("web-chat-keyboard-closed")
+            // Suggestions on New chat and on Decisions' All clear.
+            app.buttons["shell.newChat"].tap()
+            XCTAssertTrue(app.navigationBars["New chat"].waitForExistence(timeout: 20))
+            settle(3)
+            if let suggestion = suggestionButton(app) {
+                mark("suggestion-new-chat")
+                suggestion.tap()
+                settle(2)
+                keep("web-suggestion-new-chat")
+                print("CWWRESULT web-suggestion-new-chat \(String(describing: app.webViews.textViews.firstMatch.value))")
+            }
+            openPlace(app, "Decisions")
+            settle(3)
+            keep("web-decisions-all-clear")
+            if let suggestion = suggestionButton(app) {
+                mark("suggestion-decisions")
+                suggestion.tap()
+                settle(2)
+                keep("web-suggestion-decisions")
+                print("CWWRESULT web-suggestion-decisions \(String(describing: app.webViews.textViews.firstMatch.value))")
+            }
         case "offline":
             app.buttons["shell.newChat"].tap()
             XCTAssertTrue(composerField(app).waitForExistence(timeout: 20))
@@ -302,8 +367,7 @@ final class LocalServerNewChatTests: XCTestCase {
         }
         field.typeText(question)
         settle(1.5)
-        let send = app.buttons.matching(identifier: "composer.send").allElementsBoundByIndex.last(where: \.isHittable)
-            ?? app.buttons["composer.send"].firstMatch
+        let send = sendButton(app)
         mark("send")
         send.tap()
     }
@@ -346,11 +410,25 @@ final class LocalServerNewChatTests: XCTestCase {
     @MainActor
     private func composerField(_ app: XCUIApplication) -> XCUIElement {
         let fields = app.textViews.matching(identifier: "composer.text")
+        let web = app.webViews.textViews
         for _ in 0..<60 {
             if let field = fields.allElementsBoundByIndex.last(where: \.isHittable) { return field }
+            // The web composer, where the app doesn't draw its own.
+            if !fields.firstMatch.exists, let field = web.allElementsBoundByIndex.last(where: \.isHittable) { return field }
             settle(0.25)
         }
-        return fields.firstMatch
+        return fields.firstMatch.exists ? fields.firstMatch : web.firstMatch
+    }
+
+    /// Whether the app draws the composer (BridgeRegistry.drawsComposer) on the page on screen.
+    @MainActor
+    private func drawsComposer(_ app: XCUIApplication) -> Bool {
+        app.textViews["composer.text"].waitForExistence(timeout: 3)
+    }
+
+    @MainActor
+    private func sendButton(_ app: XCUIApplication) -> XCUIElement {
+        app.buttons.matching(identifier: "composer.send").allElementsBoundByIndex.last(where: \.isHittable) ?? webButton(app, "Send")
     }
 
     @MainActor
@@ -417,6 +495,18 @@ final class LocalServerNewChatTests: XCTestCase {
         } else if app.buttons["sheet.close"].exists {
             app.buttons["sheet.close"].tap()
         }
+    }
+
+    @MainActor
+    private func webButton(_ app: XCUIApplication, _ label: String) -> XCUIElement {
+        let buttons = app.webViews.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label))
+        return buttons.allElementsBoundByIndex.last(where: \.isHittable) ?? buttons.firstMatch
+    }
+
+    @MainActor
+    private func suggestionButton(_ app: XCUIApplication) -> XCUIElement? {
+        app.webViews.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'week' OR label CONTAINS[c] 'notes' OR label CONTAINS[c] 'help'"))
+            .allElementsBoundByIndex.first(where: \.isHittable)
     }
 
     @MainActor

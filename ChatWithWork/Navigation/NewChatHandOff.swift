@@ -108,7 +108,7 @@ enum NewChatHandOff {
                 if let webView = current.visitableView.webView, !webView.isHidden {
                     let at = renderedAt ?? clock.now
                     renderedAt = at
-                    if ComposerController.existing(on: current)?.view.state != nil || clock.now - at > composerLimit { break }
+                    if !BridgeRegistry.drawsComposer || ComposerController.existing(on: current)?.view.state != nil || clock.now - at > composerLimit { break }
                 }
                 try? await Task.sleep(for: .milliseconds(16))
             }

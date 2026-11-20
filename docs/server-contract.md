@@ -1841,6 +1841,25 @@ a closed sidebar refetches when it next opens.
 
 ## 12. The composer
 
+**Off for now (2026-11-20).** Carmine: the next builds ship New chat and New
+bot as pages with the web composer showing. The app leaves `composer` out
+of its user agent's `bridge-components` (`BridgeRegistry.drawsComposer`, one
+constant, so turning it back on is one line), so the server keeps the web
+composer in sight (native.css hides it only under
+`html[data-bridge-components~=composer]`) and sets no
+`--native-composer-height`. The web view stops at the keyboard
+(`KeyboardAvoidance.install`), so the docked web composer rides on it, and
+WebKit's bar over the keyboard (arrows and Done) is left out
+(`FormAccessory`). Suggestions fill the web composer as on the web. While
+it's off, what follows from the native composer is off too: the Live
+Activity started from `working`, share-sheet files (shared words still
+arrive through `/chats/new?text=`), the kept New chat draft, the app's
+dictation and its glow and haptics; the skeletons draw the composer where
+the web one sits (under New chat's greeting, at a chat's foot). WebKit
+shows the keyboard only for a focus that follows a tap in the page, so a
+page focusing its composer by itself gets the caret but no keyboard. The
+rest of this section describes the composer when it's on.
+
 **Overlay layout (2026-10-29).** The server advertises `overlay: true` in
 composer state when it supports scroll clearance. Only then does the app
 float the composer over the page and reply `layout {height, width}` after

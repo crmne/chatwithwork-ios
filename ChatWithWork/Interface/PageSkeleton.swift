@@ -325,11 +325,17 @@ nonisolated struct PageSkeletonLayout: Equatable {
         var y = (centre - 11).rounded()
         builder.centred(0.6, y: y, height: 22)
         y += 22 + 20
+        // The web composer, where the app doesn't draw its own, sits in the page under the greeting.
+        var composer = column.composer
+        if !BridgeRegistry.drawsComposer {
+            composer.origin.y = y
+            y += composer.height + 20
+        }
         for fraction in [0.44, 0.58, 0.36] {
             builder.centred(fraction, y: y, height: 32)
             y += 32 + 8
         }
-        return Self(bones: builder.bones, boxes: [], composer: column.composer)
+        return Self(bones: builder.bones, boxes: [], composer: composer)
     }
 
     /// Rows of a list as far down as they fit: a mark, a name, and a line under it.
