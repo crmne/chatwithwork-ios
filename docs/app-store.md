@@ -41,7 +41,7 @@ Release. It was released through the API at 19:15 Europe/Berlin, and App
 Store Connect said Ready for Sale at once; the public lookup answered 1.1.4
 minutes later.
 
-iOS 1.1.5, build 10078, went to App Review on November 20, 2026 at 19:18
+iOS 1.1.5, first with build 10078, went to App Review on November 20, 2026 at 19:18
 Europe/Berlin, with **Manually release this version** selected. Build 10078 is
 Xcode Cloud's archive of main at
 [42be3af](https://github.com/crmne/chatwithwork-ios/commit/42be3af), already
@@ -65,9 +65,14 @@ the web composer with New chat in place and Decisions in the bar
 ([#62](https://github.com/crmne/chatwithwork-ios/pull/62),
 [#63](https://github.com/crmne/chatwithwork-ios/pull/63)).
 
-Known: the composer clips the screen's rounded corners at the bottom once the
-keyboard is put away. The screenshots still show the native composer and the
-bar before Decisions.
+The composer clipped the screen's rounded corners at the bottom once the
+keyboard was put away. Its fix
+([#64](https://github.com/crmne/chatwithwork-ios/pull/64)) became build
+10080, and since the review hadn't started, the submission was canceled at
+21:09 Europe/Berlin (the version became Developer Rejected), build 10080 put
+in place of 10078, and 1.1.5 sent back to review at 21:10 with the same
+words, notes and manual release. The screenshots still show the native
+composer and the bar before Decisions.
 
 Validation: each pull request says what it ran. The build wasn't tried on a
 device for this submission.
