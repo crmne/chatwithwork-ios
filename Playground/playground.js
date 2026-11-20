@@ -17,6 +17,7 @@ import ShareController from "/web/controllers/bridge/share_controller.js"
 import SidebarController from "/web/controllers/bridge/sidebar_controller.js"
 import BridgeComposerController from "/web/controllers/bridge/composer_controller.js"
 import BridgeWebComposerController from "/web/controllers/bridge/web_composer_controller.js"
+import DecisionsController from "/web/controllers/bridge/decisions_controller.js"
 import ToastController from "/web/controllers/bridge/toast_controller.js"
 
 const application = Application.start()
@@ -51,6 +52,7 @@ application.register("bridge--share", ShareController)
 application.register("bridge--sidebar", SidebarController)
 application.register("bridge--composer", BridgeComposerController)
 application.register("bridge--web-composer", BridgeWebComposerController)
+application.register("bridge--decisions", DecisionsController)
 application.register("bridge--toast", ToastController)
 
 application.register("search", class extends Controller {

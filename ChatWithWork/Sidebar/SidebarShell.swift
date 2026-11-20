@@ -303,12 +303,42 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             sidebar.accessibilityIdentifier = "shell.sidebar"
             NavigationBarItems.set(sidebar, slot: .shell, side: .leading, on: viewController)
         }
-        if store.data?.links.newChat != nil || store.data == nil {
+        decorateTrailing(viewController)
+    }
+
+    /// The bar's last button: Decisions where the page says how many wait
+    /// (`decisions`, docs/server-contract.md, "Decisions in the bar"), except
+    /// on Decisions itself; New chat there and from a server that doesn't say.
+    func decorateTrailing(_ viewController: UIViewController) {
+        guard navigator.rootViewController.viewControllers.contains(viewController) else { return }
+        if let decisions = DecisionsButton.current, !DecisionsButton.isDecisions(viewController, decisions: decisions.url) {
+            let url = decisions.url
+            let item = DecisionsButton.item(waiting: decisions.waiting) { [weak self] in self?.openDecisions(url) }
+            NavigationBarItems.set(item, slot: .shell, side: .trailing, on: viewController)
+        } else if store.data?.links.newChat != nil || store.data == nil || DecisionsButton.current != nil {
             let newChat = UIBarButtonItem(image: UIImage(systemName: "square.and.pencil"), primaryAction: UIAction { [weak self] _ in self?.startNewChat() })
             newChat.accessibilityLabel = String(localized: "New chat")
             newChat.accessibilityIdentifier = "shell.newChat"
             NavigationBarItems.set(newChat, slot: .shell, side: .trailing, on: viewController)
         }
+    }
+
+    func decorateTrailingOnEveryScreen() {
+        navigator.rootViewController.viewControllers.forEach(decorateTrailing)
+    }
+
+    /// Decisions from the bar: back to it where it's the root under the
+    /// screen on top, else as the place at the root; never a second one.
+    func openDecisions(_ url: URL) {
+        let main = navigator.rootViewController
+        startingVisit()
+        setOpen(false, animated: true)
+        if let root = main.viewControllers.first, DecisionsButton.isDecisions(root, decisions: url) {
+            main.presentedViewController?.dismiss(animated: true)
+            main.popToRootViewController(animated: true)
+            return
+        }
+        open(url: url, closingSidebar: false)
     }
 
     // MARK: Routing

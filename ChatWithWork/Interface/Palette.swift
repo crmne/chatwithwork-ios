@@ -34,6 +34,8 @@ enum Palette {
     static let liveInk = UIColor(light: 0x1569B5, dark: 0x44B0FF)
     static let attention = UIColor(light: 0xD99A06, dark: 0xFFC247)
     static let attentionInk = UIColor(light: 0x8A5F00, dark: 0xFFC247)
+    /// Words on attention's own colour (a count badge): dark in both themes.
+    static let onAttention = UIColor(light: 0x0A0D14, dark: 0x06070B)
     /// A box waiting on someone: attention's wash and edge, as the web's
     /// `--attention-wash` and `--attention-edge` mix them.
     static let attentionWash = UIColor(light: 0xF9EFD7, dark: 0x312B20)

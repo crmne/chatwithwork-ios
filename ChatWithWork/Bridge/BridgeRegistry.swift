@@ -50,6 +50,7 @@ enum BridgeRegistry {
             SidebarComponent.self, // "sidebar"
             ComposerComponent.self, // "composer"
             WebComposerComponent.self, // "web-composer"
+            DecisionsComponent.self, // "decisions"
             FileShareComponent.self // "file"
         ]
     }

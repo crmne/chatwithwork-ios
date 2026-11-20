@@ -177,6 +177,18 @@ def layout(handler, page):
                          if handler.signed_in and "bridge--notification-token" not in page.body else "")
     # Tells builds that draw the sidebar when the chat list changes.
     sidebar = '  <div hidden data-controller="bridge--sidebar"></div>\n' if handler.signed_in and native else ""
+    # Decisions at the end of the bar (application/_native_decisions): how many wait, and whether this is Decisions.
+    decisions = ""
+    if handler.signed_in and native:
+        path = urllib.parse.urlsplit(handler.path).path
+        first = path.strip("/").split("/")[0]
+        account = first if first.isdigit() else "1000001"
+        count = len(waiting_decisions(handler, account))
+        here = "true" if path.rstrip("/").endswith("/decisions") else "false"
+        shown = (f'<span class="sidebar__meta-count">{count}</span>' if count else '<span class="decisions-button__clear">All clear</span>')
+        decisions = (f'  <div hidden class="native-actions" data-controller="bridge--decisions" data-bridge-native-action="decisions"'
+                     f' data-bridge--decisions-url-value="http://{handler.headers.get("Host", "localhost")}/{account}/decisions"'
+                     f' data-bridge--decisions-here-value="{here}"><turbo-frame id="native_decisions"><span data-decisions-count>{shown}</span></turbo-frame></div>\n')
     return f"""<!DOCTYPE html>
 <html lang="en"{native_attr}>
 <head>
@@ -206,7 +218,7 @@ def layout(handler, page):
   <main class="native-main">
 {page.body}
   </main>
-{push_registration}{sidebar}</body>
+{push_registration}{sidebar}{decisions}</body>
 </html>"""
 
 

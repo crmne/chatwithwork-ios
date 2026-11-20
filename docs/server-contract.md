@@ -545,6 +545,7 @@ Android ignores, are marked "iOS". Every message the bridge sends also carries
 | `composer` | `connect` and `state` with the composer's state | reply to the latest `connect` `{action, ...}` | `bridge--composer` (section 12) |
 | `web-composer` | `connect` and `state` `{working, waiting, run, revision, startedAt, mark, csrfToken, acceptsFiles, dictates}` | reply to the latest `connect`: `{action: "attach", files}` or `{action: "dictate"}` | `bridge--web-composer` ([The web composer](#the-web-composer-2026-11-20)) |
 | `file` | `connect` `{files: [{url, name, contentType?, title?}]}`; `disconnect` | none | `bridge--file` ([A file](#a-file-chatsfilesshow)) |
+| `decisions` | `connect` `{waiting, here, url}`; `count` `{waiting}` | none | `bridge--decisions` ([Decisions in the bar](#decisions-in-the-bar-2026-11-20)) |
 
 Rules for every component:
 
@@ -614,6 +615,32 @@ Details the table can't hold:
 What each page renders in the apps. "Hidden holder" means
 `<div class="native-actions" hidden>`, whose elements only native components
 click.
+
+### Decisions in the bar (2026-11-20)
+
+On every main-stack screen but Decisions, the bar's last button is
+Decisions (SF Symbols' `signpost.right`, the web's Phosphor `signpost`); on
+Decisions it's New chat. It sits where New chat sat, the outermost trailing
+button, so a page's own buttons (a chat's panel and menu, a bot's Setup)
+stand before it; sheets and forms have neither. While decisions wait, the
+symbol takes the attention ink (`Palette.attentionInk`) and a small badge
+at its top right says how many, on attention's own colour with dark words,
+"9+" past nine, none at zero (iOS 26's bar badge; a drawn one before it).
+VoiceOver reads "Decisions" or "Decisions, 3 waiting". A tap goes to
+Decisions: back to it where it's the root under the screen on top (or the
+home, which lands there), else as the place at the root, never a second
+Decisions on the stack.
+
+- **The page says**, through a hidden `bridge--decisions` element on every
+  signed-in account page, only for builds that list `decisions`
+  (`application/_native_decisions`): `connect` `{waiting, here, url}`, then
+  `count` `{waiting}` whenever it changes. `waiting` is how many decisions
+  wait for the person in this organization, snoozed ones left out, as the
+  sidebar's Decisions row says, live on the person's `[user, :sidebar]`
+  stream and loaded again as the page comes back from the background;
+  `here` whether this page is Decisions; `url` Decisions, absolute. The app
+  answers nothing.
+- **Older servers** render no element, and the bar keeps New chat.
 
 ### Chats (`chats/index`)
 

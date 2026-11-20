@@ -41,7 +41,7 @@ struct BridgeContractTests {
     func names() {
         let names = BridgeRegistry.all.map { $0.name }
         // `composer` while the app draws the composer itself (BridgeRegistry.drawsComposer), `web-composer` otherwise.
-        let composer = (BridgeRegistry.drawsComposer ? ["composer"] : ["web-composer"])
+        let composer = (BridgeRegistry.drawsComposer ? ["composer"] : ["web-composer"]) + ["decisions"]
         #expect(names == [
             "alert", "review-prompt", "theme",
             "button", "menu", "search", "form", "share", "toast", "haptic",
@@ -81,6 +81,28 @@ struct BridgeContractTests {
 
         let dictate = try JSONEncoder().encode(WebComposerAction.dictate)
         #expect(try JSONSerialization.jsonObject(with: dictate) as? [String: String] == ["action": "dictate"])
+    }
+
+    @Test("decisions reads how many wait, whether this is Decisions, and where it is")
+    func decisions() throws {
+        let data = try #require(message("decisions", "connect", #"{"waiting":3,"here":false,"url":"https://chatwithwork.com/482139075/decisions",\#(metadata)}"#).data() as DecisionsData?)
+        #expect(data.waiting == 3)
+        #expect(!data.here)
+        #expect(data.url == "https://chatwithwork.com/482139075/decisions")
+        let count: DecisionsCount? = message("decisions", "count", #"{"waiting":12,\#(metadata)}"#).data()
+        #expect(count?.waiting == 12)
+        let here: DecisionsData? = message("decisions", "connect", #"{"waiting":0,"here":true,"url":"/482139075/decisions",\#(metadata)}"#).data()
+        #expect(here?.here == true)
+    }
+
+    @Test("Decisions' badge shows the count up to nine, then 9+, and none at zero; VoiceOver hears how many wait")
+    func decisionsBadge() {
+        #expect(DecisionsButton.badge(for: 0) == nil)
+        #expect(DecisionsButton.badge(for: 3) == "3")
+        #expect(DecisionsButton.badge(for: 9) == "9")
+        #expect(DecisionsButton.badge(for: 12) == "9+")
+        #expect(DecisionsButton.accessibilityLabel(for: 3) == "Decisions, 3 waiting")
+        #expect(DecisionsButton.accessibilityLabel(for: 0) == "Decisions")
     }
 
     @Test("button reads Joe Masilotti's payload")
