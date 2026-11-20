@@ -144,7 +144,12 @@ If a public page ever renders differently for the apps, add
    insets in step with the bars (a large title collapsing, a search bar
    arriving), and lays `position: fixed` elements out inside them. With it,
    the page would start under the bars and have to pad itself with
-   `env(safe-area-inset-*)`, which can't follow a collapsing title.
+   `env(safe-area-inset-*)`, which can't follow a collapsing title. At the
+   bottom the app doesn't leave it to WebKit: the web view itself ends above
+   the home indicator (or the keyboard), since WebKit's bottom inset came and
+   went (after the keyboard went down, and on some pages from the start), and
+   the composer, fixed to the page's bottom, then ran into the screen's
+   rounded corners.
 
    Chat and new-chat screens run under the system's navigation bar like
    every other screen: its title and Liquid Glass buttons, and on iOS 26

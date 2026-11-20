@@ -32,6 +32,23 @@ struct KeyboardAvoidanceTests {
         #expect(composer.view.textView.text == "Hello.")
     }
 
+    @Test("with the keyboard down the page ends above the home indicator, where the web composer then sits clear of the corners")
+    func endsAboveTheHomeIndicator() {
+        let screen = WebScreen.make(url: URL(string: "https://chatwithwork.com/482139075/chats/42")!)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = screen
+        window.isHidden = false
+        defer { window.isHidden = true }
+        screen.additionalSafeAreaInsets.bottom = 34
+        window.layoutIfNeeded()
+        screen.view.layoutIfNeeded()
+
+        let safeBottom = screen.view.safeAreaLayoutGuide.layoutFrame.maxY
+        #expect(safeBottom < 874)
+        #expect(abs(screen.visitableView.frame.maxY - safeBottom) < 0.5,
+                "WebKit's own bottom inset comes and goes, so the web view mustn't reach under the home indicator")
+    }
+
     @Test("the page continues behind the composer while its clear margins pass touches through")
     func overlaysThePage() {
         let screen = WebScreen.make(url: URL(string: "https://chatwithwork.com/482139075/chats/42")!)
