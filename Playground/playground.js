@@ -115,6 +115,63 @@ application.register("chat", class extends Controller {
   }
 })
 
+// Stands in for new_chat_sending_controller.js: New chat turns into its chat
+// the moment the question goes (docs/server-contract.md, "New chat and New
+// bot"). The page goes out of sight, the question and Thinking stand where the
+// chat's page puts them, the composer moves into the chat's dock saying it
+// works (so the app's shows Stop), and the title says "New chat"; a question
+// that doesn't go puts the page back as it was, the words in the composer.
+application.register("new-chat-sending", class extends Controller {
+  static targets = ["page", "shell"]
+
+  send(event) {
+    const form = event.target
+    const composer = form.closest(".composer")
+    if (this.sending || !composer || !this.hasShellTarget) return
+    const text = composer.querySelector("[data-composer-target=input]")?.value || ""
+    const shell = this.shellTarget.content.firstElementChild.cloneNode(true)
+    shell.querySelector(".message__bubble").textContent = text
+    this.sending = { composer, shell, parent: composer.parentNode, place: composer.nextSibling, text, title: document.title }
+    this.pageTarget.hidden = true
+    this.pageTarget.after(shell)
+    shell.querySelector("[data-new-chat-sending-target=dock]").append(composer)
+    composer.classList.add("composer--working")
+    document.title = "New chat"
+    form.addEventListener("turbo:submit-end", (end) => { if (!end.detail?.success) this.putBack() }, { once: true })
+  }
+
+  putBack() {
+    const sending = this.sending
+    if (!sending) return
+    this.sending = null
+    sending.parent.insertBefore(sending.composer, sending.place?.parentNode === sending.parent ? sending.place : null)
+    sending.composer.classList.remove("composer--working")
+    const input = sending.composer.querySelector("[data-composer-target=input]")
+    if (input) {
+      input.value = sending.text
+      input.dispatchEvent(new Event("input", { bubbles: true }))
+    }
+    sending.shell.remove()
+    document.title = sending.title
+    this.pageTarget.hidden = false
+  }
+})
+
+// Stands in for prompt_suggestions_controller.js: a suggestion's words go
+// into the composer, and to the app's own composer as well
+// ("composer:filled", which the composer bridge connects again with).
+application.register("prompt-suggestions", class extends Controller {
+  static outlets = ["chat"]
+
+  fill({ params: { prompt } }) {
+    if (!this.hasChatOutlet) return
+    this.chatOutlet.inputTarget.value = prompt
+    this.chatOutlet.updateButtonState()
+    this.chatOutlet.inputTarget.focus()
+    this.chatOutlet.element.dispatchEvent(new CustomEvent("composer:filled", { detail: { text: prompt } }))
+  }
+})
+
 // The composer's + menu, like the web app's composer-menu: its button opens
 // and closes it, Escape closes it and returns to the button, and a click
 // elsewhere closes it and leaves focus where it went.

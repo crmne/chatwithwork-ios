@@ -53,6 +53,16 @@ struct AppRouteTests {
         #expect(!AppRoute(path: "/1000001/bots").isChat)
     }
 
+    @Test("knows the pages whose composer starts a chat", arguments: [
+        ("/1000001/chats/new", true), ("/1000001/chats/new?project_id=3", true), ("/1000001/bots/new", true),
+        ("/1000001/home", true), ("/home", true), ("/1000001/decisions", true), ("/1000001/decisions?view=now", true),
+        ("/1000001/chats/7", false), ("/1000001/bots", false), ("/1000001/bots/7", false), ("/1000001/chats", false)
+    ])
+    func startsChats(path: String, starts: Bool) throws {
+        let url = try #require(URL(string: "https://chatwithwork.com" + path))
+        #expect(AppRoute(url: url).startsChats == starts)
+    }
+
     @Test("tells sign-in apart from the other account pages")
     func signIn() {
         #expect(AppRoute(path: "/users/sign_in").isSignIn)
@@ -83,7 +93,7 @@ struct AppRouteTests {
         #expect(AppShell.notice(in: url("/recede_historical_location?notice=")) == nil)
     }
 
-    @Test("a server without the home starts on the chat list, a place, never New chat's sheet")
+    @Test("a server without the home starts on the new chat last chosen there, a place")
     func startURLsWithoutHome() {
         let environment = AppEnvironment.load(info: ["CWWBaseURL": "https://chatwithwork.com"], arguments: UserDefaults(suiteName: UUID().uuidString)!, variables: [:])
         let memory = SessionMemory(defaults: UserDefaults(suiteName: UUID().uuidString)!)
@@ -92,11 +102,11 @@ struct AppRouteTests {
         let fallback = { (path: String, account: AccountSlug?) in
             SidebarShell.startURLWithoutHome(failed: home(path), environment: environment, account: account, memory: memory)?.absoluteString
         }
-        #expect(fallback("/home", nil) == "https://chatwithwork.com/chats")
-        #expect(fallback("/482139075/home", nil) == "https://chatwithwork.com/482139075/chats")
+        #expect(fallback("/home", nil) == "https://chatwithwork.com/chats/new")
+        #expect(fallback("/482139075/home", nil) == "https://chatwithwork.com/482139075/chats/new")
         memory.setNewChatPath("/482139075/chats/new?project_id=3", in: acme)
-        #expect(fallback("/482139075/home", nil) == "https://chatwithwork.com/482139075/chats")
-        #expect(fallback("/home", acme) == "https://chatwithwork.com/482139075/chats")
+        #expect(fallback("/482139075/home", nil) == "https://chatwithwork.com/482139075/chats/new?project_id=3")
+        #expect(fallback("/home", acme) == "https://chatwithwork.com/482139075/chats/new?project_id=3")
         #expect(fallback("/482139075/chats/9", acme) == nil)
         #expect(fallback("/482139075/decisions", acme) == nil)
     }

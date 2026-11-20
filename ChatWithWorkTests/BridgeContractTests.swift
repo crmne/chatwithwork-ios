@@ -40,11 +40,13 @@ struct BridgeContractTests {
     @Test("registers every component under its contract name")
     func names() {
         let names = BridgeRegistry.all.map { $0.name }
+        // `composer` only while the app draws the composer itself (BridgeRegistry.drawsComposer).
+        let composer = BridgeRegistry.drawsComposer ? ["composer"] : []
         #expect(names == [
             "alert", "review-prompt", "theme",
             "button", "menu", "search", "form", "share", "toast", "haptic",
-            "context-menu", "auth-session", "notification-token", "sidebar", "composer", "file"
-        ])
+            "context-menu", "auth-session", "notification-token", "sidebar"
+        ] + composer + ["file"])
         #expect(Set(names).count == names.count)
     }
 

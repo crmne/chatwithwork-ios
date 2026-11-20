@@ -9,7 +9,9 @@ import WebKit
 /// rather than subclassed: a subclass that touches the bridge delegate's
 /// lifecycle is what crashed Cluster Headache Tracker's iOS app.
 enum WebScreen {
-    static func make(url: URL) -> VisitableViewController {
+    /// `skeleton: false` for a screen whose page is already on screen (the
+    /// chat New chat just turned into, NewChatHandOff).
+    static func make(url: URL, skeleton: Bool = true) -> VisitableViewController {
         let controller = HotwireWebViewController(url: url)
         controller.loadViewIfNeeded()
 
@@ -26,7 +28,7 @@ enum WebScreen {
         }
 
         KeyboardAvoidance.install(on: controller)
-        PageSkeleton.attach(to: controller, url: url)
+        if skeleton { PageSkeleton.attach(to: controller, url: url) }
         return controller
     }
 
@@ -60,6 +62,8 @@ enum WebScreen {
         TopEdge.follow(webView.scrollView)
         // A long press on a link shouldn't open a browser preview of an app page.
         webView.allowsLinkPreview = false
+        // The web composer types without the form bar's arrows and Done over the keyboard.
+        FormAccessory.hide(in: webView)
         #if DEBUG
             webView.isInspectable = true
         #endif
@@ -235,5 +239,34 @@ enum TextSize {
         let latest = controller.userScripts.last { $0.source.hasPrefix(marker) }
         guard latest?.source != script(percent: percent) else { return }
         controller.addUserScript(WKUserScript(source: script(percent: percent), injectionTime: .atDocumentStart, forMainFrameOnly: true))
+    }
+}
+
+/// Leaves out the bar WebKit puts over the keyboard for web fields (the
+/// previous and next arrows and Done), which sat between the web composer and
+/// the keyboard. WebKit asks its content view for the bar; a subclass of
+/// that view, made once at runtime, answers none. Public API only: no
+/// private selectors are called.
+enum FormAccessory {
+    private nonisolated(unsafe) static var subclass: AnyClass?
+
+    static func hide(in webView: WKWebView) {
+        guard let content = webView.scrollView.subviews.first(where: { String(describing: type(of: $0)).hasPrefix("WKContent") }) else { return }
+        guard let base: AnyClass = object_getClass(content) else { return }
+        if subclass == nil {
+            let name = "\(NSStringFromClass(base))_CWWNoAccessory"
+            if let existing = NSClassFromString(name) {
+                subclass = existing
+            } else if let made = objc_allocateClassPair(base, name, 0) {
+                let block: @convention(block) (AnyObject) -> AnyObject? = { _ in nil }
+                let selector = #selector(getter: UIResponder.inputAccessoryView)
+                if let method = class_getInstanceMethod(UIView.self, selector) {
+                    class_addMethod(made, selector, imp_implementationWithBlock(block), method_getTypeEncoding(method))
+                }
+                objc_registerClassPair(made)
+                subclass = made
+            }
+        }
+        if let subclass, base != subclass, class_getSuperclass(subclass) == base { object_setClass(content, subclass) }
     }
 }

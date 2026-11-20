@@ -1018,34 +1018,52 @@ def reach(account, paused):
 
 
 def suggestions(account, paused):
-    """Questions to start from, each a button that starts a chat with it
-    (chats/_suggestions)."""
+    """Questions to start from, each a button that puts its words in the
+    composer to read, change and send (chats/_suggestions,
+    prompt_suggestions_controller.js). Nothing is sent by itself."""
     picks = [(text, text) for key, _, text in SERVICES if key not in paused][:3] + [INTERVIEW]
     items = "".join(f"""
       <li>
-        <form class="button_to" method="post" action="/{account}/messages">
-          <button class="suggestion" type="submit">{icon("arrow-up-right", "suggestion__icon")}
-            <span>{esc(label)}</span>
-          </button>
-          <input type="hidden" name="message[content]" value="{esc(prompt)}">
-        </form>
+        <button type="button" class="suggestion" title="{esc(label)}" data-action="prompt-suggestions#fill" data-prompt-suggestions-prompt-param="{esc(prompt)}">
+          {icon("arrow-up-right", "suggestion__icon")}<span>{esc(label)}</span>
+        </button>
       </li>""" for label, prompt in picks)
     return f"""
-    <ul id="suggestions" class="suggestions" aria-label="Questions to start with">{items}
+    <ul id="suggestions" class="suggestions" aria-label="Things to ask"
+        data-controller="prompt-suggestions" data-prompt-suggestions-chat-outlet="#new_message">{items}
     </ul>"""
 
 
 def new_chat(handler, account, project_number=None, prefill=""):
     paused = handler.session.setdefault("paused", set())
     project = int(project_number) if project_number and project_number.isdigit() and int(project_number) in PROJECTS else None
+    # Where New chat is a page (path configuration v4), and on the web, it turns into its chat in place as the
+    # question goes (chats/_sending, new_chat_sending_controller.js); earlier builds get no template.
+    sending = handler.new_chat_page or not handler.native_platform
+    wrapper = ' data-controller="new-chat-sending" data-action="turbo:submit-start->new-chat-sending#send"' if sending else ""
+    page_target = ' data-new-chat-sending-target="page"' if sending else ""
+    shell = f"""
+    <template data-new-chat-sending-target="shell">
+      <div class="new-chat-sending conversation">
+        <div id="chat_messages" class="conversation__messages">
+          <div class="message message--user message--pending" data-message-role="user">
+            <div class="message__bubble"></div>
+          </div>
+          <div id="typing_indicator"><div class="thinking" role="status"><span class="thinking__label">Thinking</span></div></div>
+        </div>
+        <div class="conversation__dock" data-new-chat-sending-target="dock"></div>
+      </div>
+    </template>""" if sending else ""
     body = f"""
-    <div class="new-chat">
+    <div{wrapper}>
+    <div class="new-chat"{page_target}>
       <div class="new-chat__backdrop dot-grid dot-grid--fade" aria-hidden="true"></div>
 
       <h1 class="new-chat__greeting">What are we working on, Carmine?</h1>
 {project_context(account, project) if project else ''}{composer(handler, account, placeholder="Ask anything…", project=project, prefill=prefill)}
 {reach(account, paused)}
 {suggestions(account, paused)}
+    </div>{shell}
     </div>
 
     <dialog id="connect_dialog" class="modal">
@@ -1507,6 +1525,11 @@ class Handler(BaseHTTPRequestHandler):
         return self.headers.get("User-Agent", "")
 
     @property
+    def new_chat_page(self):
+        """Builds that read path configuration v4, where New chat and New bot are pages, say so (NativeApp#new_chat_page?)."""
+        return bool(re.search(r"(?:\A|[;\s])new-chat=page;", self.user_agent))
+
+    @property
     def native_platform(self):
         match = re.search(r"Chat with Work; platform=(\w+);", self.user_agent)
         if match:
@@ -1601,7 +1624,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, LOCKED["kind"] or "none", "text/plain; charset=utf-8")
         if path.startswith("/playground/"):
             return self.static(ROOT / path.removeprefix("/playground/"))
-        if path in ("/configurations/ios_v1.json", "/configurations/ios_v2.json", "/configurations/ios_v3.json"):
+        if path in ("/configurations/ios_v1.json", "/configurations/ios_v2.json", "/configurations/ios_v3.json", "/configurations/ios_v4.json"):
             return self.static(REPO / "ChatWithWork/Resources/path-configuration.json")
         if re.fullmatch(r"(/\d{7,})?/(recede|resume|refresh)_historical_location", path):
             return self.send(200, "Going back…")

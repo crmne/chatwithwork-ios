@@ -4,7 +4,7 @@ import Testing
 @testable import ChatWithWork
 
 /// The bundled path configuration, which the server's
-/// /configurations/ios_v3.json replaces (an exact copy of it). Its rules are part of the server
+/// /configurations/ios_v4.json replaces (an exact copy of it). Its rules are part of the server
 /// contract, so both must keep these behaviors.
 @Suite("Path configuration")
 struct PathConfigurationTests {
@@ -56,17 +56,21 @@ struct PathConfigurationTests {
         #expect(properties(path).pullToRefreshEnabled)
     }
 
-    @Test("brings New chat up as a sheet like New bot, over the place on screen", arguments: [
-        "/1000001/chats/new", "/chats/new", "/1000001/chats/new?project_id=3", "/1000001/chats/new?title=Note&text=Hi"
+    @Test("pushes New chat and New bot as pages over the page they're opened from", arguments: [
+        "/1000001/chats/new", "/chats/new", "/1000001/chats/new?project_id=3", "/1000001/chats/new?title=Note&text=Hi",
+        "/1000001/bots/new", "/1000001/bots/new?recipe=standup"
     ])
     func newChat(path: String) {
         let newChat = properties(path)
-        let newBot = properties("/1000001/bots/new")
-        #expect(newChat.context == .modal)
+        #expect(newChat.context == .default)
         #expect(newChat.presentation == .default)
-        #expect(newChat.modalStyle == newBot.modalStyle)
         #expect(!newChat.pullToRefreshEnabled)
         #expect(newChat["skeleton"] as? String == "new_chat")
+    }
+
+    @Test("keeps every other new and edit form a sheet", arguments: ["/1000001/projects/new", "/1000001/bots/7/edit", "/1000001/triggers/new"])
+    func otherForms(path: String) {
+        #expect(properties(path).context == .modal)
     }
 
     @Test("pushes shared chats without pull to refresh")
@@ -98,6 +102,13 @@ struct PathConfigurationTests {
     func returnToHome(path: String) {
         #expect(properties(path).context == .default)
         #expect(properties(path).presentation == .default)
+    }
+
+    @Test("keeps the sign-in sheet when it returns to New chat or New bot", arguments: [
+        "/users/sign_in?return_to=/1000001/chats/new", "/users/sign_in?return_to=%2F1000001%2Fbots%2Fnew", "/users/sign_in?return_to=/chats/new"
+    ])
+    func signInReturningToNewChat(path: String) {
+        #expect(properties(path).context == .modal)
     }
 
     @Test("keeps the sign-in sheet when it returns to the home")

@@ -37,9 +37,10 @@ struct ShortcutsTests {
         let configuration = PathConfiguration(sources: [.file(Bundle.main.url(forResource: "path-configuration", withExtension: "json")!)])
         let base = URL(string: "https://chatwithwork.com")!
         let properties = { (path: String) in configuration.properties(for: base.appending(path: path)) }
-        #expect(properties(Shortcut.newChat.path(in: account))["context"] as? String == "modal")
+        // New chat and New bot are pages (v4); the shell makes a shortcut's New chat the root (openNewChat).
+        #expect(properties(Shortcut.newChat.path(in: account))["context"] as? String == "default")
         #expect(properties(Shortcut.decisions.path(in: account))["presentation"] as? String == "replace_root")
-        #expect(properties(Shortcut.newBot.path(in: account))["context"] as? String == "modal")
+        #expect(properties(Shortcut.newBot.path(in: account))["context"] as? String == "default")
     }
 
     @Test("the quick actions in Info.plist are the three shortcuts, by the names on Android")

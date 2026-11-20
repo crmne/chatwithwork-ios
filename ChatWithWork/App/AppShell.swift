@@ -32,6 +32,9 @@ final class AppShell: NSObject {
     /// The page a shortcut just opened, which signing in again comes back to
     /// if its visit finds the session gone.
     private var shortcutPage: URL?
+    /// The main stack's screen whose page last started a form submission,
+    /// to know a chat New chat turned into from any other visit (NewChatHandOff).
+    private weak var formScreen: UIViewController?
 
     init(window: UIWindow, environment: AppEnvironment, memory: SessionMemory = .standard) {
         self.window = window
@@ -76,8 +79,8 @@ final class AppShell: NSObject {
     // MARK: Shortcuts
 
     /// Puts up the first screen for a shortcut that launched the app: its page
-    /// when that's a place, rather than loading the home or the chat left a
-    /// moment ago first; a form (New chat, New bot) comes up over the home.
+    /// as the place at the root (New chat, Decisions), rather than loading the
+    /// home or the chat left a moment ago first; New bot's comes over the home.
     func start(opening shortcut: Shortcut) {
         switch shortcut {
         case .newChat:
@@ -227,9 +230,11 @@ final class AppShell: NSObject {
             return
         }
 
+        shell.startingVisit()
         shell.setOpen(false, animated: false)
-        if route.kind == .newChat, url.query() == nil {
-            shell.startNewChat()
+        if route.kind == .newChat {
+            // A shortcut's, a share's, a link's: a place, as the sidebar opens it.
+            shell.openNewChat(url)
         } else {
             shell.navigator.route(url)
         }
@@ -281,8 +286,8 @@ final class AppShell: NSObject {
         showSignedIn(account: target, continuingTo: opensOnTop(of: url) ? url : nil, startingAt: Self.startsAt(url))
     }
 
-    /// A link to New chat starts the rebuilt shell with it: its sheet comes
-    /// up over the organization's home (SidebarShell.start(at:)).
+    /// A link to New chat starts the rebuilt shell on it, the place at the
+    /// root (SidebarShell.start(at:)).
     static func startsAt(_ url: URL) -> URL? {
         AppRoute(url: url).kind == .newChat ? url : nil
     }
@@ -388,7 +393,7 @@ extension AppShell: NavigatorDelegate {
             // Going back from the one chat screen, with nothing over it
             // (deleting it, on a server that still recedes): there's nothing
             // under it, so the home takes its place rather than leaving the
-            // deleted one up. Not New chat, a sheet with nothing under it.
+            // deleted one up, as the server's own Delete does.
             if location == .recede, case .signedIn(let shell) = state {
                 let main = shell.navigator.rootViewController
                 if main.viewControllers.count <= 1, main.presentedViewController == nil {
@@ -427,6 +432,28 @@ extension AppShell: NavigatorDelegate {
                 return .reject
             }
 
+            let main = shell.navigator.rootViewController
+            if NewChatHandOff.isHandOff(proposal) {
+                shell.noteVisit(proposal.url)
+                return .acceptCustom(NewChatHandOff.screen(for: proposal.url, replacing: main.topViewController))
+            }
+            // The chat the page on top just turned into in place takes that
+            // screen's place, rather than the place the configuration gives a chat.
+            if main.presentedViewController == nil, let top = main.topViewController,
+               NewChatHandOff.takes(proposal.url, hasResponse: proposal.options.response != nil, onTop: top.routedURL, submittedFromTop: top === formScreen) {
+                formScreen = nil
+                NewChatHandOff.route(proposal, on: shell.navigator)
+                return .reject
+            }
+            // New chat opened by the person (a tap, a link, a shortcut) takes
+            // the keyboard; not a page that arrives by itself, as a redirect,
+            // unless it redirects a New chat that had it (an unprefixed
+            // `/chats/new` going into the organization).
+            if route.kind == .newChat, !main.viewControllers.isEmpty, !shell.opensByItself,
+               proposal.options.response == nil || ComposerController.hasKeyboard(onNewChatIn: main) {
+                ComposerController.focusesOnConnect = true
+            }
+
             shell.noteVisit(proposal.url)
             return .accept
         }
@@ -441,9 +468,24 @@ extension AppShell: NavigatorDelegate {
         }
     }
 
+    /// Notes whose form is going, for NewChatHandOff: Hotwire names the page
+    /// of the session's screen on top, the main stack's or a sheet's.
+    func formSubmissionDidStart(to url: URL) {
+        guard case .signedIn(let shell) = state else { return }
+        let main = shell.navigator.rootViewController
+        guard main.presentedViewController == nil, let top = main.topViewController as? VisitableViewController,
+              shell.navigator.session.topmostVisitable?.visitableViewController === top, top.initialVisitableURL == url
+        else {
+            formScreen = nil
+            return
+        }
+        formScreen = top
+    }
+
     func visitableDidFailRequest(_ visitable: Visitable, error: HotwireNativeError, retryHandler: RetryBlock?) {
-        // A page that didn't load shows why, not its shape.
+        // A page that didn't load shows why, not its shape, nor the page it replaced.
         PageSkeleton.dismiss(on: visitable.visitableViewController, animated: false)
+        NewChatHandOff.dismiss(on: visitable.visitableViewController, animated: false)
         if error.statusCode == 401 {
             switch state {
             case .signedIn:

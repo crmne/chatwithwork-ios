@@ -57,12 +57,11 @@ final class LocalServerNavigationTests: XCTestCase {
         navigate("05-projects") { tap(app.buttons["All projects…"].firstMatch) }
         navigate("06-project") { tap(webLink(app, project)) }
 
-        // New bot, a sheet: the sidebar offers it beside the bots.
+        // New bot, a page, a place from the sidebar: the sidebar offers it beside the bots.
         openSidebar(app)
         tap(app.buttons["sidebar.switch.bots"])
         settle(1)
-        navigate("12-modal") { tap(app.buttons["sidebar.newBot"]) }
-        tap(app.buttons["sheet.close"].firstMatch)
+        navigate("12-new-bot") { tap(app.buttons["sidebar.newBot"]) }
         settle(2)
 
         openSidebar(app)

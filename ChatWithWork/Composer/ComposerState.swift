@@ -81,6 +81,9 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
     let csrfToken: String?
     let attachments: [Attachment]
     let acceptsFiles: Bool
+    /// A suggestion pressed on the page: `text` replaces what the field holds
+    /// and the field takes the keyboard. Only on a `connect`.
+    let fill: Bool
 
     /// Recheck the latest page state when a sheet opened earlier returns a choice.
     func canSelectPermissionMode(_ value: String) -> Bool {
@@ -116,10 +119,11 @@ nonisolated struct ComposerState: Decodable, Equatable, Sendable {
         csrfToken = try values.decodeIfPresent(String.self, forKey: .csrfToken)
         attachments = try values.decodeIfPresent([Attachment].self, forKey: .attachments) ?? []
         acceptsFiles = try values.decodeIfPresent(Bool.self, forKey: .acceptsFiles) ?? !locked
+        fill = try values.decodeIfPresent(Bool.self, forKey: .fill) ?? false
     }
 
     private enum CodingKeys: String, CodingKey {
-        case overlay, visible, placeholder, text, locked, lockReason, working, stopping, waiting, run, mark, revision, startedAt, models, permissionModes, webSearch, narrowing, dictation, csrfToken, attachments, acceptsFiles
+        case overlay, visible, placeholder, text, locked, lockReason, working, stopping, waiting, run, mark, revision, startedAt, models, permissionModes, webSearch, narrowing, dictation, csrfToken, attachments, acceptsFiles, fill
     }
 
     /// Whether Send can go now: words or files, nothing still uploading, and

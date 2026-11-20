@@ -174,7 +174,7 @@ docs/             the server contract and design notes
   system browser sheet), `notification-token` (push) and `sidebar` (the
   page saying the chat list changed).
 - **Path configuration**: bundled in `Resources/path-configuration.json`,
-  replaced at launch by the server's `/configurations/ios_v3.json`, of which
+  replaced at launch by the server's `/configurations/ios_v4.json`, of which
   it is an exact copy.
 
 ## The playground

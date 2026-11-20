@@ -185,7 +185,7 @@ final class PlaygroundTests: XCTestCase {
         settle()
         keep("composer-colour-waiting")
 
-        // New chat's sheet draws the same composer, at rest.
+        // New chat draws the same composer, at rest.
         openNewChat(app)
         XCTAssertTrue(field.waitForExistence(timeout: 20))
         settle()
@@ -267,13 +267,13 @@ final class PlaygroundTests: XCTestCase {
         settle()
         keep("home")
 
-        // New chat is a sheet over it, like New bot.
+        // New chat is a page pushed over it, with Back.
         openNewChat(app)
         XCTAssertTrue(app.webViews.staticTexts["What are we working on, Carmine?"].waitForExistence(timeout: 20))
         settle()
         keep("new-chat")
-        app.buttons["sheet.close"].tap()
-        XCTAssertTrue(app.buttons["sheet.close"].waitForNonExistence(timeout: 10), "Cancel should close New chat's sheet")
+        goBack(app)
+        XCTAssertTrue(app.navigationBars["Decisions"].waitForExistence(timeout: 10), "Back should return to Decisions")
 
         XCTAssertFalse(app.buttons["shell.decisions"].exists, "Decisions is in the sidebar, not the bar")
 
@@ -480,19 +480,19 @@ final class PlaygroundTests: XCTestCase {
         keep("settings")
         app.buttons["sheet.close"].tap()
 
-        // New chat from the bar comes up as a sheet over the chat.
+        // New chat from the bar is pushed over the chat.
         openNewChat(app)
         XCTAssertTrue(app.webViews.staticTexts["What are we working on, Carmine?"].waitForExistence(timeout: 20))
 
         // Text shared into the app (the share extension's link) waits in
-        // the new chat's composer, never sent by itself: the sheet already up
-        // takes it.
+        // the new chat's composer, never sent by itself: the New chat already
+        // on top takes it.
         openAppLink(app, "chatwithwork://new-chat?text=Read%20this%20before%20Monday&url=https%3A%2F%2Fexample.com%2Fplan")
         let shared = app.textViews.matching(NSPredicate(format: "identifier == 'composer.text' AND value CONTAINS %@", "Read this before Monday")).firstMatch
         XCTAssertTrue(shared.waitForExistence(timeout: 20), "The shared words should wait in New chat's composer")
         keep("shared-text")
-        app.buttons["sheet.close"].tap()
-        XCTAssertTrue(app.buttons["sheet.close"].waitForNonExistence(timeout: 10))
+        goBack(app)
+        XCTAssertTrue(app.buttons["shell.sidebar"].waitForExistence(timeout: 10), "Back should return to the chat, the root")
 
         // A chat still answering, opened from a Live Activity's link: Stop in
         // the composer. Leaving the app starts its Live Activity.
@@ -663,13 +663,22 @@ final class PlaygroundTests: XCTestCase {
         Thread.sleep(forTimeInterval: seconds)
     }
 
-    /// New chat from the bar: a sheet over the place on screen (path configuration v3).
+    /// New chat from the bar: a page pushed over the page on screen, with
+    /// Back (path configuration v4).
     @MainActor
     private func openNewChat(_ app: XCUIApplication) {
         let newChat = app.buttons["shell.newChat"]
         XCTAssertTrue(newChat.waitForExistence(timeout: 20), "New chat should be in the bar")
         newChat.tap()
-        XCTAssertTrue(app.buttons["sheet.close"].waitForExistence(timeout: 20), "New chat should come up as a sheet")
+        XCTAssertTrue(app.navigationBars["New chat"].waitForExistence(timeout: 20), "New chat should open as a page")
+        XCTAssertFalse(app.buttons["sheet.close"].exists, "New chat isn't a sheet")
+    }
+
+    @MainActor
+    private func goBack(_ app: XCUIApplication) {
+        let back = app.navigationBars.buttons.matching(NSPredicate(format: "identifier == 'BackButton' OR label == 'Back'")).firstMatch
+        XCTAssertTrue(back.waitForExistence(timeout: 10), "A pushed page has Back")
+        back.tap()
     }
 
     @MainActor

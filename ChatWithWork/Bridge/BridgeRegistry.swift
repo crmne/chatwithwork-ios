@@ -10,7 +10,17 @@ import HotwireNative
 /// and the Android app his Kotlin components. The contract for each is in
 /// docs/server-contract.md.
 enum BridgeRegistry {
+    /// Whether the app draws the chat's composer itself (`composer`,
+    /// ComposerController). Off for now (Carmine, 2026-11-20): the pages show
+    /// the web composer, which the server leaves in sight when the user
+    /// agent doesn't name `composer`. Turning it back on is this line.
+    nonisolated static let drawsComposer = false
+
     static var all: [BridgeComponent.Type] {
+        allComponents.filter { drawsComposer || $0 != ComposerComponent.self }
+    }
+
+    private static var allComponents: [BridgeComponent.Type] {
         [
             // Joe Masilotti's components, as they are.
             AlertComponent.self, // "alert"
