@@ -57,6 +57,37 @@ enum NewChatHandOff {
         proposal.properties[property] as? Bool == true
     }
 
+    /// Marks New chat or New bot opened in place.
+    nonisolated static let inPlaceProperty = "cww_opens_in_place"
+
+    /// Whether `proposal` is New chat or New bot's sentence page opened from
+    /// a page (the bar's New chat, Bots' New bot, a link): the person asked
+    /// for it, there's a page under it to go back to, and it isn't a place
+    /// (the sidebar's, a shortcut's), which takes the root.
+    nonisolated static func opensInPlace(_ proposal: VisitProposal, hasScreens: Bool, presenting: Bool) -> Bool {
+        let route = AppRoute(url: proposal.url)
+        guard route.kind == .newChat || route.isNewBot, hasScreens, !presenting, proposal.options.response == nil,
+              proposal.properties[inPlaceProperty] as? Bool != true, proposal.properties[property] as? Bool != true,
+              proposal.properties.context != .modal,
+              proposal.properties["presentation"] as? String ?? Navigation.Presentation.default.rawValue == Navigation.Presentation.default.rawValue
+        else { return false }
+        return true
+    }
+
+    /// The same visit pushed without the slide: the screen comes up showing
+    /// the page it's opened from (`screen(for:replacing:)`) until its own has
+    /// drawn, so it turns in place, and Back still returns there.
+    nonisolated static func openingInPlace(_ proposal: VisitProposal) -> VisitProposal {
+        var properties = proposal.properties
+        properties["animated"] = false
+        properties[inPlaceProperty] = true
+        return VisitProposal(url: proposal.url, options: proposal.options, properties: properties, parameters: proposal.parameters)
+    }
+
+    nonisolated static func isOpeningInPlace(_ proposal: VisitProposal) -> Bool {
+        proposal.properties[inPlaceProperty] as? Bool == true
+    }
+
     /// Routes the visit as the hand-off. Hotwire fades every replace (the
     /// app's `animateReplaceActions`); this one swaps the screen unseen.
     static func route(_ proposal: VisitProposal, on navigator: Navigator) {

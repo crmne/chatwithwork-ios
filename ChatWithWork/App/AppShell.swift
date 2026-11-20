@@ -443,6 +443,7 @@ extension AppShell: NavigatorDelegate {
                 shell.noteVisit(proposal.url)
                 return .acceptCustom(NewChatHandOff.screen(for: proposal.url, replacing: main.topViewController))
             }
+            let opensInPlace = NewChatHandOff.isOpeningInPlace(proposal)
             // The chat the page on top just turned into in place takes that
             // screen's place, rather than the place the configuration gives a chat.
             if main.presentedViewController == nil, let top = main.topViewController,
@@ -458,6 +459,22 @@ extension AppShell: NavigatorDelegate {
             if route.kind == .newChat, !main.viewControllers.isEmpty, !shell.opensByItself,
                proposal.options.response == nil || ComposerController.hasKeyboard(onNewChatIn: main) {
                 ComposerController.focusesOnConnect = true
+                // The page's own composer can't raise the keyboard by itself: the app takes it now.
+                if !BridgeRegistry.drawsComposer, proposal.options.response == nil { shell.whenDrawerShut { [weak shell] in
+                    guard let shell else { return }
+                    KeyboardHandOff.raise(in: shell.view.window, for: shell.navigator.session.webView)
+                } }
+            }
+            // New chat and New bot opened from a page come up where it stands,
+            // with Back to it: pushed without the slide, showing that page
+            // until theirs has drawn.
+            if opensInPlace {
+                shell.noteVisit(proposal.url)
+                return .acceptCustom(NewChatHandOff.screen(for: proposal.url, replacing: main.topViewController))
+            }
+            if NewChatHandOff.opensInPlace(proposal, hasScreens: !main.viewControllers.isEmpty, presenting: main.presentedViewController != nil) {
+                shell.navigator.route(NewChatHandOff.openingInPlace(proposal))
+                return .reject
             }
 
             shell.noteVisit(proposal.url)

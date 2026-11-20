@@ -763,17 +763,36 @@ app's composer sits at the foot of either page.
 
 - **Where they open.** What the sidebar opens is a place, the root, like
   every row there (`Places`): its New chat and New bot (the sidebar page's
-  or the native one's) open once the drawer has slid shut
-  (`SidebarShell.open(url:)` waits for its slide to end and the next frame).
+  or the native one's) start at once while the drawer slides shut, and
+  New chat's keyboard comes once it has shut (`SidebarShell.open(url:)`,
+  `whenDrawerShut`; builds before 2026-11-20 started the visit only then).
   So does New chat from a shortcut, Siri, a widget, a share
   (`chatwithwork://new-chat`) or a link (`SidebarShell.openNewChat`), and a
   cold start from one starts the navigator on it. Opened from a page (the
   bar's New chat over a chat or any place, Bots' New bot, a project's or a
   bot's New chat, Decisions), the configuration's `default` pushes it with
-  Back to that page (`SidebarShell.startNewChat`). A New chat already on top
+  Back to that page (`SidebarShell.startNewChat`), in place since
+  2026-11-20 (below). A New chat already on top
   takes the keyboard (and a share's words and files) rather than another
   stacking on it (`ComposerController.onNewChat`). Notifications open their
   chat as before.
+- **Opened from a page, in place (2026-11-20).** New chat and New bot's
+  sentence page opened from a page (the bar's New chat on Decisions, Bots'
+  New bot, a link) come up where that page stands, with no slide and no
+  skeleton: the visit is pushed without animation, so Back still returns
+  to that page, and the new screen shows the page it was opened from until
+  its own has drawn (`NewChatHandOff.opensInPlace`, the same picture the
+  turn into the chat uses). The sidebar's, a shortcut's and a share's New
+  chat stay places at the root.
+- **The keyboard, where the page's composer shows (2026-11-20).** WebKit
+  brings the keyboard up only for a focus that follows a touch in the page,
+  and New chat opened by the person loads its page after the tap. So the
+  app takes the keyboard at once with a field of its own, out of sight
+  (`KeyboardHandOff`), and, once New chat's composer connects
+  (`web-composer`), focuses its editable and hands the keyboard to the web
+  view, with anything typed meanwhile. A page that never asks for it lets
+  the keyboard go after 10 s. After Send the keyboard goes down as the page
+  turns into its chat, and stays down; in a chat it stays up.
 - **Turning into the chat (`NewChatHandOff`).** The app's composer sends
   through the page's hidden form (`composer` `send`), and the server draws
   the question, Thinking and the chat's dock in place in the same request;

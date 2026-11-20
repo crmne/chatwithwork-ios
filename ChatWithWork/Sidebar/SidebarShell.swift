@@ -363,19 +363,21 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         open(url: environment.url(path: path))
     }
 
-    /// New chat and New bot wait for the drawer to slide shut and the screen
-    /// without it to be drawn, so their page and its keyboard don't arrive
-    /// while it moves (docs/server-contract.md, "New chat and New bot").
+    /// Opens `url` as a place, at once while the drawer slides shut; a form
+    /// waits for it to shut, and New chat's keyboard too (docs/server-contract.md,
+    /// "New chat and New bot").
     private func open(url: URL, closingSidebar: Bool = true) {
         let properties = navigator.session.pathConfiguration?.properties(for: url) ?? PathProperties()
         let place = VisitProposal(url: url, options: VisitOptions(action: .advance), properties: Places.opening(properties))
-        let route = AppRoute(url: url)
         let visit = startingVisit()
         guard closingSidebar else {
             navigator.route(place)
             return
         }
-        guard route.kind == .newChat || route.isNewBot, progress > 0 || isMoving else {
+        // New chat and New bot are pages (path configuration v4), so they start at once, as every
+        // place does; only their keyboard waits for the drawer to shut (whenDrawerShut). A modal
+        // still waits, so no snapshot of the screen under it shows the drawer.
+        guard properties.context == .modal, progress > 0 || isMoving else {
             setOpen(false, animated: true)
             navigator.route(place)
             return
@@ -386,6 +388,12 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
                 self.navigator.route(place)
             }
         }
+    }
+
+    /// Runs `action` once the drawer is shut and at rest: at once if it is.
+    func whenDrawerShut(_ action: @escaping () -> Void) {
+        guard progress > 0 || isMoving else { return action() }
+        afterMotion.append(action)
     }
 
     /// Notes a visit the shell or a link starts, which a New chat still
