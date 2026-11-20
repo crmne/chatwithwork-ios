@@ -79,6 +79,14 @@ struct BridgeContractTests {
         let file = try #require((files["files"] as? [[String: String]])?.first)
         #expect(file == ["name": "notes.txt", "type": "text/plain", "data": "aGk="])
 
+        #expect(files["id"] == nil, "No id for a page that doesn't answer")
+        let confirmed = try JSONEncoder().encode(WebComposerAction.attach(files: [], id: "a1"))
+        #expect((try JSONSerialization.jsonObject(with: confirmed) as? [String: Any])?["id"] as? String == "a1")
+
+        let answer = try JSONDecoder().decode(AttachedAnswer.self, from: Data(#"{"id":"a1","taken":false,"files":[{"name":"notes.txt","taken":true},{"name":null,"taken":false,"reason":"locked"}],"metadata":{"url":"https://chatwithwork.com/1/chats/new"}}"#.utf8))
+        #expect(answer.id == "a1")
+        #expect(answer.files == [AttachedFile(name: "notes.txt", taken: true), AttachedFile(name: nil, taken: false, reason: "locked")])
+
         let dictate = try JSONEncoder().encode(WebComposerAction.dictate)
         #expect(try JSONSerialization.jsonObject(with: dictate) as? [String: String] == ["action": "dictate"])
     }

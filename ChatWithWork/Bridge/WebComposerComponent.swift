@@ -24,12 +24,18 @@ final class WebComposerComponent: BridgeComponent {
     private var url: URL?
 
     override func onReceive(message: Message) {
+        if message.event == "attached" {
+            if let answer: AttachedAnswer = message.data() { ComposerInbox.settle(id: answer.id, results: answer.files) }
+            return
+        }
         guard message.event == "connect" || message.event == "state",
               let state: WebComposerState = message.data() else { return }
         let url = message.metadata.flatMap { URL(string: $0.url) }
         self.state = state
         self.url = url
         LiveActivities.shared.noteState(state, chatURL: url)
+        // Files a page went quiet on for too long wait again for the next New chat.
+        ComposerInbox.returnUnanswered(olderThan: Date().addingTimeInterval(-ComposerInbox.unansweredAfter))
 
         if message.event == "connect" {
             Self.connected.add(self)
@@ -92,6 +98,9 @@ nonisolated struct WebComposerState: Decodable, Equatable, Sendable, LiveCompose
     let csrfToken: String?
     /// False while the composer is locked.
     let acceptsFiles: Bool
+    /// The page answers each `attach` with `attached`; absent from older
+    /// pages, which say nothing.
+    let confirmsAttach: Bool
     /// Whether the composer's microphone is offered now.
     let dictates: Bool
 
@@ -108,23 +117,26 @@ nonisolated struct WebComposerState: Decodable, Equatable, Sendable, LiveCompose
         csrfToken = try values.decodeIfPresent(String.self, forKey: .csrfToken)
         acceptsFiles = try values.decodeIfPresent(Bool.self, forKey: .acceptsFiles) ?? false
         dictates = try values.decodeIfPresent(Bool.self, forKey: .dictates) ?? false
+        confirmsAttach = try values.decodeIfPresent(Bool.self, forKey: .confirmsAttach) ?? false
     }
 
     private enum CodingKeys: String, CodingKey {
-        case working, waiting, run, revision, startedAt, mark, csrfToken, acceptsFiles, dictates
+        case working, waiting, run, revision, startedAt, mark, csrfToken, acceptsFiles, dictates, confirmsAttach
     }
 }
 
 /// What the app tells the web composer, as a reply to its latest `connect`.
 nonisolated enum WebComposerAction: Encodable, Equatable, Sendable {
-    case attach(files: [ComposerFile])
+    /// `id`, for a page that answers with `attached` (`confirmsAttach`).
+    case attach(files: [ComposerFile], id: String? = nil)
     case dictate
 
     func encode(to encoder: Encoder) throws {
         var values = encoder.container(keyedBy: Key.self)
         switch self {
-        case .attach(let files):
+        case .attach(let files, let id):
             try values.encode("attach", forKey: .action)
+            try values.encodeIfPresent(id, forKey: .id)
             try values.encode(files, forKey: .files)
         case .dictate:
             try values.encode("dictate", forKey: .action)
@@ -132,6 +144,6 @@ nonisolated enum WebComposerAction: Encodable, Equatable, Sendable {
     }
 
     private enum Key: String, CodingKey {
-        case action, files
+        case action, id, files
     }
 }

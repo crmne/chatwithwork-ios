@@ -393,6 +393,8 @@ final class AppShell: NSObject {
 extension AppShell: NavigatorDelegate {
     func handle(proposal: VisitProposal, from navigator: Navigator) -> ProposalResult {
         let route = AppRoute(url: proposal.url)
+        // A page that held shared files is going: they wait again for the next New chat.
+        ComposerInbox.returnUnanswered()
 
         if case .historicalLocation(let location) = route.kind {
             showNotice(in: proposal.url)
