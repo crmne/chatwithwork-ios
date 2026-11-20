@@ -129,6 +129,7 @@ enum ComposerInbox {
                 continue
             } else if ["locked", "unavailable"].contains(result?.reason ?? "") {
                 entry.attempt = nil
+                entry.afterVisit = -1
             } else {
                 entry.attempt = nil
                 entry.afterVisit = visits

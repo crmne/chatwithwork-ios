@@ -25,7 +25,11 @@ final class WebComposerComponent: BridgeComponent {
 
     override func onReceive(message: Message) {
         if message.event == "attached" {
-            if let answer: AttachedAnswer = message.data() { ComposerInbox.settle(id: answer.id, results: answer.files) }
+            if let answer: AttachedAnswer = message.data() {
+                ComposerInbox.settle(id: answer.id, results: answer.files)
+                // What came back locked or unavailable goes now if the composer already said it takes files.
+                if state?.acceptsFiles == true, !ComposerInbox.files.isEmpty { takeInbox(connecting: false) }
+            }
             return
         }
         guard message.event == "connect" || message.event == "state",

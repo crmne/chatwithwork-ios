@@ -141,6 +141,19 @@ struct ComposerInboxTests {
         emptied()
     }
 
+    @Test("a file that failed before, then comes back locked, goes again on this page once it unlocks")
+    func failedThenLocked() throws {
+        emptied()
+        ComposerInbox.files = [file]
+        let first = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
+        ComposerInbox.settle(id: first.id, results: [AttachedFile(name: "notes.txt", taken: false, reason: "failed")])
+        ComposerInbox.visitStarted()
+        let second = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
+        ComposerInbox.settle(id: second.id, results: [AttachedFile(name: "notes.txt", taken: false, reason: "locked")])
+        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat, connecting: false))?.files == [file])
+        emptied()
+    }
+
     @Test("an attach the reply couldn't carry waits again at once, never twice")
     func replyFailed() throws {
         emptied()
