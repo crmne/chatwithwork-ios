@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import WebKit
 @testable import ChatWithWork
 
 /// What a share or a widget leaves for the web composer: only New chat's
@@ -140,6 +141,32 @@ struct ComposerInboxTests {
         ComposerInbox.settle(id: second.id, results: [AttachedFile(name: "notes.txt", taken: false, reason: "failed"), AttachedFile(name: "notes.txt", taken: false, reason: "failed")])
         #expect(ComposerInbox.files == [file], "Only the copy no page took comes back")
         emptied()
+    }
+
+    @Test("a page loaded from scratch, or a web view that goes, gives back what it had in flight")
+    func pageGoes() async throws {
+        emptied()
+        var webView: WKWebView? = WKWebView(frame: .zero)
+        PageLoads.follow(try #require(webView))
+        ComposerInbox.files = [file]
+        _ = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
+        webView?.loadHTMLString("<p>again</p>", baseURL: nil)
+        #expect(await settles { ComposerInbox.unanswered == 0 }, "A reload")
+        #expect(ComposerInbox.files == [file])
+
+        _ = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
+        webView = nil
+        #expect(await settles { ComposerInbox.unanswered == 0 }, "The web view going")
+        #expect(ComposerInbox.files == [file])
+        emptied()
+    }
+
+    private func settles(_ condition: () -> Bool) async -> Bool {
+        for _ in 0..<100 {
+            if condition() { return true }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return condition()
     }
 
     @Test("a file that failed before, then comes back locked, goes again on this page once it unlocks")

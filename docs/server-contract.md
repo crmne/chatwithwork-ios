@@ -1988,10 +1988,16 @@ page.
     order: a file taken, `refused` (a kind or size it doesn't take) or
     `removed` (the person took it out) leaves the inbox; `locked` and
     `unavailable` wait to be handed again, to this composer once a `state`
-    says it takes files; `failed` and any reason the app doesn't know wait
+    says it takes files (an answer that comes after that state hands them
+    again at once, but only once per state, so a page that answers
+    `unavailable` straight away isn't sent them in a loop); `failed` and
+    any reason the app doesn't know wait
     for a New chat after another visit, so a failing upload isn't retried
-    on the same page. Files in flight go back to the inbox when a visit
-    starts or ten minutes pass with no answer, for a New chat after it. Each
+    on the same page. No answer can only mean the page itself went, so
+    files in flight go back to the inbox, for a New chat after it, when a
+    visit starts, a page loads from scratch (a reload, a web content
+    process loaded again after it died), its web view goes
+    (`PageLoads`), or ten minutes pass with no answer. Each
     shared file keeps an identity of its own, so an answer that comes late
     still takes out what the page took, even after the file was sent again. This closes the gap where a lock between the reply
     and the page acting on it lost the files (`ComposerInbox`).
