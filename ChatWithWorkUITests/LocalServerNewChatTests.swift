@@ -130,7 +130,7 @@ final class LocalServerNewChatTests: XCTestCase {
         try XCTSkipIf(name.isEmpty, "Set CWW_UI_TEST_CASE to measure a case")
         // Signed in already where a run before left the app so: the server throttles sign-ins in quick succession.
         var app = launch(reset: environment["CWW_UI_TEST_RESET"] == "1")
-        if !app.buttons["shell.sidebar"].waitForExistence(timeout: 15) { signIn(app) }
+        if app.buttons["welcome.signIn"].waitForExistence(timeout: 15) { signIn(app) }
         settle(2)
         mark("signed-in")
 
