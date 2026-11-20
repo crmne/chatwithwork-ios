@@ -140,6 +140,14 @@ nonisolated enum SidebarPage {
 
     static let refreshScript = "window.chatWithWorkSidebar?.refresh()"
 
+    /// In the main web view as the drawer opens: its page loads Decisions,
+    /// New chat and New bot ahead, if the network allows (NetworkCost).
+    static let preloadScript = "window.chatWithWork?.preload?.(); 0"
+
+    /// The drawer closed. `closed` is newer than the page's other calls, so
+    /// an older page without it is left alone.
+    static let closedScript = "window.chatWithWorkSidebar?.closed?.()"
+
     /// The app's own script in the sidebar page: a request the page makes in
     /// place (a pin, a section, the filter) that answers 422 means its CSRF
     /// token went stale while it stayed loaded (signed in again, the session

@@ -49,6 +49,8 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     nonisolated(unsafe) private var foregroundObserver: NSObjectProtocol?
 
     var isOpen: Bool { progress > 0.5 }
+    /// Whether the drawer showed since it last came to rest closed.
+    private var drawerShown = false
 
     /// Signing out from the person's menu in the sidebar page (AppShell).
     var onSignOut: (() -> Void)?
@@ -623,11 +625,18 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     /// sidebar and its dimming leave the screen (and the accessibility tree).
     private func apply(progress value: CGFloat, settled: Bool = true) {
         progress = min(max(value, 0), 1)
+        if progress > 0 { drawerShown = true }
         sidebarLeading.constant = -sidebarWidth * (1 - progress)
         dim.alpha = 0.28 * progress
         if settled {
             let resting = progress == 0
-            if resting { releaseSidebarFocus() }
+            if resting {
+                releaseSidebarFocus()
+                // However it closed (a swipe, a tap beside it, a visit): the page
+                // ends what it had open, row picking and its menus.
+                if drawerShown { sidebarPage?.closed() }
+                drawerShown = false
+            }
             sidebarPanel.isHidden = resting
             dim.isHidden = resting
         }

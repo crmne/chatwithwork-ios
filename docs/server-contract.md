@@ -1507,6 +1507,11 @@ fallback for servers that name none.
   - `refresh()`: back in the foreground, where the page's streams may have
     missed something; the page reloads itself while online.
   - `answer(id, confirmed)`.
+  - `closed()` (2026-11-20): the drawer closed, however it closed (the edge
+    swipe back, a tap beside it, the close button, a visit). The page ends
+    row picking and closes its menus, so nothing is left open the next time
+    the drawer opens. The app calls it as `closed?.()`, so a page without it
+    is left alone.
 - **Navigation.** Only the page itself may load in the web view. Any other
   main-frame navigation (a link Turbo doesn't follow, `target=_blank`, a
   redirect) is cancelled and goes where a `visit` would; the sign-in form,
