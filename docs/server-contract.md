@@ -1997,7 +1997,9 @@ page.
     files in flight go back to the inbox, for a New chat after it, when a
     visit starts, a page loads from scratch (a reload, a web content
     process loaded again after it died), its web view goes
-    (`PageLoads`), or ten minutes pass with no answer. Each
+    (`PageLoads`), or the composer's next `connect` or `state` comes ten
+    minutes or more after the attach with no answer (there's no timer:
+    until a message, a visit or a load, they stay in flight). Each
     shared file keeps an identity of its own, so an answer that comes late
     still takes out what the page took, even after the file was sent again. This closes the gap where a lock between the reply
     and the page acting on it lost the files (`ComposerInbox`).
