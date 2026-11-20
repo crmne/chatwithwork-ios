@@ -230,6 +230,7 @@ final class AppShell: NSObject {
             return
         }
 
+        shell.startingVisit()
         shell.setOpen(false, animated: false)
         if route.kind == .newChat {
             // A shortcut's, a share's, a link's: a place, as the sidebar opens it.
@@ -448,7 +449,7 @@ extension AppShell: NavigatorDelegate {
             // the keyboard; not a page that arrives by itself, as a redirect,
             // unless it redirects a New chat that had it (an unprefixed
             // `/chats/new` going into the organization).
-            if route.kind == .newChat, !main.viewControllers.isEmpty,
+            if route.kind == .newChat, !main.viewControllers.isEmpty, !shell.opensByItself,
                proposal.options.response == nil || ComposerController.hasKeyboard(onNewChatIn: main) {
                 ComposerController.focusesOnConnect = true
             }

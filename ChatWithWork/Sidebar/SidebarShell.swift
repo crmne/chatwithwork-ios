@@ -42,6 +42,9 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     private var isMoving = false
     /// What waits for the drawer to come to rest.
     private var afterMotion: [() -> Void] = []
+    /// Counts the visits the shell starts, so a New chat waiting for the
+    /// drawer gives way to anything opened meanwhile.
+    private var visits = 0
     nonisolated(unsafe) private var pollTask: Task<Void, Never>?
     nonisolated(unsafe) private var foregroundObserver: NSObjectProtocol?
 
@@ -53,6 +56,10 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     /// Whether the drawer shows the server's sidebar page, which keeps itself
     /// live, rather than the native one, which fetches its JSON.
     var showsSidebarPage: Bool { sidebarPage?.isReady == true }
+
+    /// While the shell opens a page by itself (New chat for a server without
+    /// the home), which takes no keyboard.
+    private(set) var opensByItself = false
 
     init(environment: AppEnvironment, account: AccountSlug?, navigatorDelegate: NavigatorDelegate, memory: SessionMemory = .standard) {
         self.environment = environment
@@ -98,6 +105,8 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     /// opened while the home loaded stays open: the person didn't pick this.
     func startWithoutHome(failed url: URL) -> Bool {
         guard let start = Self.startURLWithoutHome(failed: url, environment: environment, account: account, memory: memory) else { return false }
+        opensByItself = true
+        defer { opensByItself = false }
         open(url: start, closingSidebar: false)
         return true
     }
@@ -355,6 +364,7 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         let properties = navigator.session.pathConfiguration?.properties(for: url) ?? PathProperties()
         let place = VisitProposal(url: url, options: VisitOptions(action: .advance), properties: Places.opening(properties))
         let route = AppRoute(url: url)
+        let visit = startingVisit()
         guard closingSidebar else {
             navigator.route(place)
             return
@@ -365,14 +375,26 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             return
         }
         setOpen(false, animated: true) { [weak self] in
-            DispatchQueue.main.async { self?.navigator.route(place) }
+            DispatchQueue.main.async {
+                guard let self, visit == self.visits else { return }
+                self.navigator.route(place)
+            }
         }
+    }
+
+    /// Notes a visit the shell or a link starts, which a New chat still
+    /// waiting for the drawer gives way to; answers its number.
+    @discardableResult
+    func startingVisit() -> Int {
+        visits += 1
+        return visits
     }
 
     /// New chat from the bar: pushed over the page on screen, with back to it
     /// (the path configuration). One already on top takes the keyboard,
     /// keeping its words, rather than another stacking on it.
     func startNewChat() {
+        startingVisit()
         setOpen(false, animated: true)
         if let composer = ComposerController.onNewChat(navigator.rootViewController) {
             composer.focus()

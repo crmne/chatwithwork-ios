@@ -10,7 +10,7 @@ import XCTest
 ///
 /// `testMeasure` walks one case at a time for the before and after videos
 /// (CWW_UI_TEST_CASE: sidebar, decisions, bots, chat, rotate, offline,
-/// lost),
+/// lost, suggestions),
 /// printing `CWWMARK <event> <seconds since 1970>` at each tap, and works on
 /// builds where New chat is a sheet too, to compare.
 ///
@@ -113,8 +113,8 @@ final class LocalServerNewChatTests: XCTestCase {
     /// One case, for the videos: every tap and send is marked with the time.
     @MainActor
     func testMeasure() throws {
-        let name = try XCTUnwrap(environment["CWW_UI_TEST_CASE"], "Set CWW_UI_TEST_CASE to measure a case")
-        try XCTSkipIf(name.isEmpty)
+        let name = environment["CWW_UI_TEST_CASE"] ?? ""
+        try XCTSkipIf(name.isEmpty, "Set CWW_UI_TEST_CASE to measure a case")
         var app = launch(reset: true)
         signIn(app)
         mark("signed-in")
@@ -153,7 +153,9 @@ final class LocalServerNewChatTests: XCTestCase {
             }
         case "decisions":
             for run in 1...2 {
-                if run > 1 { openPlace(app, "Decisions") }
+                // Back from the turn lands on Decisions again for the next run; where the chat took the root (New
+                // chat as a sheet), the sidebar opens it.
+                if run > 1, !app.navigationBars["Decisions"].waitForExistence(timeout: 3) { openPlace(app, "Decisions") }
                 XCTAssertTrue(app.navigationBars["Decisions"].waitForExistence(timeout: 20))
                 settle(2)
                 mark("tap-decisions-\(run)")
@@ -217,6 +219,55 @@ final class LocalServerNewChatTests: XCTestCase {
             XCUIDevice.shared.orientation = .portrait
             settle(4)
             keep("chat-portrait")
+        case "suggestions":
+            // A suggestion's words land in the app's field (with the keyboard where the build reads fill), on New
+            // chat and on Decisions' All clear; then one of New bot's examples, which sends itself.
+            for place in ["new-chat", "decisions"] {
+                if place == "new-chat" {
+                    app.buttons["shell.newChat"].tap()
+                    XCTAssertTrue(app.navigationBars["New chat"].waitForExistence(timeout: 20))
+                } else {
+                    tapBack(app)
+                    if !app.navigationBars["Decisions"].waitForExistence(timeout: 5) { openPlace(app, "Decisions") }
+                }
+                let field = composerField(app)
+                XCTAssertTrue(field.waitForExistence(timeout: 20))
+                settle(2)
+                if place == "new-chat" { field.typeText("A draft the suggestion replaces") }
+                app.swipeDown()
+                settle(1)
+                let suggestion = app.webViews.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'week' OR label CONTAINS[c] 'notes' OR label CONTAINS[c] 'help'")).allElementsBoundByIndex.first(where: \.isHittable)
+                XCTAssertNotNil(suggestion, "\(place) should offer suggestions")
+                mark("suggestion-\(place)")
+                suggestion?.tap()
+                settle(2.5)
+                keep("suggestion-\(place)")
+                let value = composerField(app).value as? String ?? ""
+                let focused = (composerField(app).value(forKey: "hasKeyboardFocus") as? Bool) == true
+                print("CWWRESULT suggestion-\(place) text=\(value.replacingOccurrences(of: "\n", with: " ")) focused=\(focused)")
+                XCTAssertFalse(value.isEmpty || value == "A draft the suggestion replaces", "The suggestion's words should be in the field")
+            }
+            // New bot's examples send their sentence themselves.
+            openBots(app)
+            let newBot = app.buttons.matching(NSPredicate(format: "identifier == 'bridge.button' AND label == 'New bot'")).firstMatch
+            XCTAssertTrue(newBot.waitForExistence(timeout: 20))
+            newBot.tap()
+            XCTAssertTrue(app.navigationBars["New bot"].waitForExistence(timeout: 20))
+            settle(3)
+            keep("new-bot-examples")
+            let example = app.webViews.buttons.matching(NSPredicate(format: "label BEGINSWITH[c] 'Every' OR label BEGINSWITH[c] 'When' OR label BEGINSWITH[c] 'Each'")).allElementsBoundByIndex.first(where: \.isHittable)
+            XCTAssertNotNil(example, "New bot should offer examples")
+            mark("example")
+            example?.tap()
+            settle(1)
+            keep("new-bot-example-sent")
+            settle(8)
+            keep("new-bot-example-chat")
+            print("CWWRESULT example title=\(app.navigationBars.firstMatch.identifier) back=\(backButton(app).exists)")
+            tapBack(app)
+            settle(3)
+            keep("new-bot-example-back")
+            print("CWWRESULT example-back title=\(app.navigationBars.firstMatch.identifier)")
         case "offline":
             app.buttons["shell.newChat"].tap()
             XCTAssertTrue(composerField(app).waitForExistence(timeout: 20))
@@ -337,8 +388,9 @@ final class LocalServerNewChatTests: XCTestCase {
     /// link: XCUITest relaunches the app for it, without its launch arguments.)
     @MainActor
     private func openPlace(_ app: XCUIApplication, _ name: String) {
-        openSidebar(app)
         let bar = app.navigationBars.matching(NSPredicate(format: "identifier CONTAINS %@", name)).firstMatch
+        if bar.exists, app.buttons["shell.sidebar"].exists { return }
+        openSidebar(app)
         let page = app.webViews.descendants(matching: .any)
         let named = page.matching(NSPredicate(format: "label == %@", name)).allElementsBoundByIndex
         for _ in 0..<3 where !bar.exists {
