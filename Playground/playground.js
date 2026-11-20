@@ -167,6 +167,7 @@ application.register("prompt-suggestions", class extends Controller {
     if (!this.hasChatOutlet) return
     this.chatOutlet.inputTarget.value = prompt
     this.chatOutlet.updateButtonState()
+    this.chatOutlet.inputTarget.focus()
     this.chatOutlet.element.dispatchEvent(new CustomEvent("composer:filled", { detail: { text: prompt } }))
   }
 })

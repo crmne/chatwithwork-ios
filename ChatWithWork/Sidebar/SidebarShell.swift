@@ -400,16 +400,29 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             composer.focus()
             return
         }
+        // The web composer's New chat keeps its words too.
+        if showsNewChat { return }
         navigator.route(environment.url(path: newChatPath))
+    }
+
+    /// Whether New chat is on top of the main stack, with nothing over it.
+    var showsNewChat: Bool {
+        let main = navigator.rootViewController
+        guard main.presentedViewController == nil, let top = main.topViewController as? VisitableViewController else { return false }
+        return AppRoute(url: top.currentVisitableURL).kind == .newChat
     }
 
     /// New chat as a place, the root: the sidebar's, a shortcut's, a share's
     /// (`url`, with what it brings in its query), opened once the drawer has
     /// shut. One already on top takes the keyboard instead.
     func openNewChat(_ url: URL? = nil) {
-        if let composer = ComposerController.onNewChat(navigator.rootViewController), url?.query() == nil {
+        if url?.query() == nil, let composer = ComposerController.onNewChat(navigator.rootViewController) {
             setOpen(false, animated: true)
             composer.focus()
+            return
+        }
+        if url?.query() == nil, showsNewChat {
+            setOpen(false, animated: true)
             return
         }
         open(url: url ?? environment.url(path: newChatPath))

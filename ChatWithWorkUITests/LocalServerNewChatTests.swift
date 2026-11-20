@@ -323,6 +323,8 @@ final class LocalServerNewChatTests: XCTestCase {
                 keep("web-suggestion-new-chat")
                 print("CWWRESULT web-suggestion-new-chat \(String(describing: app.webViews.textViews.firstMatch.value))")
             }
+            tapBack(app)
+            settle(1)
             openPlace(app, "Decisions")
             settle(3)
             keep("web-decisions-all-clear")

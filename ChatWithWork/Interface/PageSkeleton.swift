@@ -320,7 +320,8 @@ nonisolated struct PageSkeletonLayout: Equatable {
     /// The greeting, three suggestions under it, and the composer at rest.
     static func newChat(bounds: CGRect, insets: UIEdgeInsets) -> Self {
         let column = SkeletonColumn(bounds: bounds, insets: insets)
-        var builder = Builder(column: column, floor: column.composer.minY)
+        // Under the app's composer at the foot, or, with the web one in the page, the bottom of the safe area.
+        var builder = Builder(column: column, floor: BridgeRegistry.drawsComposer ? column.composer.minY : bounds.height - insets.bottom)
         let centre = insets.top + 0.4 * (column.composer.minY - insets.top)
         var y = (centre - 11).rounded()
         builder.centred(0.6, y: y, height: 22)
