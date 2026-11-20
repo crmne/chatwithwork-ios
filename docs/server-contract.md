@@ -1703,8 +1703,10 @@ server.
 own at the top of the sidebar, just before the Chats | Bots switch, or at
 the top where there's no switch (guests, older servers)
 (`sidebar.decisions`). It's outlined like the list switcher, since it's the
-one thing there that asks for the person: the list-checks symbol
-(`checklist`), "Decisions" spelled out, and at its end `waiting.count` as a
+one thing there that asks for the person: the signpost the web's
+Decisions wears (Phosphor `signpost`; SF Symbols' `signpost.right`, also on
+the Decisions shortcut and quick action; `checklist` before 2026-11-20),
+"Decisions" spelled out, and at its end `waiting.count` as a
 small badge on the attention wash, its outline taking the attention edge,
 or the happy bot and a quiet "All clear" at 0. VoiceOver reads "Decisions" and "N waiting" or
 "None waiting". It opens `waiting.url` (or `links.decisions`). The same

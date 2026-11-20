@@ -110,7 +110,7 @@
 			<key>UIApplicationShortcutItemTitle</key>
 			<string>Decisions</string>
 			<key>UIApplicationShortcutItemIconSymbolName</key>
-			<string>checklist</string>
+			<string>signpost.right</string>
 		</dict>
 	</array>
 	<key>UILaunchScreen</key>

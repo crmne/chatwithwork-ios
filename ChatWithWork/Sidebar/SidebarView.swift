@@ -369,7 +369,7 @@ struct SidebarView: View {
         let waits = count > 0
         return Button { actions.open(path) } label: {
             HStack(spacing: 8) {
-                Image(systemName: "checklist")
+                Image(systemName: "signpost.right")
                     .font(.system(size: rowSize, weight: .semibold))
                     .foregroundStyle(Color(Palette.inkMuted))
                     .frame(width: decisionsIconWidth)
