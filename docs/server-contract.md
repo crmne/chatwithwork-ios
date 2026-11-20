@@ -1993,8 +1993,8 @@ page.
     `unavailable` straight away isn't sent them in a loop); `failed` and
     any reason the app doesn't know wait
     for a New chat after another visit, so a failing upload isn't retried
-    on the same page. No answer can only mean the page itself went, so
-    files in flight go back to the inbox, for a New chat after it, when a
+    on the same page. The page answers while it stays alive, so files in
+    flight go back to the inbox, for a New chat after it, when a
     visit starts, a page loads from scratch (a reload, a web content
     process loaded again after it died), its web view goes
     (`PageLoads`), or the composer's next `connect` or `state` comes ten
