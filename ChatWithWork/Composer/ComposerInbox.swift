@@ -34,12 +34,14 @@ enum ComposerInbox {
     /// Dictate when its microphone is offered. A Dictate it can't start (no
     /// yes to models yet, locked) is dropped, so it doesn't start a later New
     /// chat listening out of the blue; files wait for one that takes them.
-    /// Files kept for the next New chat go only to a composer connecting
-    /// after a later visit (`connecting`), never to one that just changed.
-    static func take(for state: WebComposerState, at url: URL?, connecting: Bool = true, now: Date = Date()) -> [WebComposerAction] {
+    /// Files kept for the next New chat go only to a composer that connected
+    /// after a later visit (`connectedAt`, the `visit` it connected in),
+    /// never to the page that failed them, however its state changes.
+    static func take(for state: WebComposerState, at url: URL?, connectedAt: Int? = nil, now: Date = Date()) -> [WebComposerAction] {
         guard let url, AppRoute(url: url).kind == .newChat else { return [] }
         var actions: [WebComposerAction] = []
-        let ready = entries.filter { $0.attempt == nil && ($0.afterVisit < 0 || connecting && $0.afterVisit < visits) }
+        let since = connectedAt ?? visits
+        let ready = entries.filter { $0.attempt == nil && $0.afterVisit < since }
         if !ready.isEmpty, state.acceptsFiles {
             if state.confirmsAttach {
                 // The page answers for them (`attached`): they're in flight until it does.
@@ -102,6 +104,8 @@ enum ComposerInbox {
     /// a while after they came back unanswered.
     private static var attempts: [(id: String, keys: [String])] = []
     private static var visits = 0
+    /// How many visits have started: a composer notes the one it connected in.
+    static var visit: Int { visits }
 
     /// How long files wait for a page's answer: long enough for a large
     /// upload on a slow network; a duplicate after it beats a loss.

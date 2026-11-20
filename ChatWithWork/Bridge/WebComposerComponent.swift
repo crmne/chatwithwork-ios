@@ -21,6 +21,9 @@ final class WebComposerComponent: BridgeComponent {
     private static let connected = NSHashTable<WebComposerComponent>.weakObjects()
 
     private var state: WebComposerState?
+    /// The visit this composer connected in: files kept for a New chat after
+    /// a later visit wait for one after it.
+    private var connectedAt: Int?
     private var url: URL?
 
     override func onReceive(message: Message) {
@@ -28,7 +31,7 @@ final class WebComposerComponent: BridgeComponent {
             if let answer: AttachedAnswer = message.data() {
                 ComposerInbox.settle(id: answer.id, results: answer.files)
                 // What came back locked or unavailable goes now if the composer already said it takes files.
-                if state?.acceptsFiles == true, !ComposerInbox.files.isEmpty { takeInbox(connecting: false) }
+                if state?.acceptsFiles == true, !ComposerInbox.files.isEmpty { takeInbox() }
             }
             return
         }
@@ -43,10 +46,11 @@ final class WebComposerComponent: BridgeComponent {
 
         if message.event == "connect" {
             Self.connected.add(self)
-            takeInbox(connecting: true)
+            connectedAt = ComposerInbox.visit
+            takeInbox()
         } else if state.acceptsFiles, !ComposerInbox.files.isEmpty {
             // Shared files that waited for this composer to unlock.
-            takeInbox(connecting: false)
+            takeInbox()
         }
     }
 
@@ -56,9 +60,9 @@ final class WebComposerComponent: BridgeComponent {
     /// reply goes: the page drops an `attach` while locked, saying nothing.
     /// A lock that comes between the reply and the page acting on it can't
     /// be seen from here; only the page could say it took the files.
-    func takeInbox(connecting: Bool = true) {
+    func takeInbox() {
         guard let state else { return }
-        for action in ComposerInbox.take(for: state, at: url, connecting: connecting) {
+        for action in ComposerInbox.take(for: state, at: url, connectedAt: connectedAt) {
             Task {
                 // Files wait for a composer that takes them; a Dictate it can't start is dropped (`take`).
                 guard stillTakes(action) else {

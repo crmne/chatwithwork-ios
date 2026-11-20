@@ -103,8 +103,9 @@ struct ComposerInboxTests {
         #expect(ComposerInbox.unanswered == 0)
         #expect(ComposerInbox.files == [photo, file, plan])
         // A state saying it unlocked gets only the locked one; the rest wait for the next New chat.
-        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat, connecting: false))?.files == [photo])
-        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat))?.files == nil, "Not before another visit")
+        let connected = ComposerInbox.visit
+        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat, connectedAt: connected))?.files == [photo])
+        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat, connectedAt: connected))?.files == nil, "Not before another visit")
         // Another visit gives back the one still in flight too, and the next New chat gets all three.
         ComposerInbox.visitStarted()
         #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat))?.files == [photo, file, plan])
@@ -150,7 +151,21 @@ struct ComposerInboxTests {
         ComposerInbox.visitStarted()
         let second = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
         ComposerInbox.settle(id: second.id, results: [AttachedFile(name: "notes.txt", taken: false, reason: "locked")])
-        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat, connecting: false))?.files == [file])
+        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat, connectedAt: ComposerInbox.visit))?.files == [file])
+        emptied()
+    }
+
+    @Test("a failed file goes to the next New chat even if it connects locked and unlocks later")
+    func failedThenNextLocked() throws {
+        emptied()
+        ComposerInbox.files = [file]
+        let first = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
+        ComposerInbox.settle(id: first.id, results: [AttachedFile(name: "notes.txt", taken: false, reason: "failed")])
+        ComposerInbox.visitStarted()
+        // The next New chat connects locked, so nothing goes then; its unlock later is only a state.
+        let connected = ComposerInbox.visit
+        #expect(ComposerInbox.take(for: try confirming(acceptsFiles: false), at: newChat, connectedAt: connected).isEmpty)
+        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat, connectedAt: connected))?.files == [file])
         emptied()
     }
 
