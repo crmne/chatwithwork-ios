@@ -34,6 +34,44 @@ repository).
 
 ## Building and uploading
 
+### November 20, 2026: 1.1.4 released, 1.1.5 sent to App Review
+
+Apple had approved 1.1.4 (build 10067), which waited as Pending Developer
+Release. It was released through the API at 19:15 Europe/Berlin, and App
+Store Connect said Ready for Sale at once; the public lookup answered 1.1.4
+minutes later.
+
+iOS 1.1.5, build 10078, went to App Review on November 20, 2026 at 19:18
+Europe/Berlin, with **Manually release this version** selected. Build 10078 is
+Xcode Cloud's archive of main at
+[42be3af](https://github.com/crmne/chatwithwork-ios/commit/42be3af), already
+in both TestFlight groups. The new version took the screenshots from 1.1.4;
+the description, keywords, promotional text, URLs and What's New were set
+from `fastlane/metadata/en-US/`, and the review contact, demo login and notes
+from `fastlane/metadata/review_information/` (the notes now say where
+Decisions and New chat are). The synthetic review login was rebuilt on
+production just before, and signing in with it was checked. Export
+compliance: no non-exempt encryption.
+
+It carries the server's sidebar
+([#53](https://github.com/crmne/chatwithwork-ios/pull/53)), pull to refresh in
+place ([#54](https://github.com/crmne/chatwithwork-ios/pull/54)), the chat's
+title on the Live Activity
+([#56](https://github.com/crmne/chatwithwork-ios/pull/56)), the largest text
+sizes ([#57](https://github.com/crmne/chatwithwork-ios/pull/57),
+[#58](https://github.com/crmne/chatwithwork-ios/pull/58)), VoiceOver's order
+in the sidebar ([#59](https://github.com/crmne/chatwithwork-ios/pull/59)), and
+the web composer with New chat in place and Decisions in the bar
+([#62](https://github.com/crmne/chatwithwork-ios/pull/62),
+[#63](https://github.com/crmne/chatwithwork-ios/pull/63)).
+
+Known: the composer clips the screen's rounded corners at the bottom once the
+keyboard is put away. The screenshots still show the native composer and the
+bar before Decisions.
+
+Validation: each pull request says what it ran. The build wasn't tried on a
+device for this submission.
+
 ### November 12, 2026: 1.1.3 released, 1.1.4 sent to App Review
 
 Apple had approved 1.1.3 (build 10059) by November 12, 2026, which found it

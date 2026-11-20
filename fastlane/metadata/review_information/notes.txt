@@ -1,12 +1,12 @@
 Sign in with the demo account above (Welcome screen > Sign in, then the email and password). It belongs to a made-up organization, Northwind Studio, with synthetic chats and projects; nothing in it is real. The app signs in with email and a password, or a passkey; it offers no sign-in with another company's account (guideline 4.8).
 
-Things to try (the sidebar opens from the button at the top left):
+Things to try (the sidebar opens from the button at the top left; New chat opens from the sidebar and turns into the chat as you send):
 
 1. Your first question asks first (guideline 5.1.2(i)). On the New chat screen, type a question and tap Send. Before anything goes to an AI model, the app shows "Before your first question": which companies run the models and where (Gemini on Google Vertex AI, GPT on Microsoft Azure's EU Data Zone, Claude on AWS Bedrock, all in the EU), that web search, if someone turns it on, goes outside the EU, and a link to the privacy policy. Not now sends nothing and keeps the words; Agree and continue sends the question. It's asked once per account, and the demo account hasn't agreed yet. Dictation and the other ways of sending words to a model wait for the same answer.
 
 2. Reporting an answer (guideline 1.2). Under any answer, tap the "..." button. Its menu has Copy, Good answer, Bad answer, Retry, Branch, and Share link. Bad answer asks what went wrong, with "Offensive or harmful" among the reasons and a comment, and Send reports it to our staff without leaving the app. People don't message each other in the app, so there is no one to block.
 
-3. Decisions: everything waiting for the person, one at a time. It holds a change waiting for approval, a Slack post from the chat "Acme launch update". The demo account has no Slack connected, so approving it posts nothing anywhere.
+3. Decisions (the signpost at the right end of the top bar, with how many wait, or in the sidebar): everything waiting for the person, one at a time. It holds a change waiting for approval, a Slack post from the chat "Acme launch update". The demo account has no Slack connected, so approving it posts nothing anywhere.
 
 4. "Morning Acme brief": an answer from a scheduled run that searched Slack and Google Drive, with its sources.
 
