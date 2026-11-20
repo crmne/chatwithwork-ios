@@ -72,8 +72,12 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             configuration: .init(name: "main", startLocation: Self.startURL(environment: environment, account: account, memory: memory)),
             delegate: navigatorDelegate
         )
+        // The web composer's dictation records in the page.
+        navigator.webkitUIDelegate = WebUIController(delegate: navigator, server: environment.baseURL)
         super.init(nibName: nil, bundle: nil)
         Self.current = self
+        // Another organization's count isn't this one's.
+        DecisionsButton.reset()
     }
 
     @available(*, unavailable)
