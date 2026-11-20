@@ -1018,20 +1018,19 @@ def reach(account, paused):
 
 
 def suggestions(account, paused):
-    """Questions to start from, each a button that starts a chat with it
-    (chats/_suggestions)."""
+    """Questions to start from, each a button that puts its words in the
+    composer to read, change and send (chats/_suggestions,
+    prompt_suggestions_controller.js). Nothing is sent by itself."""
     picks = [(text, text) for key, _, text in SERVICES if key not in paused][:3] + [INTERVIEW]
     items = "".join(f"""
       <li>
-        <form class="button_to" method="post" action="/{account}/messages">
-          <button class="suggestion" type="submit">{icon("arrow-up-right", "suggestion__icon")}
-            <span>{esc(label)}</span>
-          </button>
-          <input type="hidden" name="message[content]" value="{esc(prompt)}">
-        </form>
+        <button type="button" class="suggestion" title="{esc(label)}" data-action="prompt-suggestions#fill" data-prompt-suggestions-prompt-param="{esc(prompt)}">
+          {icon("arrow-up-right", "suggestion__icon")}<span>{esc(label)}</span>
+        </button>
       </li>""" for label, prompt in picks)
     return f"""
-    <ul id="suggestions" class="suggestions" aria-label="Questions to start with">{items}
+    <ul id="suggestions" class="suggestions" aria-label="Things to ask"
+        data-controller="prompt-suggestions" data-prompt-suggestions-chat-outlet="#new_message">{items}
     </ul>"""
 
 

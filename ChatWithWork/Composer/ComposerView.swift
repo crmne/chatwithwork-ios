@@ -647,6 +647,15 @@ final class ComposerView: UIView, UITextViewDelegate {
         sendButton.style = stopButton.isHidden ? .primary : .subtle
     }
 
+    /// Words that take the field's place (a suggestion pressed on the page),
+    /// the caret after them.
+    func replaceText(with words: String) {
+        textView.text = words
+        textView.selectedRange = NSRange(location: (words as NSString).length, length: 0)
+        refreshControls()
+        onTextChange?(words)
+    }
+
     /// Words from dictation, after what's typed.
     func append(_ words: String) {
         let current = textView.text ?? ""

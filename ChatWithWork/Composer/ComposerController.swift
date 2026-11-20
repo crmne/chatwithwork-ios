@@ -131,6 +131,12 @@ final class ComposerController: NSObject {
     /// shared words and files, and dictation to start.
     func takePending() {
         guard let state = view.state else { return }
+        // A suggestion pressed on the page: its words in place of what's there, never joined to a draft, and the keyboard.
+        if state.fill {
+            view.replaceText(with: state.text)
+            focus()
+            return
+        }
         // What the web composer holds already (a shared link, a draft) starts the native field,
         // or sending would replace it. A New chat left with words in it gives them to the
         // next one, the web's words after them.

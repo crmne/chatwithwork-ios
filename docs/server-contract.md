@@ -1982,7 +1982,13 @@ person agrees, `dictation` is `null` (dictation goes to a model too), and a
 with `403` and `{error, model_consent: true}`, whose `error` the app shows
 like any other. `text` is what the web composer already holds (a shared link, a
 restored draft), files left out: the app starts an empty field with it.
-Each new web composer (a chat draws it again as an answer starts and ends)
+A suggestion pressed on the page (New chat's, Decisions' All clear's)
+connects again with the suggestion's words as `text` and `fill: true`
+(2026-11-20): the app puts them in its field in place of what's there,
+never joined to a kept draft, the caret after them, and gives the field the
+keyboard, as the web's composer takes the words and the focus
+(`ComposerController.takePending`). Builds before `fill` take the words as
+from any `connect`, into an empty field. Each new web composer (a chat draws it again as an answer starts and ends)
 connects again, and the app always answers the latest `connect`.
 
 App to web, as replies to `connect`, `{action, ...}`:

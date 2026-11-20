@@ -157,6 +157,20 @@ application.register("new-chat-sending", class extends Controller {
   }
 })
 
+// Stands in for prompt_suggestions_controller.js: a suggestion's words go
+// into the composer, and to the app's own composer as well
+// ("composer:filled", which the composer bridge connects again with).
+application.register("prompt-suggestions", class extends Controller {
+  static outlets = ["chat"]
+
+  fill({ params: { prompt } }) {
+    if (!this.hasChatOutlet) return
+    this.chatOutlet.inputTarget.value = prompt
+    this.chatOutlet.updateButtonState()
+    this.chatOutlet.element.dispatchEvent(new CustomEvent("composer:filled", { detail: { text: prompt } }))
+  }
+})
+
 // The composer's + menu, like the web app's composer-menu: its button opens
 // and closes it, Escape closes it and returns to the button, and a click
 // elsewhere closes it and leaves focus where it went.

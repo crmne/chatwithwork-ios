@@ -19,6 +19,9 @@ import { BridgeComponent } from "@hotwired/hotwire-native-bridge"
 // +narrowing+ is the + menu's Narrow services where the person has a service it can keep to some of what it reaches
 // (chats/narrowings/_item): its title, and what it's kept to now ("Everything connected"); null where the menu has none.
 // +text+ is the words the web composer holds (a shared link, a restored draft), files left out, for the app's empty field.
+// A suggestion pressed on the page (prompt_suggestions_controller.js) connects again with +fill+ true: the app puts
+// +text+ in its field in place of what's there and gives it the keyboard, as the web's composer takes the words and the
+// focus. Builds before +fill+ take the words the way any connect's go, into an empty field.
 // Until the person says yes to their words going to models (model_consent_controller.js), +dictation+ is null, and a
 // send waits for the page's dialog: agreeing sends it, while Not now connects again, so the app's field gets its words
 // back.
@@ -64,7 +67,13 @@ export default class extends BridgeComponent {
     this.drawnByApp = new MutationObserver(() => this.#hideWhereTheAppDrawsIt())
     this.drawnByApp.observe(document.documentElement, { attributes: true, attributeFilter: [ "data-bridge-components" ] })
     this.#hideWhereTheAppDrawsIt()
-    this.#connectToApp()
+    // The apps take the connect only if the address it carries is still the page's as it arrives, and a page can
+    // change its address as it connects (Decisions' ?view=, whose All clear carries this composer; helpers/address.js):
+    // so it goes once the controllers connecting with this one have, and again whenever the address changes after.
+    document.addEventListener("address:replaced", this.readdressed = () => this.#connectToApp())
+    // The words come with the event: the editor takes them in its next update, after this runs.
+    this.element.addEventListener("composer:filled", this.filled = event => this.#connectToApp({ text: event.detail?.text || "", fill: true }))
+    queueMicrotask(() => { if (this.element.isConnected) this.#connectToApp() })
   }
 
   disconnect() {
@@ -78,6 +87,8 @@ export default class extends BridgeComponent {
     window.removeEventListener("chat-panel-page:switched", this.switched)
     document.documentElement.style.removeProperty("--native-composer-height")
     this.drawnByApp?.disconnect()
+    document.removeEventListener("address:replaced", this.readdressed)
+    this.element.removeEventListener("composer:filled", this.filled)
     this.element.removeAttribute("aria-hidden")
     clearTimeout(this.timer)
     super.disconnect()
@@ -89,9 +100,9 @@ export default class extends BridgeComponent {
     else this.element.removeAttribute("aria-hidden")
   }
 
-  #connectToApp() {
+  #connectToApp(extra = {}) {
     this.lastState = JSON.stringify(this.#state())
-    this.send("connect", JSON.parse(this.lastState), message => this.#perform(message.data))
+    this.send("connect", { ...JSON.parse(this.lastState), ...extra }, message => this.#perform(message.data))
   }
 
   #changed() {
