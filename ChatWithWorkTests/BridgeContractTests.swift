@@ -40,14 +40,69 @@ struct BridgeContractTests {
     @Test("registers every component under its contract name")
     func names() {
         let names = BridgeRegistry.all.map { $0.name }
-        // `composer` only while the app draws the composer itself (BridgeRegistry.drawsComposer).
-        let composer = BridgeRegistry.drawsComposer ? ["composer"] : []
+        // `composer` while the app draws the composer itself (BridgeRegistry.drawsComposer), `web-composer` otherwise.
+        let composer = (BridgeRegistry.drawsComposer ? ["composer"] : ["web-composer"]) + ["decisions"]
         #expect(names == [
             "alert", "review-prompt", "theme",
             "button", "menu", "search", "form", "share", "toast", "haptic",
             "context-menu", "auth-session", "notification-token", "sidebar"
         ] + composer + ["file"])
         #expect(Set(names).count == names.count)
+    }
+
+    @Test("web-composer reads the web composer's state, and leaves what an older page doesn't send at its default")
+    func webComposerState() throws {
+        let working: WebComposerState? = message("web-composer", "connect", #"{"working":true,"waiting":false,"run":"answer-7","revision":3,"startedAt":1763600000,"mark":"chat","csrfToken":"token","acceptsFiles":true,"dictates":true,\#(metadata)}"#).data()
+        let state = try #require(working)
+        #expect(state.working)
+        #expect(!state.waiting)
+        #expect(state.liveRun == LiveRun(id: "answer-7", revision: 3, startedAt: 1_763_600_000))
+        #expect(state.mark == "chat")
+        #expect(state.csrfToken == "token")
+        #expect(state.acceptsFiles)
+        #expect(state.dictates)
+
+        let quiet: WebComposerState? = message("web-composer", "state", #"{"working":false,"waiting":false,"run":null,"revision":null,"startedAt":null,"mark":null,"csrfToken":null,"acceptsFiles":false,"dictates":false,\#(metadata)}"#).data()
+        #expect(quiet?.liveRun == nil)
+        #expect(quiet?.acceptsFiles == false)
+
+        let bare: WebComposerState? = message("web-composer", "connect", #"{\#(metadata)}"#).data()
+        #expect(bare?.working == false)
+        #expect(bare?.dictates == false, "Nothing is assumed of a page that doesn't say")
+    }
+
+    @Test("web-composer's replies hand over shared files and start dictation")
+    func webComposerReplies() throws {
+        let attach = try JSONEncoder().encode(WebComposerAction.attach(files: [ComposerFile(name: "notes.txt", type: "text/plain", bytes: Data("hi".utf8))]))
+        let files = try #require(JSONSerialization.jsonObject(with: attach) as? [String: Any])
+        #expect(files["action"] as? String == "attach")
+        let file = try #require((files["files"] as? [[String: String]])?.first)
+        #expect(file == ["name": "notes.txt", "type": "text/plain", "data": "aGk="])
+
+        let dictate = try JSONEncoder().encode(WebComposerAction.dictate)
+        #expect(try JSONSerialization.jsonObject(with: dictate) as? [String: String] == ["action": "dictate"])
+    }
+
+    @Test("decisions reads how many wait, whether this is Decisions, and where it is")
+    func decisions() throws {
+        let data = try #require(message("decisions", "connect", #"{"waiting":3,"here":false,"url":"https://chatwithwork.com/482139075/decisions",\#(metadata)}"#).data() as DecisionsData?)
+        #expect(data.waiting == 3)
+        #expect(!data.here)
+        #expect(data.url == "https://chatwithwork.com/482139075/decisions")
+        let count: DecisionsCount? = message("decisions", "count", #"{"waiting":12,\#(metadata)}"#).data()
+        #expect(count?.waiting == 12)
+        let here: DecisionsData? = message("decisions", "connect", #"{"waiting":0,"here":true,"url":"/482139075/decisions",\#(metadata)}"#).data()
+        #expect(here?.here == true)
+    }
+
+    @Test("Decisions' badge shows the count up to nine, then 9+, and none at zero; VoiceOver hears how many wait")
+    func decisionsBadge() {
+        #expect(DecisionsButton.badge(for: 0) == nil)
+        #expect(DecisionsButton.badge(for: 3) == "3")
+        #expect(DecisionsButton.badge(for: 9) == "9")
+        #expect(DecisionsButton.badge(for: 12) == "9+")
+        #expect(DecisionsButton.accessibilityLabel(for: 3) == "Decisions, 3 waiting")
+        #expect(DecisionsButton.accessibilityLabel(for: 0) == "Decisions")
     }
 
     @Test("button reads Joe Masilotti's payload")

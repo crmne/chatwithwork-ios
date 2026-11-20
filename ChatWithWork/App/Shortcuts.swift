@@ -121,7 +121,7 @@ nonisolated struct ChatWithWorkShortcuts: AppShortcutsProvider {
                 "Show my decisions in \(.applicationName)"
             ],
             shortTitle: "Decisions",
-            systemImageName: "checklist"
+            systemImageName: "signpost.right"
         )
     }
 }

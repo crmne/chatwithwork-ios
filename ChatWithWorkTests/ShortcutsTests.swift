@@ -51,7 +51,7 @@ struct ShortcutsTests {
         #expect(items[0]["UIApplicationShortcutItemIconSymbolName"] == "square.and.pencil")
         #expect(items[1]["UIApplicationShortcutItemIconFile"] == "ShortcutBot")
         #expect(UIImage(named: "ShortcutBot") != nil)
-        #expect(items[2]["UIApplicationShortcutItemIconSymbolName"] == "checklist")
+        #expect(items[2]["UIApplicationShortcutItemIconSymbolName"] == "signpost.right")
     }
 
     @Test("the App Shortcuts are the same three, and each opens the app")

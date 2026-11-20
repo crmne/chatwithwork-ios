@@ -14,17 +14,11 @@ import VisionKit
 final class ComposerController: NSObject {
     private nonisolated(unsafe) static var key: UInt8 = 0
 
-    /// A widget's or a shortcut's "Dictate": the next composer that connects
-    /// starts listening.
-    static var dictatesOnConnect = false
     /// New chat opened by the person (a tap on New chat, a shortcut): the
     /// next new chat's composer takes the keyboard, with its microphone beside
-    /// the field. It never starts listening itself.
+    /// the field. It never starts listening itself. Shared words and files
+    /// and a widget's Dictate wait in `ComposerInbox`.
     static var focusesOnConnect = false
-    /// Words shared into the app, for the next composer that connects.
-    static var pendingText: String?
-    /// Files shared into the app, handed to the next composer that connects.
-    static var pendingFiles: [ComposerFile] = []
 
     let view = ComposerView()
     var send: ((ComposerAction) -> Void)?
@@ -149,20 +143,20 @@ final class ComposerController: NSObject {
             }
         }
         // Shared words join whatever draft is there, unless the server already put them in it.
-        if let shared = Self.pendingText {
-            Self.pendingText = nil
+        if let shared = ComposerInbox.text {
+            ComposerInbox.text = nil
             if !view.textView.text.contains(shared) {
                 view.append(view.textView.text.isEmpty ? shared : "\n\n" + shared)
             }
         }
 
-        if !Self.pendingFiles.isEmpty, state.acceptsFiles {
-            let files = Self.pendingFiles
-            Self.pendingFiles = []
+        if !ComposerInbox.files.isEmpty, state.acceptsFiles {
+            let files = ComposerInbox.files
+            ComposerInbox.files = []
             send?(.attach(files: files))
         }
-        if Self.dictatesOnConnect, state.dictation != nil, !state.locked {
-            Self.dictatesOnConnect = false
+        if ComposerInbox.dictates, state.dictation != nil, !state.locked {
+            ComposerInbox.dictates = false
             startDictating()
         }
         if Self.focusesOnConnect, let screen, AppRoute(url: screen.currentVisitableURL).kind == .newChat {

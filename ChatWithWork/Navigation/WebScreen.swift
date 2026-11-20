@@ -43,6 +43,7 @@ enum WebScreen {
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         TextSize.follow(webView)
+        NetworkCost.shared.follow(webView)
         PageTitle.follow(webView)
         PinchZoom.resetOnNewPage(webView)
         // No white flash before the first paint in dark mode.

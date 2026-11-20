@@ -94,6 +94,7 @@ struct SidebarPageTests {
             == #"window.chatWithWorkSidebar?.current("https:\/\/chatwithwork.com\/482139075\/chats\/9", null)"#)
         #expect(SidebarPage.currentScript(url: URL(string: "https://chatwithwork.com/1/chats/9")!, belongsTo: #"/1/bots/"7"#).hasSuffix(#"\/1\/bots\/\"7")"#))
         #expect(SidebarPage.answerScript(id: "3", confirmed: true) == #"window.chatWithWorkSidebar?.answer("3", true)"#)
+        #expect(SidebarPage.closedScript == "window.chatWithWorkSidebar?.closed?.()", "A page older than closed() is left alone")
     }
 
     private func decode<T: Decodable>(_ json: String) throws -> T {

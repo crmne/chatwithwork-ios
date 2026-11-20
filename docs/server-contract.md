@@ -543,7 +543,9 @@ Android ignores, are marked "iOS". Every message the bridge sends also carries
 | `notification-token` | `connect`; `get`; `offer` `{reason}` (`approval` or `answer`); `openSettings`; `key` `{key, token}` | reply to `connect`, `get` and `offer`: `{status, token?, platform, environment, appId, needsKey}` | `bridge--notification-token` |
 | `sidebar` | `connect` `{}`; `changed` `{}` | reply to `connect` `{action: "perform", url, method, confirm?, destructive?}`: send a chat's action from the sidebar | `bridge--sidebar` (section 11) |
 | `composer` | `connect` and `state` with the composer's state | reply to the latest `connect` `{action, ...}` | `bridge--composer` (section 12) |
+| `web-composer` | `connect` and `state` `{working, waiting, run, revision, startedAt, mark, csrfToken, acceptsFiles, dictates}` | reply to the latest `connect`: `{action: "attach", files}` or `{action: "dictate"}` | `bridge--web-composer` ([The web composer](#the-web-composer-2026-11-20)) |
 | `file` | `connect` `{files: [{url, name, contentType?, title?}]}`; `disconnect` | none | `bridge--file` ([A file](#a-file-chatsfilesshow)) |
+| `decisions` | `connect` `{waiting, here, url}`; `count` `{waiting}` | none | `bridge--decisions` ([Decisions in the bar](#decisions-in-the-bar-2026-11-20)) |
 
 Rules for every component:
 
@@ -613,6 +615,32 @@ Details the table can't hold:
 What each page renders in the apps. "Hidden holder" means
 `<div class="native-actions" hidden>`, whose elements only native components
 click.
+
+### Decisions in the bar (2026-11-20)
+
+On every main-stack screen but Decisions, the bar's last button is
+Decisions (SF Symbols' `signpost.right`, the web's Phosphor `signpost`); on
+Decisions it's New chat. It sits where New chat sat, the outermost trailing
+button, so a page's own buttons (a chat's panel and menu, a bot's Setup)
+stand before it; sheets and forms have neither. While decisions wait, the
+symbol takes the attention ink (`Palette.attentionInk`) and a small badge
+at its top right says how many, on attention's own colour with dark words,
+"9+" past nine, none at zero (iOS 26's bar badge; a drawn one before it).
+VoiceOver reads "Decisions" or "Decisions, 3 waiting". A tap goes to
+Decisions: back to it where it's the root under the screen on top (or the
+home, which lands there), else as the place at the root, never a second
+Decisions on the stack.
+
+- **The page says**, through a hidden `bridge--decisions` element on every
+  signed-in account page, only for builds that list `decisions`
+  (`application/_native_decisions`): `connect` `{waiting, here, url}`, then
+  `count` `{waiting}` whenever it changes. `waiting` is how many decisions
+  wait for the person in this organization, snoozed ones left out, as the
+  sidebar's Decisions row says, live on the person's `[user, :sidebar]`
+  stream and loaded again as the page comes back from the background;
+  `here` whether this page is Decisions; `url` Decisions, absolute. The app
+  answers nothing.
+- **Older servers** render no element, and the bar keeps New chat.
 
 ### Chats (`chats/index`)
 
@@ -762,17 +790,36 @@ app's composer sits at the foot of either page.
 
 - **Where they open.** What the sidebar opens is a place, the root, like
   every row there (`Places`): its New chat and New bot (the sidebar page's
-  or the native one's) open once the drawer has slid shut
-  (`SidebarShell.open(url:)` waits for its slide to end and the next frame).
+  or the native one's) start at once while the drawer slides shut, and
+  New chat's keyboard comes once it has shut (`SidebarShell.open(url:)`,
+  `whenDrawerShut`; builds before 2026-11-20 started the visit only then).
   So does New chat from a shortcut, Siri, a widget, a share
   (`chatwithwork://new-chat`) or a link (`SidebarShell.openNewChat`), and a
   cold start from one starts the navigator on it. Opened from a page (the
   bar's New chat over a chat or any place, Bots' New bot, a project's or a
   bot's New chat, Decisions), the configuration's `default` pushes it with
-  Back to that page (`SidebarShell.startNewChat`). A New chat already on top
+  Back to that page (`SidebarShell.startNewChat`), in place since
+  2026-11-20 (below). A New chat already on top
   takes the keyboard (and a share's words and files) rather than another
   stacking on it (`ComposerController.onNewChat`). Notifications open their
   chat as before.
+- **Opened from a page, in place (2026-11-20).** New chat and New bot's
+  sentence page opened from a page (the bar's New chat on Decisions, Bots'
+  New bot, a link) come up where that page stands, with no slide and no
+  skeleton: the visit is pushed without animation, so Back still returns
+  to that page, and the new screen shows the page it was opened from until
+  its own has drawn (`NewChatHandOff.opensInPlace`, the same picture the
+  turn into the chat uses). The sidebar's, a shortcut's and a share's New
+  chat stay places at the root.
+- **The keyboard, where the page's composer shows (2026-11-20).** WebKit
+  brings the keyboard up only for a focus that follows a touch in the page,
+  and New chat opened by the person loads its page after the tap. So the
+  app takes the keyboard at once with a field of its own, out of sight
+  (`KeyboardHandOff`), and, once New chat's composer connects
+  (`web-composer`), focuses its editable and hands the keyboard to the web
+  view, with anything typed meanwhile. A page that never asks for it lets
+  the keyboard go after 10 s. After Send the keyboard goes down as the page
+  turns into its chat, and stays down; in a chat it stays up.
 - **Turning into the chat (`NewChatHandOff`).** The app's composer sends
   through the page's hidden form (`composer` `send`), and the server draws
   the question, Thinking and the chat's dock in place in the same request;
@@ -939,6 +986,31 @@ deck the assistant made shows as its slides without PowerPoint on the phone.
   (`file_preview_pages`) again every second or so; nothing native.
 - The page allows zooming (no `maximum-scale`); Android turns on its web
   view's pinch zoom for these pages only.
+
+### What the network costs, and loading ahead (2026-11-20)
+
+The pages load Decisions, New chat and New bot ahead once idle
+(`helpers/preload.js`), only on a network that costs nothing. WKWebView
+tells a page nothing about the network, so the app keeps
+`window.chatWithWorkNetwork = { metered, constrained }` current in every
+web view it shows pages in (`NetworkCost`, one `NWPathMonitor` started at
+launch): `metered` is `isExpensive` (cellular, a personal hotspot),
+`constrained` is `isConstrained` (Low Data Mode). A user script at document
+start sets it for each page that loads (the latest one added wins, as for
+the text size), and every change sets it on the pages already open and,
+when the network costs nothing, calls `window.chatWithWork?.preload?.()`.
+Until iOS first reports a path, pages hear nothing and don't load ahead.
+Nothing goes to the server.
+
+As the drawer starts to open (its button or the edge swipe), the app calls
+`window.chatWithWork?.preload?.()` in the main web view, never the sidebar
+page's, so what the drawer opens is ready by the time it's tapped.
+
+The sidebar's places, New chat and New bot's sentence page included, start
+their visit at once while the drawer slides shut; only New chat's keyboard
+waits for it to be shut, and a form (a modal: Rename, Move to a project)
+waits for it too, so no picture of the screen under the sheet shows the
+drawer.
 
 ### Pull to refresh and coming back (2026-11-18)
 
@@ -1507,6 +1579,11 @@ fallback for servers that name none.
   - `refresh()`: back in the foreground, where the page's streams may have
     missed something; the page reloads itself while online.
   - `answer(id, confirmed)`.
+  - `closed()` (2026-11-20): the drawer closed, however it closed (the edge
+    swipe back, a tap beside it, the close button, a visit). The page ends
+    row picking and closes its menus, so nothing is left open the next time
+    the drawer opens. The app calls it as `closed?.()`, so a page without it
+    is left alone.
 - **Navigation.** Only the page itself may load in the web view. Any other
   main-frame navigation (a link Turbo doesn't follow, `target=_blank`, a
   redirect) is cancelled and goes where a `visit` would; the sign-in form,
@@ -1703,8 +1780,10 @@ server.
 own at the top of the sidebar, just before the Chats | Bots switch, or at
 the top where there's no switch (guests, older servers)
 (`sidebar.decisions`). It's outlined like the list switcher, since it's the
-one thing there that asks for the person: the list-checks symbol
-(`checklist`), "Decisions" spelled out, and at its end `waiting.count` as a
+one thing there that asks for the person: the signpost the web's
+Decisions wears (Phosphor `signpost`; SF Symbols' `signpost.right`, also on
+the Decisions shortcut and quick action; `checklist` before 2026-11-20),
+"Decisions" spelled out, and at its end `waiting.count` as a
 small badge on the attention wash, its outline taking the attention edge,
 or the happy bot and a quiet "All clear" at 0. VoiceOver reads "Decisions" and "N waiting" or
 "None waiting". It opens `waiting.url` (or `links.decisions`). The same
@@ -1855,10 +1934,75 @@ it's off, what follows from the native composer is off too: the Live
 Activity started from `working`, share-sheet files (shared words still
 arrive through `/chats/new?text=`), the kept New chat draft, the app's
 dictation and its glow and haptics; the skeletons draw the composer where
-the web one sits (under New chat's greeting, at a chat's foot). WebKit
-shows the keyboard only for a focus that follows a tap in the page, so a
-page focusing its composer by itself gets the caret but no keyboard. The
-rest of this section describes the composer when it's on.
+the web one sits (under New chat's greeting, at a chat's foot). The
+`web-composer` component below brings back the Live Activity, shared files
+and a widget's Dictate; the web composer has its own glow, dictation
+(recorded in the page, `WebUIController` granting the microphone) and
+haptic on send (`bridge--haptic`, `light`). WebKit shows the keyboard only
+for a focus that follows a tap in the page, so a page focusing its composer
+by itself gets the caret but no keyboard. The rest of this section, up to
+the web composer, describes the composer when it's on.
+
+### The web composer (2026-11-20)
+
+Builds that don't draw the composer register `web-composer` instead of
+`composer`, never both, so the page knows which one it talks to. The web
+composer (`#new_message`) carries `bridge--web-composer`
+(`web/controllers/bridge/web_composer_controller.js`) beside
+`bridge--composer`, each loading only where the app lists its component.
+The page draws and sends everything; the app only needs to know when an
+answer runs, and has a way to hand the composer what came from outside the
+page.
+
+- **Web to app**: `connect` with the composer's state, then `state` with the
+  same keys whenever they change (its classes and `data-live-*`, the yes to
+  models), at most every 150 ms. The chat draws its composer again as an
+  answer starts and ends, and each new one connects again; a page that
+  changes its address in place (`address:replaced`) connects again too, as
+  the app drops a message whose address is no longer the page's.
+  - `working`, `waiting`, `run`, `revision`, `startedAt`, `mark`: as the
+    composer's own (section 13), the server's `LiveActivity::Run` and
+    `Chat#live_mark`, opaque and nothing from the chat.
+  - `csrfToken`: the page's, for registering the activity's token.
+  - `acceptsFiles`: false while the composer is locked.
+  - `dictates`: whether the composer's microphone is offered now (an install
+    with a model to transcribe with, and the person's yes to their words
+    going to models).
+- **App to web**, replies to the latest `connect`:
+  - `{action: "attach", files: [{name, type, data}]}`: files shared into the
+    app (base64, as the composer's `attach`), uploaded like any file the
+    composer takes. Ignored while it's locked, saying nothing: the app
+    sends files only while the composer's latest `state` says
+    `acceptsFiles`, and keeps them for the next New chat when it doesn't by
+    the time the reply goes. A lock between the reply and the page acting on
+    it still loses them; only an answer from the page that it took them
+    would close that.
+  - `{action: "dictate"}`: the page clicks its microphone, so everything the
+    button checks (the yes to models, credits, a recording already going)
+    holds.
+- **What the app does with it.** Live Activities follow the state exactly
+  as they follow the composer's (`LiveActivities.noteState`, with the
+  message's address). Files the share extension left and a widget's or a
+  shortcut's Dictate (`chatwithwork://new-chat?shared=…&dictate=1`) wait in
+  `ComposerInbox` for the next New chat's composer: on its `connect`, files
+  when `acceptsFiles` (they wait for one that takes them otherwise), and
+  Dictate when `dictates` (dropped otherwise, so a later New chat doesn't
+  start listening by itself). A chat's composer connecting again meanwhile
+  takes nothing. A New chat already on screen takes them without a visit,
+  unless words were shared too: those come only in New chat's address
+  (`/chats/new?text=`), so it's visited again.
+- **The microphone.** Dictation records in the page (`getUserMedia`). The
+  navigators' WebKit UI delegate (`WebUIController`, Hotwire Native's
+  `WKUIController` subclassed) grants the microphone without WebKit's own
+  prompt to this server's pages in the main frame, and refuses the camera
+  and every other origin and frame; iOS asks once for the app
+  (`NSMicrophoneUsageDescription`). `getUserMedia` needs a secure context:
+  HTTPS, or `http://localhost`.
+- **Files from the + menu.** The composer's file input
+  (`<input type=file multiple>`, no `accept`) gets WebKit's own menu: Photo
+  Library and Choose Files, and Take Photo or Video where there's a camera
+  (`NSCameraUsageDescription`; the photo picker runs outside the app and
+  needs no library access).
 
 **Overlay layout (2026-10-29).** The server advertises `overlay: true` in
 composer state when it supports scroll clearance. Only then does the app

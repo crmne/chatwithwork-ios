@@ -49,6 +49,8 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     nonisolated(unsafe) private var foregroundObserver: NSObjectProtocol?
 
     var isOpen: Bool { progress > 0.5 }
+    /// Whether the drawer showed since it last came to rest closed.
+    private var drawerShown = false
 
     /// Signing out from the person's menu in the sidebar page (AppShell).
     var onSignOut: (() -> Void)?
@@ -70,8 +72,12 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             configuration: .init(name: "main", startLocation: Self.startURL(environment: environment, account: account, memory: memory)),
             delegate: navigatorDelegate
         )
+        // The web composer's dictation records in the page.
+        navigator.webkitUIDelegate = WebUIController(delegate: navigator, server: environment.baseURL)
         super.init(nibName: nil, bundle: nil)
         Self.current = self
+        // Another organization's count isn't this one's.
+        DecisionsButton.reset()
     }
 
     @available(*, unavailable)
@@ -297,12 +303,42 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             sidebar.accessibilityIdentifier = "shell.sidebar"
             NavigationBarItems.set(sidebar, slot: .shell, side: .leading, on: viewController)
         }
-        if store.data?.links.newChat != nil || store.data == nil {
+        decorateTrailing(viewController)
+    }
+
+    /// The bar's last button: Decisions where the page says how many wait
+    /// (`decisions`, docs/server-contract.md, "Decisions in the bar"), except
+    /// on Decisions itself; New chat there and from a server that doesn't say.
+    func decorateTrailing(_ viewController: UIViewController) {
+        guard navigator.rootViewController.viewControllers.contains(viewController) else { return }
+        if let decisions = DecisionsButton.current, !DecisionsButton.isDecisions(viewController, decisions: decisions.url) {
+            let url = decisions.url
+            let item = DecisionsButton.item(waiting: decisions.waiting) { [weak self] in self?.openDecisions(url) }
+            NavigationBarItems.set(item, slot: .shell, side: .trailing, on: viewController)
+        } else if store.data?.links.newChat != nil || store.data == nil || DecisionsButton.current != nil {
             let newChat = UIBarButtonItem(image: UIImage(systemName: "square.and.pencil"), primaryAction: UIAction { [weak self] _ in self?.startNewChat() })
             newChat.accessibilityLabel = String(localized: "New chat")
             newChat.accessibilityIdentifier = "shell.newChat"
             NavigationBarItems.set(newChat, slot: .shell, side: .trailing, on: viewController)
         }
+    }
+
+    func decorateTrailingOnEveryScreen() {
+        navigator.rootViewController.viewControllers.forEach(decorateTrailing)
+    }
+
+    /// Decisions from the bar: back to it where it's the root under the
+    /// screen on top, else as the place at the root; never a second one.
+    func openDecisions(_ url: URL) {
+        let main = navigator.rootViewController
+        startingVisit()
+        setOpen(false, animated: true)
+        if let root = main.viewControllers.first, DecisionsButton.isDecisions(root, decisions: url) {
+            main.presentedViewController?.dismiss(animated: true)
+            main.popToRootViewController(animated: true)
+            return
+        }
+        open(url: url, closingSidebar: false)
     }
 
     // MARK: Routing
@@ -357,19 +393,21 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         open(url: environment.url(path: path))
     }
 
-    /// New chat and New bot wait for the drawer to slide shut and the screen
-    /// without it to be drawn, so their page and its keyboard don't arrive
-    /// while it moves (docs/server-contract.md, "New chat and New bot").
+    /// Opens `url` as a place, at once while the drawer slides shut; a form
+    /// waits for it to shut, and New chat's keyboard too (docs/server-contract.md,
+    /// "New chat and New bot").
     private func open(url: URL, closingSidebar: Bool = true) {
         let properties = navigator.session.pathConfiguration?.properties(for: url) ?? PathProperties()
         let place = VisitProposal(url: url, options: VisitOptions(action: .advance), properties: Places.opening(properties))
-        let route = AppRoute(url: url)
         let visit = startingVisit()
         guard closingSidebar else {
             navigator.route(place)
             return
         }
-        guard route.kind == .newChat || route.isNewBot, progress > 0 || isMoving else {
+        // New chat and New bot are pages (path configuration v4), so they start at once, as every
+        // place does; only their keyboard waits for the drawer to shut (whenDrawerShut). A modal
+        // still waits, so no snapshot of the screen under it shows the drawer.
+        guard properties.context == .modal, progress > 0 || isMoving else {
             setOpen(false, animated: true)
             navigator.route(place)
             return
@@ -379,6 +417,18 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
                 guard let self, visit == self.visits else { return }
                 self.navigator.route(place)
             }
+        }
+    }
+
+    /// Runs `action` once the drawer is shut and at rest: at once if it is.
+    /// Dropped when the drawer comes to rest open instead (opened again
+    /// while it shut), or another visit started meanwhile.
+    func whenDrawerShut(_ action: @escaping () -> Void) {
+        guard progress > 0 || isMoving else { return action() }
+        let visit = visits
+        afterMotion.append { [weak self] in
+            guard let self, self.progress == 0, visit == self.visits else { return }
+            action()
         }
     }
 
@@ -400,9 +450,19 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             composer.focus()
             return
         }
-        // The web composer's New chat keeps its words too.
-        if showsNewChat { return }
+        // The web composer's New chat keeps its words too, and takes the keyboard.
+        if showsNewChat { return focusNewChat() }
         navigator.route(environment.url(path: newChatPath))
+    }
+
+    /// The keyboard for the web composer of the New chat on screen, once the
+    /// drawer is shut (KeyboardHandOff).
+    func focusNewChat() {
+        guard !BridgeRegistry.drawsComposer else { return }
+        whenDrawerShut { [weak self] in
+            guard let self else { return }
+            KeyboardHandOff.raise(in: self.view.window, for: self.navigator.session.webView)
+        }
     }
 
     /// Whether New chat is on top of the main stack, with nothing over it.
@@ -423,6 +483,7 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         }
         if url?.query() == nil, showsNewChat {
             setOpen(false, animated: true)
+            focusNewChat()
             return
         }
         open(url: url ?? environment.url(path: newChatPath))
@@ -572,6 +633,8 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     func setOpen(_ open: Bool, animated: Bool, completion: (() -> Void)? = nil) {
         if open {
             view.endEditing(true)
+            // The page on screen loads the places the drawer opens ahead, where the network costs nothing.
+            navigator.session.webView.evaluateJavaScript(SidebarPage.preloadScript, completionHandler: nil)
             if !showsSidebarPage {
                 Task { await store.refreshIfStale() }
                 pollWhileOpen()
@@ -623,11 +686,18 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     /// sidebar and its dimming leave the screen (and the accessibility tree).
     private func apply(progress value: CGFloat, settled: Bool = true) {
         progress = min(max(value, 0), 1)
+        if progress > 0 { drawerShown = true }
         sidebarLeading.constant = -sidebarWidth * (1 - progress)
         dim.alpha = 0.28 * progress
         if settled {
             let resting = progress == 0
-            if resting { releaseSidebarFocus() }
+            if resting {
+                releaseSidebarFocus()
+                // However it closed (a swipe, a tap beside it, a visit): the page
+                // ends what it had open, row picking and its menus.
+                if drawerShown { sidebarPage?.closed() }
+                drawerShown = false
+            }
             sidebarPanel.isHidden = resting
             dim.isHidden = resting
         }
@@ -676,6 +746,7 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             prepareForMotion()
             if opening {
                 view.endEditing(true)
+                navigator.session.webView.evaluateJavaScript(SidebarPage.preloadScript, completionHandler: nil)
                 if !showsSidebarPage { Task { await store.refreshIfStale() } }
             }
         case .changed:

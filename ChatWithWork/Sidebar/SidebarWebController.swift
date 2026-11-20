@@ -112,6 +112,12 @@ final class SidebarWebController: UIViewController, WKNavigationDelegate, WKUIDe
         if isReady { webView.evaluateJavaScript(SidebarPage.refreshScript) }
     }
 
+    /// The drawer closed, however it closed: the page ends row picking and
+    /// closes its menus.
+    func closed() {
+        if isReady { webView.evaluateJavaScript(SidebarPage.closedScript) }
+    }
+
     // MARK: What the page says
 
     fileprivate func receive(_ message: WKScriptMessage) {

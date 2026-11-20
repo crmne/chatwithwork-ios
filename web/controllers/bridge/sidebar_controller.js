@@ -15,7 +15,8 @@ import { Turbo } from "@hotwired/turbo-rails"
 //
 //   <div hidden data-controller="bridge--sidebar" data-bridge--sidebar-page-value="/482139075/sidebar"></div>
 //
-// Web to app: connect {page, belongsTo} (older servers send {}), changed {} (at most twice a second).
+// Web to app: connect {page, belongsTo} (older servers send {}), again when the page changes its address in place,
+// changed {} (at most twice a second).
 // App to web, as replies to connect: {action: "perform", url, method, confirm?, destructive?}, a chat's action
 // from a long press in the native sidebar (the JSON's chat "actions"). This page sends it as the web's own link
 // would: a "get" is a visit, anything else a Turbo request with that method, asking first where there's a confirm
@@ -31,7 +32,22 @@ export default class extends BridgeComponent {
     super.connect()
     this.heard = this.heard.bind(this)
     document.addEventListener("turbo:before-stream-render", this.heard)
+    document.addEventListener("address:replaced", this.#readdressed)
+    // The apps take the connect only if the address it carries is still the page's as it arrives, and a page can
+    // change its address as it connects (Decisions' ?view=&decision=, helpers/address.js). So it goes once the
+    // controllers connecting with this one have, and again whenever the address changes after.
+    queueMicrotask(() => this.#connectHere())
+  }
+
+  #connectHere() {
+    if (!this.element.isConnected || this.connectedFor === window.location.href) return
+
+    this.connectedFor = window.location.href
     this.send("connect", this.#page(), message => this.perform(message.data))
+  }
+
+  #readdressed = () => {
+    if (this.connectedFor) this.#connectHere()
   }
 
   perform({ action, url, method, confirm, destructive } = {}) {
@@ -56,6 +72,8 @@ export default class extends BridgeComponent {
 
   disconnect() {
     document.removeEventListener("turbo:before-stream-render", this.heard)
+    document.removeEventListener("address:replaced", this.#readdressed)
+    this.connectedFor = null
     clearTimeout(this.timer)
     super.disconnect()
   }

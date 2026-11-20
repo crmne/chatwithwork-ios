@@ -128,8 +128,8 @@ final class LiveActivities {
     private var untitledStarts: [String: (start: UUID, run: () -> Void)] = [:]
     private var leavingObserver: NSObjectProtocol?
 
-    /// The composer on `chatURL` changed.
-    func noteState(_ state: ComposerState, chatURL: URL?) {
+    /// The composer on `chatURL` changed, the app's own or the web's.
+    func noteState(_ state: some LiveComposerState, chatURL: URL?) {
         guard isSignedIn(), let chatURL, case .chat = AppRoute(url: chatURL).kind else { return }
         let path = chatURL.path(percentEncoded: false)
         if state.working {
@@ -383,6 +383,18 @@ final class LiveActivities {
             pause: { attempt in try? await Task.sleep(for: .seconds(2 << attempt)) }
         )
     }
+}
+
+/// What a chat's composer says that Live Activities follow: whether its
+/// answer works or waits for the person, which answer, who's at work on it,
+/// and the page's token for registering the activity. The app's composer
+/// (`ComposerState`) and the web's (`WebComposerState`) both say it.
+nonisolated protocol LiveComposerState {
+    var working: Bool { get }
+    var waiting: Bool { get }
+    var liveRun: LiveRun? { get }
+    var mark: String? { get }
+    var csrfToken: String? { get }
 }
 
 /// The first of the title and the limit to arrive resumes the waiter; the

@@ -5,6 +5,7 @@ import WebKit
 /// Everything Hotwire Native needs before the first navigator is created.
 enum HotwireSetup {
     static func configure(for environment: AppEnvironment) {
+        NetworkCost.shared.start()
         Hotwire.config.applicationUserAgentPrefix = environment.userAgentPrefix
         Hotwire.config.backButtonDisplayMode = .minimal
         // Pushed screens cover the bottom tab bar on iPhone. iPad's tab bar

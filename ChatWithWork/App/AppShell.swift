@@ -183,9 +183,9 @@ final class AppShell: NSObject {
             guard let path = value("path"), path.hasPrefix("/"), !path.hasPrefix("//") else { return }
             open(environment.url(path: path))
         case "new-chat":
-            if value("dictate") == "1" { ComposerController.dictatesOnConnect = true }
+            if value("dictate") == "1" { ComposerInbox.dictates = true }
             if let shared = value("shared") {
-                ComposerController.pendingFiles = SharedInbox.take(shared).map { ComposerFile(name: $0.name, type: $0.type, bytes: $0.data) }
+                ComposerInbox.files = SharedInbox.take(shared).map { ComposerFile(name: $0.name, type: $0.type, bytes: $0.data) }
             }
             // The words wait in the native composer too, whatever the page does with them.
             // Joined as the server joins them for `/chats/new`, so a composer it filled is recognized.
@@ -194,11 +194,18 @@ final class AppShell: NSObject {
                 shared.append(word)
             }
             let sharedText = shared.joined(separator: "\n\n")
-            if !sharedText.isEmpty { ComposerController.pendingText = sharedText }
-            // A new chat already on screen takes them as they are.
+            if !sharedText.isEmpty, BridgeRegistry.drawsComposer { ComposerInbox.text = sharedText }
+            // A new chat already on screen takes them as they are. The web composer gets
+            // shared words only in New chat's address, so words visit it again.
             if case .signedIn(let shell) = state, let composer = ComposerController.onNewChat(shell.navigator.rootViewController) {
                 shell.setOpen(false, animated: false)
                 composer.takePending()
+                return
+            }
+            if case .signedIn(let shell) = state, sharedText.isEmpty, let composer = WebComposerComponent.onNewChat(shell.navigator.rootViewController) {
+                shell.setOpen(false, animated: false)
+                composer.takeInbox()
+                shell.focusNewChat()
                 return
             }
             var components = URLComponents()
@@ -282,6 +289,8 @@ final class AppShell: NSObject {
 
     private func switchAccount(to target: AccountSlug, continuingTo url: URL) {
         guard target != account else { return }
+        // Words held for one organization's New chat don't follow into another's.
+        KeyboardHandOff.discard()
         memory.lastAccount = target
         showSignedIn(account: target, continuingTo: opensOnTop(of: url) ? url : nil, startingAt: Self.startsAt(url))
     }
@@ -319,6 +328,7 @@ final class AppShell: NSObject {
         memory.lastAccount = nil
         SidebarCache.clear()
         NewChatDraft.clear()
+        KeyboardHandOff.discard()
         account = nil
         PushNotifications.shared.forgetKey()
         LiveActivities.shared.endAll()
@@ -437,6 +447,7 @@ extension AppShell: NavigatorDelegate {
                 shell.noteVisit(proposal.url)
                 return .acceptCustom(NewChatHandOff.screen(for: proposal.url, replacing: main.topViewController))
             }
+            let opensInPlace = NewChatHandOff.isOpeningInPlace(proposal)
             // The chat the page on top just turned into in place takes that
             // screen's place, rather than the place the configuration gives a chat.
             if main.presentedViewController == nil, let top = main.topViewController,
@@ -452,6 +463,26 @@ extension AppShell: NavigatorDelegate {
             if route.kind == .newChat, !main.viewControllers.isEmpty, !shell.opensByItself,
                proposal.options.response == nil || ComposerController.hasKeyboard(onNewChatIn: main) {
                 ComposerController.focusesOnConnect = true
+                // The page's own composer can't raise the keyboard by itself: the app takes it now.
+                if !BridgeRegistry.drawsComposer, proposal.options.response == nil {
+                    // The page on screen now is the one this New chat leaves, even if it's a New chat too.
+                    let leaving = KeyboardHandOff.markLeaving(shell.navigator.session.webView)
+                    shell.whenDrawerShut { [weak shell] in
+                        guard let shell else { return }
+                        KeyboardHandOff.raise(in: shell.view.window, for: shell.navigator.session.webView, leaving: leaving)
+                    }
+                }
+            }
+            // New chat and New bot opened from a page come up where it stands,
+            // with Back to it: pushed without the slide, showing that page
+            // until theirs has drawn.
+            if opensInPlace {
+                shell.noteVisit(proposal.url)
+                return .acceptCustom(NewChatHandOff.screen(for: proposal.url, replacing: main.topViewController))
+            }
+            if NewChatHandOff.opensInPlace(proposal, hasScreens: !main.viewControllers.isEmpty, presenting: main.presentedViewController != nil) {
+                shell.navigator.route(NewChatHandOff.openingInPlace(proposal))
+                return .reject
             }
 
             shell.noteVisit(proposal.url)

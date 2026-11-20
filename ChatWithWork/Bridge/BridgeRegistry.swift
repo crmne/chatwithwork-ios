@@ -16,8 +16,14 @@ enum BridgeRegistry {
     /// agent doesn't name `composer`. Turning it back on is this line.
     nonisolated static let drawsComposer = false
 
+    /// `composer` where the app draws the composer, `web-composer` where it
+    /// shows the page's: never both, so the page knows which one it talks to.
     static var all: [BridgeComponent.Type] {
-        allComponents.filter { drawsComposer || $0 != ComposerComponent.self }
+        allComponents.filter { component in
+            if component == ComposerComponent.self { return drawsComposer }
+            if component == WebComposerComponent.self { return !drawsComposer }
+            return true
+        }
     }
 
     private static var allComponents: [BridgeComponent.Type] {
@@ -43,6 +49,8 @@ enum BridgeRegistry {
             NotificationTokenComponent.self, // "notification-token"
             SidebarComponent.self, // "sidebar"
             ComposerComponent.self, // "composer"
+            WebComposerComponent.self, // "web-composer"
+            DecisionsComponent.self, // "decisions"
             FileShareComponent.self // "file"
         ]
     }
