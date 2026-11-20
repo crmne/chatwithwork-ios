@@ -40,14 +40,47 @@ struct BridgeContractTests {
     @Test("registers every component under its contract name")
     func names() {
         let names = BridgeRegistry.all.map { $0.name }
-        // `composer` only while the app draws the composer itself (BridgeRegistry.drawsComposer).
-        let composer = BridgeRegistry.drawsComposer ? ["composer"] : []
+        // `composer` while the app draws the composer itself (BridgeRegistry.drawsComposer), `web-composer` otherwise.
+        let composer = (BridgeRegistry.drawsComposer ? ["composer"] : ["web-composer"])
         #expect(names == [
             "alert", "review-prompt", "theme",
             "button", "menu", "search", "form", "share", "toast", "haptic",
             "context-menu", "auth-session", "notification-token", "sidebar"
         ] + composer + ["file"])
         #expect(Set(names).count == names.count)
+    }
+
+    @Test("web-composer reads the web composer's state, and leaves what an older page doesn't send at its default")
+    func webComposerState() throws {
+        let working: WebComposerState? = message("web-composer", "connect", #"{"working":true,"waiting":false,"run":"answer-7","revision":3,"startedAt":1763600000,"mark":"chat","csrfToken":"token","acceptsFiles":true,"dictates":true,\#(metadata)}"#).data()
+        let state = try #require(working)
+        #expect(state.working)
+        #expect(!state.waiting)
+        #expect(state.liveRun == LiveRun(id: "answer-7", revision: 3, startedAt: 1_763_600_000))
+        #expect(state.mark == "chat")
+        #expect(state.csrfToken == "token")
+        #expect(state.acceptsFiles)
+        #expect(state.dictates)
+
+        let quiet: WebComposerState? = message("web-composer", "state", #"{"working":false,"waiting":false,"run":null,"revision":null,"startedAt":null,"mark":null,"csrfToken":null,"acceptsFiles":false,"dictates":false,\#(metadata)}"#).data()
+        #expect(quiet?.liveRun == nil)
+        #expect(quiet?.acceptsFiles == false)
+
+        let bare: WebComposerState? = message("web-composer", "connect", #"{\#(metadata)}"#).data()
+        #expect(bare?.working == false)
+        #expect(bare?.dictates == false, "Nothing is assumed of a page that doesn't say")
+    }
+
+    @Test("web-composer's replies hand over shared files and start dictation")
+    func webComposerReplies() throws {
+        let attach = try JSONEncoder().encode(WebComposerAction.attach(files: [ComposerFile(name: "notes.txt", type: "text/plain", bytes: Data("hi".utf8))]))
+        let files = try #require(JSONSerialization.jsonObject(with: attach) as? [String: Any])
+        #expect(files["action"] as? String == "attach")
+        let file = try #require((files["files"] as? [[String: String]])?.first)
+        #expect(file == ["name": "notes.txt", "type": "text/plain", "data": "aGk="])
+
+        let dictate = try JSONEncoder().encode(WebComposerAction.dictate)
+        #expect(try JSONSerialization.jsonObject(with: dictate) as? [String: String] == ["action": "dictate"])
     }
 
     @Test("button reads Joe Masilotti's payload")

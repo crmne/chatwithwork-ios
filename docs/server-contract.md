@@ -543,6 +543,7 @@ Android ignores, are marked "iOS". Every message the bridge sends also carries
 | `notification-token` | `connect`; `get`; `offer` `{reason}` (`approval` or `answer`); `openSettings`; `key` `{key, token}` | reply to `connect`, `get` and `offer`: `{status, token?, platform, environment, appId, needsKey}` | `bridge--notification-token` |
 | `sidebar` | `connect` `{}`; `changed` `{}` | reply to `connect` `{action: "perform", url, method, confirm?, destructive?}`: send a chat's action from the sidebar | `bridge--sidebar` (section 11) |
 | `composer` | `connect` and `state` with the composer's state | reply to the latest `connect` `{action, ...}` | `bridge--composer` (section 12) |
+| `web-composer` | `connect` and `state` `{working, waiting, run, revision, startedAt, mark, csrfToken, acceptsFiles, dictates}` | reply to the latest `connect`: `{action: "attach", files}` or `{action: "dictate"}` | `bridge--web-composer` ([The web composer](#the-web-composer-2026-11-20)) |
 | `file` | `connect` `{files: [{url, name, contentType?, title?}]}`; `disconnect` | none | `bridge--file` ([A file](#a-file-chatsfilesshow)) |
 
 Rules for every component:
@@ -1862,10 +1863,70 @@ it's off, what follows from the native composer is off too: the Live
 Activity started from `working`, share-sheet files (shared words still
 arrive through `/chats/new?text=`), the kept New chat draft, the app's
 dictation and its glow and haptics; the skeletons draw the composer where
-the web one sits (under New chat's greeting, at a chat's foot). WebKit
-shows the keyboard only for a focus that follows a tap in the page, so a
-page focusing its composer by itself gets the caret but no keyboard. The
-rest of this section describes the composer when it's on.
+the web one sits (under New chat's greeting, at a chat's foot). The
+`web-composer` component below brings back the Live Activity, shared files
+and a widget's Dictate; the web composer has its own glow, dictation
+(recorded in the page, `WebUIController` granting the microphone) and
+haptic on send (`bridge--haptic`, `light`). WebKit shows the keyboard only
+for a focus that follows a tap in the page, so a page focusing its composer
+by itself gets the caret but no keyboard. The rest of this section, up to
+the web composer, describes the composer when it's on.
+
+### The web composer (2026-11-20)
+
+Builds that don't draw the composer register `web-composer` instead of
+`composer`, never both, so the page knows which one it talks to. The web
+composer (`#new_message`) carries `bridge--web-composer`
+(`web/controllers/bridge/web_composer_controller.js`) beside
+`bridge--composer`, each loading only where the app lists its component.
+The page draws and sends everything; the app only needs to know when an
+answer runs, and has a way to hand the composer what came from outside the
+page.
+
+- **Web to app**: `connect` with the composer's state, then `state` with the
+  same keys whenever they change (its classes and `data-live-*`, the yes to
+  models), at most every 150 ms. The chat draws its composer again as an
+  answer starts and ends, and each new one connects again; a page that
+  changes its address in place (`address:replaced`) connects again too, as
+  the app drops a message whose address is no longer the page's.
+  - `working`, `waiting`, `run`, `revision`, `startedAt`, `mark`: as the
+    composer's own (section 13), the server's `LiveActivity::Run` and
+    `Chat#live_mark`, opaque and nothing from the chat.
+  - `csrfToken`: the page's, for registering the activity's token.
+  - `acceptsFiles`: false while the composer is locked.
+  - `dictates`: whether the composer's microphone is offered now (an install
+    with a model to transcribe with, and the person's yes to their words
+    going to models).
+- **App to web**, replies to the latest `connect`:
+  - `{action: "attach", files: [{name, type, data}]}`: files shared into the
+    app (base64, as the composer's `attach`), uploaded like any file the
+    composer takes. Ignored while it's locked.
+  - `{action: "dictate"}`: the page clicks its microphone, so everything the
+    button checks (the yes to models, credits, a recording already going)
+    holds.
+- **What the app does with it.** Live Activities follow the state exactly
+  as they follow the composer's (`LiveActivities.noteState`, with the
+  message's address). Files the share extension left and a widget's or a
+  shortcut's Dictate (`chatwithwork://new-chat?shared=…&dictate=1`) wait in
+  `ComposerInbox` for the next New chat's composer: on its `connect`, files
+  when `acceptsFiles` (they wait for one that takes them otherwise), and
+  Dictate when `dictates` (dropped otherwise, so a later New chat doesn't
+  start listening by itself). A chat's composer connecting again meanwhile
+  takes nothing. A New chat already on screen takes them without a visit,
+  unless words were shared too: those come only in New chat's address
+  (`/chats/new?text=`), so it's visited again.
+- **The microphone.** Dictation records in the page (`getUserMedia`). The
+  navigators' WebKit UI delegate (`WebUIController`, Hotwire Native's
+  `WKUIController` subclassed) grants the microphone without WebKit's own
+  prompt to this server's pages in the main frame, and refuses the camera
+  and every other origin and frame; iOS asks once for the app
+  (`NSMicrophoneUsageDescription`). `getUserMedia` needs a secure context:
+  HTTPS, or `http://localhost`.
+- **Files from the + menu.** The composer's file input
+  (`<input type=file multiple>`, no `accept`) gets WebKit's own menu: Photo
+  Library, Take Photo or Video, and Choose File
+  (`NSCameraUsageDescription`; the photo picker runs outside the app and
+  needs no library access).
 
 **Overlay layout (2026-10-29).** The server advertises `overlay: true` in
 composer state when it supports scroll clearance. Only then does the app

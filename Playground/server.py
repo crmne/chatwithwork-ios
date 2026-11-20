@@ -597,7 +597,7 @@ def composer(handler, account, number=None, placeholder="Reply to Chat with Work
         live_mark += ' data-live-waiting="true"'
     return f"""
     <div id="new_message" class="composer rainbow-glow{' composer--working' if working else ''}{' composer--locked' if lock in LOCKS else ''}"
-         data-controller="composer chat bridge--haptic bridge--composer" data-bridge-feedback="light"
+         data-controller="composer chat bridge--haptic bridge--composer bridge--web-composer" data-bridge-feedback="light"
          {live_mark}
          data-dictation-url-value="/{account}/dictations">
       <form class="print:hidden" action="{action}" method="post"

@@ -5,7 +5,7 @@ import Foundation
 /// composer"). The web one stays in the page, hidden, and keeps every rule:
 /// locks, steering, the queue, files waiting for their scan, the model and
 /// web search. The app draws it and tells it what the person did.
-nonisolated struct ComposerState: Decodable, Equatable, Sendable {
+nonisolated struct ComposerState: Decodable, Equatable, Sendable, LiveComposerState {
     struct Model: Decodable, Equatable, Sendable {
         let name: String
         let rate: String?

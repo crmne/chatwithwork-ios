@@ -183,9 +183,9 @@ final class AppShell: NSObject {
             guard let path = value("path"), path.hasPrefix("/"), !path.hasPrefix("//") else { return }
             open(environment.url(path: path))
         case "new-chat":
-            if value("dictate") == "1" { ComposerController.dictatesOnConnect = true }
+            if value("dictate") == "1" { ComposerInbox.dictates = true }
             if let shared = value("shared") {
-                ComposerController.pendingFiles = SharedInbox.take(shared).map { ComposerFile(name: $0.name, type: $0.type, bytes: $0.data) }
+                ComposerInbox.files = SharedInbox.take(shared).map { ComposerFile(name: $0.name, type: $0.type, bytes: $0.data) }
             }
             // The words wait in the native composer too, whatever the page does with them.
             // Joined as the server joins them for `/chats/new`, so a composer it filled is recognized.
@@ -194,11 +194,17 @@ final class AppShell: NSObject {
                 shared.append(word)
             }
             let sharedText = shared.joined(separator: "\n\n")
-            if !sharedText.isEmpty { ComposerController.pendingText = sharedText }
-            // A new chat already on screen takes them as they are.
+            if !sharedText.isEmpty, BridgeRegistry.drawsComposer { ComposerInbox.text = sharedText }
+            // A new chat already on screen takes them as they are. The web composer gets
+            // shared words only in New chat's address, so words visit it again.
             if case .signedIn(let shell) = state, let composer = ComposerController.onNewChat(shell.navigator.rootViewController) {
                 shell.setOpen(false, animated: false)
                 composer.takePending()
+                return
+            }
+            if case .signedIn(let shell) = state, sharedText.isEmpty, let composer = WebComposerComponent.onNewChat(shell.navigator.rootViewController) {
+                shell.setOpen(false, animated: false)
+                composer.takeInbox()
                 return
             }
             var components = URLComponents()
