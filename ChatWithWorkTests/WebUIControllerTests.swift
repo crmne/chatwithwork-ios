@@ -14,6 +14,7 @@ struct WebUIControllerTests {
     func grants() {
         #expect(WebUIController.decision(scheme: "https", host: "chatwithwork.com", port: 0, isMainFrame: true, type: .microphone, server: hosted) == .grant)
         #expect(WebUIController.decision(scheme: "http", host: "localhost", port: 3351, isMainFrame: true, type: .microphone, server: local) == .grant)
+        #expect(WebUIController.decision(scheme: "https", host: "chatwithwork.com", port: 0, isMainFrame: true, type: .microphone, server: URL(string: "https://chatwithwork.com:443")!) == .grant, "An address naming the default port")
     }
 
     @Test("refuses the camera, frames, other origins, schemes and ports")

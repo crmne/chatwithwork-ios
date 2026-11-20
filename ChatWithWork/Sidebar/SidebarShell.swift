@@ -450,9 +450,19 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             composer.focus()
             return
         }
-        // The web composer's New chat keeps its words too.
-        if showsNewChat { return }
+        // The web composer's New chat keeps its words too, and takes the keyboard.
+        if showsNewChat { return focusNewChat() }
         navigator.route(environment.url(path: newChatPath))
+    }
+
+    /// The keyboard for the web composer of the New chat on screen, once the
+    /// drawer is shut (KeyboardHandOff).
+    func focusNewChat() {
+        guard !BridgeRegistry.drawsComposer else { return }
+        whenDrawerShut { [weak self] in
+            guard let self else { return }
+            KeyboardHandOff.raise(in: self.view.window, for: self.navigator.session.webView)
+        }
     }
 
     /// Whether New chat is on top of the main stack, with nothing over it.
@@ -473,6 +483,7 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         }
         if url?.query() == nil, showsNewChat {
             setOpen(false, animated: true)
+            focusNewChat()
             return
         }
         open(url: url ?? environment.url(path: newChatPath))

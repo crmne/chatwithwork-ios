@@ -35,4 +35,12 @@ enum ComposerInbox {
         }
         return actions
     }
+
+    /// What a composer was handed and didn't take, for the next one.
+    static func putBack(_ action: WebComposerAction) {
+        switch action {
+        case .attach(let taken): files = taken + files
+        case .dictate: dictates = true
+        }
+    }
 }

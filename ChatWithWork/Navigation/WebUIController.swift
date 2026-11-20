@@ -26,10 +26,13 @@ nonisolated final class WebUIController: WKUIController {
 
     /// `port` is WebKit's: 0 for the scheme's default.
     static func decision(scheme: String, host: String, port: Int, isMainFrame: Bool, type: WKMediaCaptureType, server: URL) -> WKPermissionDecision {
+        // A server address that names its scheme's default port compares as WebKit's 0.
+        let defaultPort = ["https": 443, "http": 80][server.scheme?.lowercased() ?? ""]
+        let serverPort = server.port.map { $0 == defaultPort ? 0 : $0 } ?? 0
         guard type == .microphone, isMainFrame,
               scheme.lowercased() == server.scheme?.lowercased(),
               host.lowercased() == server.host()?.lowercased(),
-              port == (server.port ?? 0)
+              port == serverPort
         else { return .deny }
         return .grant
     }

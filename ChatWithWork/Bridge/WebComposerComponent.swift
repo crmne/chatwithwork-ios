@@ -31,16 +31,24 @@ final class WebComposerComponent: BridgeComponent {
         self.url = url
         LiveActivities.shared.noteState(state, chatURL: url)
 
-        guard message.event == "connect" else { return }
-        Self.connected.add(self)
-        takeInbox()
+        if message.event == "connect" {
+            Self.connected.add(self)
+            takeInbox()
+        } else if state.acceptsFiles, !ComposerInbox.files.isEmpty {
+            // Shared files that waited for this composer to unlock.
+            takeInbox()
+        }
     }
 
-    /// Hands the composer what waits for it in `ComposerInbox`.
+    /// Hands the composer what waits for it in `ComposerInbox`. What the
+    /// page doesn't take (no bridge, an error) goes back into the inbox.
     func takeInbox() {
         guard let state else { return }
         for action in ComposerInbox.take(for: state, at: url) {
-            Task { _ = try? await reply(to: "connect", with: action) }
+            Task {
+                let delivered = (try? await reply(to: "connect", with: action)) ?? false
+                if !delivered { ComposerInbox.putBack(action) }
+            }
         }
     }
 

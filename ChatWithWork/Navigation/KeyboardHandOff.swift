@@ -41,7 +41,9 @@ enum KeyboardHandOff {
             while clock.now < deadline || (field.hasText && clock.now < deadlineWithWords),
                   holder === field, field.raised == raised, field.isFirstResponder {
                 if let webView, webView.window != nil, !webView.isHidden,
-                   (try? await webView.evaluateJavaScript(focusScript)) as? Bool == true {
+                   (try? await webView.evaluateJavaScript(focusScript)) as? Bool == true,
+                   // A newer New chat may have taken the field while the page answered.
+                   holder === field, field.raised == raised, field.isFirstResponder {
                     handOver(to: webView)
                     return
                 }
@@ -61,15 +63,20 @@ enum KeyboardHandOff {
             return false
         }
         let typed = leftover + (field.text ?? "")
-        leftover = ""
         let taken = webView.becomeFirstResponder()
+        let input = webView.scrollView.subviews.first(where: \.isFirstResponder) as? UIKeyInput
         holder = nil
         field.text = nil
         field.removeFromSuperview()
-        if taken, !typed.isEmpty, let input = webView.scrollView.subviews.first(where: \.isFirstResponder) as? UIKeyInput {
-            input.insertText(typed)
+        // Words that can't go in now wait for the next New chat's composer (`leftover`).
+        guard taken, let input else {
+            leftover = typed
+            if field.isFirstResponder { field.resignFirstResponder() }
+            return false
         }
-        return taken
+        leftover = ""
+        if !typed.isEmpty { input.insertText(typed) }
+        return true
     }
 
     /// Focuses New chat's composer, unless something else in the page has
@@ -78,7 +85,7 @@ enum KeyboardHandOff {
     (() => {
       if (!/\\/chats\\/new$/.test(location.pathname)) return false
       const composer = document.getElementById("new_message")
-      const editable = composer?.querySelector(".lexxy-editor__content, [contenteditable=true]")
+      const editable = composer?.querySelector(".lexxy-editor__content, [contenteditable=true], textarea")
       if (!editable) return false
       const active = document.activeElement
       if (active && active !== document.body && !composer.contains(active)) return false

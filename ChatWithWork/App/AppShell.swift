@@ -205,6 +205,7 @@ final class AppShell: NSObject {
             if case .signedIn(let shell) = state, sharedText.isEmpty, let composer = WebComposerComponent.onNewChat(shell.navigator.rootViewController) {
                 shell.setOpen(false, animated: false)
                 composer.takeInbox()
+                shell.focusNewChat()
                 return
             }
             var components = URLComponents()

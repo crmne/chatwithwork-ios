@@ -42,6 +42,18 @@ struct ComposerInboxTests {
         reset()
     }
 
+    @Test("what a composer didn't take goes back for the next one, files ahead of newer ones")
+    func putBack() throws {
+        reset()
+        let newer = ComposerFile(name: "b.txt", type: "text/plain", bytes: Data("b".utf8))
+        ComposerInbox.files = [newer]
+        ComposerInbox.putBack(.attach(files: [file]))
+        ComposerInbox.putBack(.dictate)
+        #expect(ComposerInbox.files == [file, newer])
+        #expect(ComposerInbox.dictates)
+        reset()
+    }
+
     @Test("files wait for a composer that takes them; a Dictate that can't start is dropped")
     func locked() throws {
         reset()
