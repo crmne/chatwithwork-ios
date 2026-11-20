@@ -578,6 +578,8 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     func setOpen(_ open: Bool, animated: Bool, completion: (() -> Void)? = nil) {
         if open {
             view.endEditing(true)
+            // The page on screen loads the places the drawer opens ahead, where the network costs nothing.
+            navigator.session.webView.evaluateJavaScript(SidebarPage.preloadScript, completionHandler: nil)
             if !showsSidebarPage {
                 Task { await store.refreshIfStale() }
                 pollWhileOpen()
@@ -689,6 +691,7 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             prepareForMotion()
             if opening {
                 view.endEditing(true)
+                navigator.session.webView.evaluateJavaScript(SidebarPage.preloadScript, completionHandler: nil)
                 if !showsSidebarPage { Task { await store.refreshIfStale() } }
             }
         case .changed:

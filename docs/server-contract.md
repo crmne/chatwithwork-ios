@@ -941,6 +941,31 @@ deck the assistant made shows as its slides without PowerPoint on the phone.
 - The page allows zooming (no `maximum-scale`); Android turns on its web
   view's pinch zoom for these pages only.
 
+### What the network costs, and loading ahead (2026-11-20)
+
+The pages load Decisions, New chat and New bot ahead once idle
+(`helpers/preload.js`), only on a network that costs nothing. WKWebView
+tells a page nothing about the network, so the app keeps
+`window.chatWithWorkNetwork = { metered, constrained }` current in every
+web view it shows pages in (`NetworkCost`, one `NWPathMonitor` started at
+launch): `metered` is `isExpensive` (cellular, a personal hotspot),
+`constrained` is `isConstrained` (Low Data Mode). A user script at document
+start sets it for each page that loads (the latest one added wins, as for
+the text size), and every change sets it on the pages already open and,
+when the network costs nothing, calls `window.chatWithWork?.preload?.()`.
+Until iOS first reports a path, pages hear nothing and don't load ahead.
+Nothing goes to the server.
+
+As the drawer starts to open (its button or the edge swipe), the app calls
+`window.chatWithWork?.preload?.()` in the main web view, never the sidebar
+page's, so what the drawer opens is ready by the time it's tapped.
+
+The sidebar's places, New chat and New bot's sentence page included, start
+their visit at once while the drawer slides shut; only New chat's keyboard
+waits for it to be shut, and a form (a modal: Rename, Move to a project)
+waits for it too, so no picture of the screen under the sheet shows the
+drawer.
+
 ### Pull to refresh and coming back (2026-11-18)
 
 Pulling a page down at its top calls the page's `window.chatWithWork.refresh()`
