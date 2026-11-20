@@ -104,6 +104,13 @@ struct PathConfigurationTests {
         #expect(properties(path).presentation == .default)
     }
 
+    @Test("keeps the sign-in sheet when it returns to New chat or New bot", arguments: [
+        "/users/sign_in?return_to=/1000001/chats/new", "/users/sign_in?return_to=%2F1000001%2Fbots%2Fnew", "/users/sign_in?return_to=/chats/new"
+    ])
+    func signInReturningToNewChat(path: String) {
+        #expect(properties(path).context == .modal)
+    }
+
     @Test("keeps the sign-in sheet when it returns to the home")
     func signInReturningHome() {
         #expect(properties("/users/sign_in?return_to=/home").context == .modal)

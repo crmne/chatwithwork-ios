@@ -42,7 +42,7 @@
     },
     {
       "patterns": [
-        "/chats/\\d+(\\?|#|$)"
+        "^(/[0-9]+)?/chats/\\d+(\\?|#|$)"
       ],
       "properties": {
         "context": "default",
@@ -53,8 +53,8 @@
     },
     {
       "patterns": [
-        "/chats/new(\\?|$)",
-        "/bots/new(\\?|$)"
+        "^(/[0-9]+)?/chats/new(\\?|$)",
+        "^(/[0-9]+)?/bots/new(\\?|$)"
       ],
       "properties": {
         "context": "default",
@@ -65,7 +65,7 @@
     },
     {
       "patterns": [
-        "/chats/\\d+\\?(.*&)?from="
+        "^(/[0-9]+)?/chats/\\d+\\?(.*&)?from="
       ],
       "properties": {
         "context": "default",
@@ -84,7 +84,7 @@
     },
     {
       "patterns": [
-        "/settings\\?"
+        "^(/[0-9]+)?/settings\\?"
       ],
       "properties": {
         "context": "default",
@@ -96,11 +96,11 @@
     {
       "patterns": [
         "^(/[0-9]+)?/home(\\?|$)",
-        "/decisions(\\?|$)",
-        "/bots(\\?|$)",
-        "/chats(\\?|$)",
-        "/projects(\\?|$)",
-        "/settings$"
+        "^(/[0-9]+)?/decisions(\\?|$)",
+        "^(/[0-9]+)?/bots(\\?|$)",
+        "^(/[0-9]+)?/chats(\\?|$)",
+        "^(/[0-9]+)?/projects(\\?|$)",
+        "^(/[0-9]+)?/settings$"
       ],
       "properties": {
         "context": "default",
@@ -111,7 +111,7 @@
     },
     {
       "patterns": [
-        "/settings$"
+        "^(/[0-9]+)?/settings$"
       ],
       "properties": {
         "skeleton": "settings"
@@ -119,7 +119,7 @@
     },
     {
       "patterns": [
-        "/chats/\\d+/files/"
+        "^(/[0-9]+)?/chats/\\d+/files/"
       ],
       "properties": {
         "context": "modal",
