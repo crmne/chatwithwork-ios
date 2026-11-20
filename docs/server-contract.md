@@ -1971,7 +1971,12 @@ page.
 - **App to web**, replies to the latest `connect`:
   - `{action: "attach", files: [{name, type, data}]}`: files shared into the
     app (base64, as the composer's `attach`), uploaded like any file the
-    composer takes. Ignored while it's locked.
+    composer takes. Ignored while it's locked, saying nothing: the app
+    sends files only while the composer's latest `state` says
+    `acceptsFiles`, and keeps them for the next New chat when it doesn't by
+    the time the reply goes. A lock between the reply and the page acting on
+    it still loses them; only an answer from the page that it took them
+    would close that.
   - `{action: "dictate"}`: the page clicks its microphone, so everything the
     button checks (the yes to models, credits, a recording already going)
     holds.

@@ -41,14 +41,32 @@ final class WebComposerComponent: BridgeComponent {
     }
 
     /// Hands the composer what waits for it in `ComposerInbox`. What the
-    /// page doesn't take (no bridge, an error) goes back into the inbox.
+    /// page doesn't take (no bridge, an error) goes back into the inbox, and
+    /// so do files when the composer said it was locked by the time the
+    /// reply goes: the page drops an `attach` while locked, saying nothing.
+    /// A lock that comes between the reply and the page acting on it can't
+    /// be seen from here; only the page could say it took the files.
     func takeInbox() {
         guard let state else { return }
         for action in ComposerInbox.take(for: state, at: url) {
             Task {
+                // Files wait for a composer that takes them; a Dictate it can't start is dropped (`take`).
+                guard stillTakes(action) else {
+                    if case .attach = action { ComposerInbox.putBack(action) }
+                    return
+                }
                 let delivered = (try? await reply(to: "connect", with: action)) ?? false
                 if !delivered { ComposerInbox.putBack(action) }
             }
+        }
+    }
+
+    /// Whether the composer's latest word still lets it take `action`.
+    private func stillTakes(_ action: WebComposerAction) -> Bool {
+        guard let state else { return false }
+        switch action {
+        case .attach: return state.acceptsFiles
+        case .dictate: return state.dictates
         }
     }
 
