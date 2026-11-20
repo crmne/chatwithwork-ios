@@ -9,7 +9,9 @@ import WebKit
 /// rather than subclassed: a subclass that touches the bridge delegate's
 /// lifecycle is what crashed Cluster Headache Tracker's iOS app.
 enum WebScreen {
-    static func make(url: URL) -> VisitableViewController {
+    /// `skeleton: false` for a screen whose page is already on screen (the
+    /// chat New chat just turned into, NewChatHandOff).
+    static func make(url: URL, skeleton: Bool = true) -> VisitableViewController {
         let controller = HotwireWebViewController(url: url)
         controller.loadViewIfNeeded()
 
@@ -26,7 +28,7 @@ enum WebScreen {
         }
 
         KeyboardAvoidance.install(on: controller)
-        PageSkeleton.attach(to: controller, url: url)
+        if skeleton { PageSkeleton.attach(to: controller, url: url) }
         return controller
     }
 

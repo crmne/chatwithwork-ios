@@ -43,7 +43,7 @@ final class ShortcutsTests: XCTestCase {
         expectNewBot()
         keep("warm-new-bot")
 
-        // Over New bot's sheet, the other two still arrive; the same one doesn't stack.
+        // Over New bot, the other two still arrive as places; the same one doesn't stack.
         XCUIDevice.shared.press(.home)
         quickAction("New bot")
         expectNewBot()
@@ -51,7 +51,7 @@ final class ShortcutsTests: XCTestCase {
         quickAction("New chat")
         expectNewChat()
         keep("warm-new-chat")
-        XCTAssertFalse(app.buttons["sheet.close"].exists, "New bot's sheet should have gone")
+        XCTAssertFalse(app.navigationBars.buttons["BackButton"].exists, "New chat should be the root, with New bot gone")
 
         // Back in the new chat already on screen, what's typed stays.
         app.textViews["composer.text"].typeText("Half a thought")
@@ -135,7 +135,6 @@ final class ShortcutsTests: XCTestCase {
         XCUIDevice.shared.press(.home)
         quickAction("New bot")
         expectNewBot()
-        app.buttons["sheet.close"].tap()
 
         // Cold, in the one used last.
         app.terminate()
@@ -208,7 +207,7 @@ final class ShortcutsTests: XCTestCase {
     @MainActor
     private func expectNewBot() {
         XCTAssertTrue(app.navigationBars["New bot"].waitForExistence(timeout: 30), "New bot should open")
-        XCTAssertTrue(app.buttons["sheet.close"].exists, "New bot is a sheet")
+        XCTAssertFalse(app.buttons["sheet.close"].exists, "New bot is a page, not a sheet")
     }
 
     @MainActor

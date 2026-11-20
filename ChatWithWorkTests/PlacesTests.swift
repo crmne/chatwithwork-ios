@@ -27,7 +27,7 @@ struct PlacesTests {
 
     @Test("a notification's page starts the navigator as the root place; a form doesn't", arguments: [
         ("/1000001/chats/42", true), ("/1000001/bots/7", true), ("/1000001/settings", true), ("/1000001/projects/new", false),
-        ("/1000001/chats/new", false), ("/1000001/chats/new?text=Hi", false)
+        ("/1000001/chats/new", true), ("/1000001/chats/new?text=Hi", true), ("/1000001/bots/7/edit", false)
     ])
     func startingPlace(path: String, starts: Bool) throws {
         let url = try #require(URL(string: "https://chatwithwork.com" + path))
@@ -39,9 +39,16 @@ struct PlacesTests {
         }
     }
 
+    @Test("makes the sidebar's New chat and New bot places too", arguments: [
+        "/1000001/chats/new", "/1000001/chats/new?project_id=3", "/1000001/bots/new"
+    ])
+    func newChatPlaces(path: String) {
+        #expect(opening(path).presentation == .replaceRoot)
+        #expect(opening(path).context == .default)
+    }
+
     @Test("brings forms and pickers up as sheets over the screen", arguments: [
-        "/1000001/projects/new", "/1000001/chats/42/edit", "/1000001/chats/42/section/edit", "/1000001/bots/new",
-        "/1000001/chats/new", "/1000001/chats/new?project_id=3"
+        "/1000001/projects/new", "/1000001/chats/42/edit", "/1000001/chats/42/section/edit"
     ])
     func forms(path: String) {
         #expect(opening(path).context == .modal)

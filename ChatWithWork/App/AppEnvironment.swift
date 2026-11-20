@@ -41,19 +41,23 @@ nonisolated struct AppEnvironment: Sendable, Equatable {
     /// The prefix Hotwire Native puts before its own tokens. Rails reads it
     /// to tell the app apart from a browser and to know which build it is
     /// talking to. The format is part of the server contract and matches the
-    /// Android app's, with `platform=android` there.
+    /// Android app's, with `platform=android` there. `new-chat=page;` says
+    /// New chat and New bot are pages in this build (path configuration v4),
+    /// so the server draws them turning into their chat in place as the
+    /// question goes (docs/server-contract.md, "New chat and New bot").
     var userAgentPrefix: String {
-        "Chat with Work; platform=ios; version=\(version); build=\(build);"
+        "Chat with Work; platform=ios; version=\(version); build=\(build); new-chat=page;"
     }
 
     var isProduction: Bool { name == .production }
 
     /// The bundled path configuration, overridden by the server's copy. The
-    /// version is in the name: v3 shows New chat as a sheet over the place on
-    /// screen, where v2, which earlier sidebar builds read, made it a place
-    /// (docs/server-contract.md, "Places").
+    /// version is in the name: v4 makes New chat and New bot pages, pushed
+    /// over the page they're opened from or a place of their own, where v3
+    /// showed them as sheets and v2, which the first sidebar builds read,
+    /// made New chat a place (docs/server-contract.md, "Places").
     var remotePathConfigurationURL: URL {
-        url(path: "/configurations/ios_v3.json")
+        url(path: "/configurations/ios_v4.json")
     }
 
     /// An absolute URL on this server for `path`, which may carry a query.

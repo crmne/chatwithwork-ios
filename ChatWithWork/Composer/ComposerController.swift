@@ -17,8 +17,9 @@ final class ComposerController: NSObject {
     /// A widget's or a shortcut's "Dictate": the next composer that connects
     /// starts listening.
     static var dictatesOnConnect = false
-    /// The New chat shortcut: the next new chat's composer takes the keyboard,
-    /// with its microphone beside the field. It never starts listening itself.
+    /// New chat opened by the person (a tap on New chat, a shortcut): the
+    /// next new chat's composer takes the keyboard, with its microphone beside
+    /// the field. It never starts listening itself.
     static var focusesOnConnect = false
     /// Words shared into the app, for the next composer that connects.
     static var pendingText: String?
@@ -51,6 +52,10 @@ final class ComposerController: NSObject {
     }
     private var lastLayout: CGSize?
     private let environment: AppEnvironment
+    /// Sent from a page that turns into its chat in place (New chat, New
+    /// bot, Decisions' All clear), which hasn't turned yet: a question it
+    /// couldn't send comes back in the web composer's `text`, for the field.
+    private var awaitingTurn = false
 
     /// The composer on `screen`, made and docked the first time it's asked for.
     static func on(_ screen: VisitableViewController, environment: AppEnvironment = .current) -> ComposerController {
@@ -72,7 +77,11 @@ final class ComposerController: NSObject {
         self.environment = environment
         super.init()
 
-        view.onAction = { [weak self] action in self?.send?(action) }
+        view.onAction = { [weak self] action in
+            guard let self else { return }
+            if case .send = action, let url = self.screen?.currentVisitableURL, AppRoute(url: url).startsChats { self.awaitingTurn = true }
+            self.send?(action)
+        }
         view.onPlus = { [weak self] in self?.presentAttachSheet() }
         view.onModePill = { [weak self] in self?.presentChangesSheet() }
         view.onDictate = { [weak self] in self?.startDictating() }
@@ -94,6 +103,7 @@ final class ComposerController: NSObject {
         if !state.visible { view.textView.resignFirstResponder() }
         reportLayout()
         onState?(state)
+        takeBackRefused(state)
         guard connected else { return }
         lastLayout = nil
         view.setNeedsLayout()
@@ -108,13 +118,22 @@ final class ComposerController: NSObject {
         send?(.layout(height: Double(size.height), width: Double(size.width)))
     }
 
+    /// The question a page that turns into its chat couldn't send (a refusal,
+    /// an error, no connection): the page puts itself back as it was, and the
+    /// words come back to the field it was sent from, now empty.
+    private func takeBackRefused(_ state: ComposerState) {
+        guard awaitingTurn, !state.working, !state.text.isEmpty else { return }
+        awaitingTurn = false
+        if view.textView.text.isEmpty { view.append(state.text) }
+    }
+
     /// What a share, a widget or a Live Activity left for the next composer:
     /// shared words and files, and dictation to start.
     func takePending() {
         guard let state = view.state else { return }
         // What the web composer holds already (a shared link, a draft) starts the native field,
-        // or sending would replace it. New chat's sheet, closed with words in it, opens with
-        // them again, the web's words after them.
+        // or sending would replace it. A New chat left with words in it gives them to the
+        // next one, the web's words after them.
         if view.textView.text.isEmpty {
             if let account = newChatAccount, let draft = NewChatDraft.text(in: account) {
                 view.append(draft)
@@ -145,6 +164,12 @@ final class ComposerController: NSObject {
         }
     }
 
+    /// The field takes the keyboard: New chat opened again while it's on top.
+    func focus() {
+        Self.focusesOnConnect = true
+        takeKeyboard()
+    }
+
     /// Focuses the field once it can have the keyboard: a shortcut's page can
     /// connect while the app is still coming forward or a sheet is leaving, and
     /// a redirected visit connects a screen that's replaced at once, so the
@@ -173,29 +198,26 @@ final class ComposerController: NSObject {
         return AppRoute(url: url).account?.rawValue ?? ""
     }
 
-    /// Keeps what's typed in New chat while its sheet is closed: the web
-    /// keeps no draft for a chat that doesn't exist yet, and the field's
-    /// words are the app's own until Send.
+    /// Keeps what's typed in New chat for the next New chat when it's left
+    /// without sending (Back, another place): the web keeps no draft for a
+    /// chat that doesn't exist yet, and the field's words are the app's own
+    /// until Send.
     private func keepNewChatDraft(_ text: String) {
         guard let account = newChatAccount else { return }
         NewChatDraft.set(text, in: account)
     }
 
+    /// Whether New chat on top of `navigator` has the keyboard.
+    static func hasKeyboard(onNewChatIn navigator: UINavigationController) -> Bool {
+        onNewChat(navigator)?.view.textView.isFirstResponder == true
+    }
+
     /// The composer of the new chat on screen, if that's what the shell
-    /// shows: the sheet New chat comes up in over the main stack (path
-    /// configuration v3), or the root, where a server's older configuration
-    /// still makes it a place.
+    /// shows: New chat on top of the main stack, pushed or the place at its
+    /// root (path configuration v4), with nothing over it.
     static func onNewChat(_ navigator: UINavigationController) -> ComposerController? {
-        let stack: UINavigationController
-        if let sheet = navigator.presentedViewController {
-            guard let presented = sheet as? UINavigationController, !presented.isBeingDismissed, presented.presentedViewController == nil
-            else { return nil }
-            stack = presented
-        } else {
-            stack = navigator
-        }
-        guard stack.viewControllers.count == 1,
-              let screen = stack.viewControllers.first as? VisitableViewController,
+        guard navigator.presentedViewController == nil,
+              let screen = navigator.topViewController as? VisitableViewController,
               AppRoute(url: screen.currentVisitableURL).kind == .newChat,
               let composer = existing(on: screen), composer.view.state != nil
         else { return nil }
@@ -498,8 +520,8 @@ nonisolated final class PickedImages: @unchecked Sendable {
 }
 
 /// The words typed in New chat, per organization, kept while the app runs:
-/// closing New chat's sheet without sending (Cancel, a swipe down) keeps
-/// them, the next New chat opens with them, and Send clears them.
+/// leaving a New chat without sending (Back, another place) keeps them, the
+/// next New chat opens with them, and Send and signing out clear them.
 @MainActor
 enum NewChatDraft {
     private static var texts: [String: String] = [:]

@@ -49,15 +49,20 @@ The apps put a prefix before Hotwire Native's own tokens:
 
 ```
 Mozilla/5.0 (iPhone; CPU iPhone OS 27_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko)
-  Chat with Work; platform=ios; version=1.2.0; build=10200;
+  Chat with Work; platform=ios; version=1.2.0; build=10200; new-chat=page;
   Hotwire Native iOS; Turbo Native iOS;
   bridge-components: [alert review-prompt theme button menu search form share toast haptic context-menu auth-session notification-token]
 ```
 
 (one line in reality). Android sends `platform=android` and `Hotwire Native
 Android; Turbo Native Android;`. `version` is the marketing version
-(`MAJOR.MINOR.PATCH`), `build` an integer. `bridge-components` lists what this
-build can draw; the bridge JavaScript reads it too.
+(`MAJOR.MINOR.PATCH`), `build` an integer. `new-chat=page;` (from the
+builds that read path configuration v4, 2026-11-20) says New chat and New
+bot are pages in this build, so the server draws them turning into their
+chat in place as the question goes ([New chat and New
+bot](#new-chat-and-new-bot-chatsnew-botsnew)); `NativeApp#new_chat_page?`
+reads it. `bridge-components` lists what this build can draw; the bridge
+JavaScript reads it too.
 
 turbo-rails already provides `hotwire_native_app?` (`/(Turbo|Hotwire)
 Native/`). Add what it doesn't know, as a model (`app/models/native_app.rb`):
@@ -396,26 +401,32 @@ or without pull to refresh), and load the server's copy on every launch, which
 **replaces** the bundled one entirely once it loads. Serve them as static
 files:
 
-- `public/configurations/ios_v3.json`: the rules of the sidebar builds from
-  2026-11-19, where New chat is a sheet (section 11).
+- `public/configurations/ios_v4.json`: the rules of the sidebar builds from
+  2026-11-20, where New chat and New bot are pages ([New chat and New
+  bot](#new-chat-and-new-bot-chatsnew-botsnew)).
   `ChatWithWork/Resources/path-configuration.json` in the iOS repo is an
   exact copy of it (a server test reads which version `AppEnvironment` names
   and compares them).
+- `public/configurations/ios_v3.json`: the sidebar builds' rules from
+  2026-11-19, where New chat was a sheet like New bot, kept unchanged for
+  them.
 - `public/configurations/ios_v2.json`: the sidebar builds' rules before
-  then, with New chat a place, kept unchanged for them.
+  then, with New chat a place, kept unchanged for them (1.1.5 reads it).
 - `public/configurations/ios_v1.json`: the tab builds' rules, kept for builds
   from before the sidebar, unchanged.
-- `public/configurations/android_v3.json`, `android_v2.json` and
-  `android_v1.json`: the Android repo's equivalents.
+- `public/configurations/android_v4.json`, `android_v3.json`,
+  `android_v2.json` and `android_v1.json`: the Android repo's equivalents.
 
 Change a file to change navigation without an app release. Bump the name
 only when old app builds must not read the new rules (as v2 did: a tab build
 reading "replace the root" for every chat would lose its list; and v3: a
 build before it starts the navigator on New chat in places, a cold start
 from the New chat shortcut or a share before signing in, where a sheet
-would have nothing under it); keep serving the old name for them.
+would have nothing under it; and v4: a v3 build would push New chat and
+draw no hand-off for it, and only v4 builds say `new-chat=page;`); keep
+serving the old name for them.
 
-The iOS rules (v3), in order (later matches override earlier ones; patterns
+The iOS rules (v4), in order (later matches override earlier ones; patterns
 are regular expressions matched against the path and query, without
 anchoring unless written):
 
@@ -425,7 +436,7 @@ anchoring unless written):
 | `/new(\?\|$)`, `/edit(\?\|$)` | modal (`large` sheet) | | off | every new and edit form |
 | `^/users/sign_in`, `^/users/sign_up`, `^/users(\?\|$)`, `^/users/password…`, `^/users/confirmation…`, `^/users/unlock…` | modal | | off | the sign-in pages |
 | `/chats/\d+(\?\|#\|$)` | default | `replace_root` | on | a chat is always the one screen; nothing stacks under it |
-| `/chats/new(\?\|$)` | | | | `skeleton: new_chat` only: New chat is the `/new` rule's sheet (v2 listed it with the chats above, a place) |
+| `/chats/new(\?\|$)`, `/bots/new(\?\|$)` | default (push) | `default` | off | `skeleton: new_chat`: New chat and New bot's sentence page are pages, pushed over the page they're opened from; what the sidebar opens is a place, the root (v3 left them the `/new` rule's sheet; v2 listed New chat with the chats above, a place) |
 | `/chats/\d+\?(.*&)?from=` | default | `default` (push) | on | a chat a page opens about something on it (a bot's "Change it in a chat", its runs, Decisions' "Open chat", a side chat), pushed with back to that page |
 | `^/shared/` | default | | off | |
 | `/settings\?` | default | | on | a Settings tab, pushed over the Settings list (`query_string_presentation: default`, since the list and its tabs share `/settings`) |
@@ -435,20 +446,22 @@ anchoring unless written):
 **Where the app starts (2026-11-17, 2026-11-19).** The navigator starts on
 `/<organization>/home` (`/home` before the app knows the organization,
 `SidebarShell.startURL`), which redirects the sidebar builds to Decisions
-(`Authentication#home_path_for`, `NativeApp#sidebar?`): New chat is a sheet,
-which needs a place under it, and Decisions' All clear carries New chat's
-composer, suggestions and recipes, so a new login still lands somewhere to
-type. (Before 2026-11-19 it redirected as signing in on the web does: to
+(`Authentication#home_path_for`, `NativeApp#sidebar?`): Decisions' All
+clear carries New chat's composer, suggestions and recipes, so a new login
+still lands somewhere to type, and v3 builds, where New chat is a sheet,
+have a place under it. (Before 2026-11-19 it redirected as signing in on the web does: to
 Decisions once a bot or something waiting gave it something to show, else
 to New chat.) It's a place, so the page it lands on is the root. Builds
 before it started on `/<organization>/chats/new`, or the project's new chat
 the sidebar last chose. A server older than the home (self-hosted releases
-before 2026-11-17) answers its visit 404; the app then starts on that
-organization's chat list (`SidebarShell.startURLWithoutHome`), a place
-there: such a server serves no v3, so the bundled rules make New chat a
-sheet, which would have nothing under it. A link, shortcut or share that
-opens New chat starts the navigator on the home and brings New chat up over
-it (`SidebarShell.start(at:)`, `startingPlace`).
+before 2026-11-17) answers its visit 404; the app then starts on the new
+chat last chosen in that organization (`SidebarShell.startURLWithoutHome`),
+a place in the bundled v4 rules such a server leaves in charge (v3 builds
+started on the chat list, since New chat was a sheet there). A link,
+shortcut, the assistant or a share that opens New chat starts the navigator
+on it, the place at the root (`SidebarShell.start(at:)`, `startingPlace`),
+as v2 builds did; v3 builds started on the home and brought New chat up over
+it.
 The home's rule is anchored at the start of the path and allows a query
 (2026-11-18), so `/<organization>/home?...` is still the root, while another
 page whose query only mentions the home (`?return_to=/home`) keeps its own
@@ -464,7 +477,7 @@ property, so the last matching rule wins:
 | `skeleton` | Where | What the app draws |
 |---|---|---|
 | `chat` | `/chats/<n>`, its `?from=` drill-downs too | question bubbles and answer lines, and the composer at rest |
-| `new_chat` | `/chats/new` | the greeting, three suggestion pills under it, and the composer at rest |
+| `new_chat` | `/chats/new`, `/bots/new` | the greeting, three suggestion pills under it, and the composer at rest |
 | `list` | `/decisions`, `/bots`, `/chats`, `/projects` | rows of a round mark and two lines, as many as fit |
 | `settings` | `/settings` and its tabs (`/settings?tab=...`) | two sections, each a heading, a muted line and a group of rows |
 | `form` | every `new` and `edit` sheet | four fields, each a label over a box |
@@ -740,24 +753,64 @@ page refreshes in place instead of stacking a copy. A decision's "Open chat"
 links to `/chats/<n>?from=decisions`, which the `from=` rule pushes over
 Decisions with back to it; any other link to a chat replaces the root.
 
-### New chat (`chats/new`)
+### New chat and New bot (`chats/new`, `bots/new`)
 
-A sheet over the place on screen (v3, 2026-11-19; Carmine: "I don't
-understand why New chat is a navigation and New bot is a modal. I think they
-should probably both be modals"), the same `large` sheet as New bot, a form
-sheet on iPad, with Cancel on its leading side
-(`AppNavigationController`) and the app's composer at its foot. The bar's
-New chat, the sidebar's, a project's (`?project_id=`), the shortcuts, Siri,
-and a share (`chatwithwork://new-chat`) all bring it up; one already up takes
-a share's words and files and the focus rather than another stacking on it
-(`ComposerController.onNewChat`). After the first message the server
-redirects to the new chat (as now); Hotwire closes the sheet and the chat
-replaces the root. Closing the sheet without sending (Cancel, a swipe down)
-keeps what was typed in the app, per organization, until the next New chat
-opens with it or Send clears it (`NewChatDraft`): the web keeps no draft for
-a chat that doesn't exist yet. Sidebar builds before v3 made it the shell's
-root; tab builds open it as a sheet and push the chat. Nothing else to
-change, except that `MessagesController#create`'s HTML fallback
+Pages, not sheets (v4, 2026-11-20; Carmine: "On the phones, we should switch
+from sheets to pages for sure"), so the web's turn into the chat in place
+works here as on the web: Send, and the question is on screen at once. The
+app's composer sits at the foot of either page.
+
+- **Where they open.** What the sidebar opens is a place, the root, like
+  every row there (`Places`): its New chat and New bot (the sidebar page's
+  or the native one's) open once the drawer has slid shut
+  (`SidebarShell.open(url:)` waits for its slide to end and the next frame).
+  So does New chat from a shortcut, Siri, a widget, a share
+  (`chatwithwork://new-chat`) or a link (`SidebarShell.openNewChat`), and a
+  cold start from one starts the navigator on it. Opened from a page (the
+  bar's New chat over a chat or any place, Bots' New bot, a project's or a
+  bot's New chat, Decisions), the configuration's `default` pushes it with
+  Back to that page (`SidebarShell.startNewChat`). A New chat already on top
+  takes the keyboard (and a share's words and files) rather than another
+  stacking on it (`ComposerController.onNewChat`). Notifications open their
+  chat as before.
+- **Turning into the chat (`NewChatHandOff`).** The app's composer sends
+  through the page's hidden form (`composer` `send`), and the server draws
+  the question, Thinking and the chat's dock in place in the same request;
+  the hidden web composer reports `working: true`, so the app's shows Stop,
+  and the page's `<title>`, so the bar, says "New chat". The server's
+  redirect to `/chats/<n>` arrives as a visit proposed with the form's
+  response (`VisitProposal.options.response`). When that visit goes to a
+  chat without `from=`, the main stack has nothing over it, and the screen
+  on top shows New chat, New bot, the home or Decisions and started that
+  form (`formSubmissionDidStart`, checked against the session's screen on
+  top), the app routes it again with Hotwire's `replace` presentation and no
+  animation: the chat takes that screen's place in the stack, so a page
+  pushed over a chat stays pushed over it with its Back, and a root stays
+  the root; never the root under a pushed page. The new screen gets no
+  skeleton, and the page and composer the old one showed stay up over it
+  until the response has rendered (Hotwire hides the moved web view until
+  then) and the chat's composer has connected, then cross-fade onto the
+  same picture in 0.15 s; no second request, no spinner. Back from the chat
+  goes where New chat was opened from, never to an empty New chat. On a
+  server older than v4 the same replace happens; the page simply shows
+  until the chat's page renders.
+- **Refused.** A refusal, an error or no connection puts the page back as
+  it was, and the web composer's `text` gives the app's field the words
+  back (`ComposerController.takeBackRefused`, for a send from such a page).
+- **The title** follows the page's `<title>`: "New chat" or "New bot", "New
+  chat" while it sends, then the chat's title.
+- **The keyboard.** New chat opened by the person (a tap on New chat, a
+  link, a shortcut) takes the keyboard (`ComposerController.focusesOnConnect`);
+  a page that arrives by itself (a redirect, a cold start on the home)
+  doesn't.
+- **The draft.** Leaving a New chat without sending (Back, another place)
+  keeps what was typed in the app, per organization, until the next New chat
+  opens with it, or Send or signing out clears it (`NewChatDraft`): the web
+  keeps no draft for a chat that doesn't exist yet.
+
+v3 builds bring both up as sheets that close onto the chat; v2 builds made
+New chat the shell's root, whose screen the chat replaced; tab builds open
+it as a sheet and push the chat. `MessagesController#create`'s HTML fallback
 (`redirect_to @chat`) must stay a 303 for Turbo.
 
 ### Projects (`projects/index`, `projects/show`)
@@ -856,8 +909,7 @@ screen, so the server answers them with Decisions, their home, which
 replaces the root (2026-11-19; before, a new chat in the deleted chat's
 list), and the notice as a toast: nothing of the deleted chat, its title
 included, stays. Should a recede still reach the root (an older server),
-the app opens the home itself (`SidebarShell.openHome`), never New chat's
-sheet, which would have nothing under it. Deleting another chat (from the chat list, or the sidebar's long
+the app opens the home itself (`SidebarShell.openHome`). Deleting another chat (from the chat list, or the sidebar's long
 press while a different chat shows) keeps its Turbo Stream and leaves the
 screen as it is. The same for other destroys reached from their own page
 (`ProjectsController#destroy` from a project's menu).
@@ -1564,11 +1616,11 @@ is the server's switch for anything that differs.
   section 5), or, launched again within ten minutes of leaving a chat that
   is still answering or waiting, on that chat. `/chats/<number>` replaces
   the root, so switching chats never stacks screens and the web view, shared
-  by every screen, never reloads the app; New chat is a sheet over the place
-  on screen (path configuration v3; v2 made it a place too). Everything the
-  sidebar opens is a place, never a step (Carmine, 2026-11-05): a chat,
-  Decisions, Bots, a bot, Projects, a project, Settings, Instructions; New
-  chat and New bot, its forms, come up as sheets. A place replaces the root (`replace_root` in the path
+  by every screen, never reloads the app; New chat and New bot are pages,
+  pushed over the page they're opened from (path configuration v4; v3 made
+  them sheets, v2 made New chat a place). Everything the sidebar opens is a
+  place, never a step (Carmine, 2026-11-05): a chat, Decisions, Bots, a bot,
+  Projects, a project, Settings, Instructions, and New chat and New bot. A place replaces the root (`replace_root` in the path
   configuration, and `Places` for what the configuration pushes elsewhere,
   like a bot from Bots), so places never stack and there's no back to an
   earlier one. Only drill-downs are pushed over a place, with back to it (a
@@ -2228,8 +2280,8 @@ changes on the server: they open the pages it already has, as any link does.
 
 | Shortcut | Opens |
 |---|---|
-| New chat | `/:account/chats/new` (the list last chosen, as the app's own New chat), its sheet over what's on screen (over the home on a cold start), with the composer focused and its microphone one tap away; it never starts listening |
-| New bot | `/:account/bots/new` (`bots.new_url` of the Bots view's list, once the sidebar said), its sheet over what's on screen |
+| New chat | `/:account/chats/new` (the list last chosen, as the app's own New chat), a place, the root (the navigator starts on it on a cold start), with the composer focused and its microphone one tap away; it never starts listening |
+| New bot | `/:account/bots/new` (`bots.new_url` of the Bots view's list, once the sidebar said), pushed over what's on screen |
 | Decisions | `/:account/decisions`, the root |
 
 They open in the organization on screen or the last one used; with neither

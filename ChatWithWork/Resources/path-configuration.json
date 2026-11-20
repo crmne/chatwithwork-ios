@@ -53,9 +53,13 @@
     },
     {
       "patterns": [
-        "/chats/new(\\?|$)"
+        "/chats/new(\\?|$)",
+        "/bots/new(\\?|$)"
       ],
       "properties": {
+        "context": "default",
+        "presentation": "default",
+        "pull_to_refresh_enabled": false,
         "skeleton": "new_chat"
       }
     },

@@ -1,18 +1,25 @@
 import XCTest
 
-/// New chat as a sheet, like New bot (path configuration v3), against a Chat
-/// with Work server of your own: the app starts on Decisions, the bar's New
-/// chat brings its sheet up over it with Cancel and the app's composer,
-/// closing it (Cancel, a swipe down) keeps what was typed for the next New
-/// chat, the sidebar's New chat opens the same sheet, and sending from it
-/// closes the sheet and makes the new chat the root, with the sidebar button
-/// and no back.
+/// New chat and New bot as pages (path configuration v4), against a Chat with
+/// Work server of your own: the app starts on Decisions; the bar's New chat
+/// pushes New chat over it with Back and the keyboard up; Back keeps what was
+/// typed for the next New chat; the sidebar's New chat is a place, the root;
+/// sending turns it into the chat where it stands, the root still, with no
+/// back; New chat over a chat comes back to that chat; New bot from Bots is a
+/// page too.
+///
+/// `testMeasure` walks one case at a time for the before and after videos
+/// (CWW_UI_TEST_CASE: sidebar, decisions, bots, chat, rotate, offline,
+/// lost),
+/// printing `CWWMARK <event> <seconds since 1970>` at each tap, and works on
+/// builds where New chat is a sheet too, to compare.
 ///
 /// Needs a development server reachable from the simulator and a login:
-/// CWW_UI_TEST_BASE_URL, CWW_UI_TEST_EMAIL and CWW_UI_TEST_PASSWORD
-/// (TEST_RUNNER_ prefixed through xcodebuild). Skipped without them. It sends
-/// one question, which starts a chat. Screenshots go to CWW_UI_TEST_SHOTS as
-/// well as the result bundle, numbered in walk order.
+/// CWW_UI_TEST_BASE_URL, CWW_UI_TEST_EMAIL and CWW_UI_TEST_PASSWORD, and
+/// the organization's id as CWW_UI_TEST_ACCOUNT (TEST_RUNNER_ prefixed
+/// through xcodebuild). Skipped without them. Each
+/// send starts a chat. Screenshots go to CWW_UI_TEST_SHOTS as well as the
+/// result bundle, numbered in walk order.
 final class LocalServerNewChatTests: XCTestCase {
     private var environment: [String: String] { ProcessInfo.processInfo.environment }
     private var step = 0
@@ -23,115 +30,245 @@ final class LocalServerNewChatTests: XCTestCase {
     }
 
     @MainActor
-    func testNewChatIsASheetOverThePlace() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["-CWWResetState", "YES", "-CWWBaseURL", environment["CWW_UI_TEST_BASE_URL"] ?? "http://localhost:3000",
-                               "-CWWAskForNotifications", "NO", "-CWWToastSeconds", "2"]
-        app.launch()
+    func testNewChatIsAPage() throws {
+        try XCTSkipIf(environment["CWW_UI_TEST_CASE"]?.isEmpty == false, "Measuring a case instead")
+        let app = launch(reset: true)
         signIn(app)
         keep("home")
-        XCTAssertFalse(app.buttons["sheet.close"].exists, "The app should start on a place, not New chat's sheet")
+        XCTAssertTrue(app.navigationBars["Decisions"].waitForExistence(timeout: 20), "The app should start on Decisions")
 
-        // The bar's New chat: a sheet over the place, with Cancel and the composer.
+        // The bar's New chat: pushed over Decisions, with Back, the keyboard up, no sheet.
         let newChat = app.buttons["shell.newChat"]
         XCTAssertTrue(newChat.waitForExistence(timeout: 10))
         newChat.tap()
-        let close = app.buttons["sheet.close"]
-        XCTAssertTrue(close.waitForExistence(timeout: 10), "New chat should come up as a sheet with Cancel")
-        XCTAssertTrue(app.textViews["composer.text"].firstMatch.waitForExistence(timeout: 20), "The sheet should carry the app's composer")
-        keep("new-chat-opening")
-        settle(3)
-        keep("new-chat-sheet")
-        // Decisions' All clear under the sheet has the app's composer too: the sheet's is the one that takes the keyboard.
-        var field = focusSheetField(app)
+        XCTAssertTrue(app.navigationBars["New chat"].waitForExistence(timeout: 20), "New chat should open as a page")
+        XCTAssertFalse(app.buttons["sheet.close"].exists, "New chat isn't a sheet")
+        XCTAssertTrue(backButton(app).waitForExistence(timeout: 5), "New chat from the bar has Back to Decisions")
+        var field = composerField(app)
+        XCTAssertTrue(waitForFocus(field), "New chat opened by a tap takes the keyboard")
+        keep("new-chat-pushed")
 
         field.typeText("Draft that should stay")
         settle(1)
-        keep("new-chat-typing")
+        backButton(app).tap()
+        XCTAssertTrue(app.navigationBars["Decisions"].waitForExistence(timeout: 10), "Back should return to Decisions")
+        keep("back-to-decisions")
 
-        // The + sheet inside New chat's sheet.
-        let plus = sheetButton(app, "composer.plus")
-        if plus.exists {
-            plus.tap()
-            settle(1.5)
-            keep("new-chat-plus")
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.99)))
-            settle(1.5)
-        }
-
-        // Cancel keeps the words for the next New chat.
-        close.tap()
-        settle(1.5)
-        XCTAssertFalse(close.exists, "Cancel should close the sheet")
-        keep("after-cancel")
-
-        newChat.tap()
-        XCTAssertTrue(app.textViews["composer.text"].firstMatch.waitForExistence(timeout: 20))
-        settle(2)
-        field = focusSheetField(app)
-        XCTAssertEqual(field.value as? String, "Draft that should stay", "New chat should open with the words left in it")
-        keep("draft-back")
-
-        // A swipe down closes it too (the first lets go of the keyboard, if it's up).
-        for _ in 0..<3 where close.exists {
-            // From the sheet's own bar, beside Cancel, down to the foot of the screen.
-            let bar = close.coordinate(withNormalizedOffset: CGVector(dx: 4, dy: 0.5))
-            bar.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
-            settle(1.5)
-        }
-        XCTAssertTrue(close.waitForNonExistence(timeout: 5), "A swipe down should close the sheet")
-        keep("after-swipe")
-
-        // The sidebar's New chat: the same sheet.
+        // The sidebar's New chat: a place, the root, with the words left in it.
         openSidebar(app)
-        keep("sidebar")
-        let sidebarNewChat = app.links.matching(NSPredicate(format: "label CONTAINS 'New chat'")).firstMatch
-        if sidebarNewChat.waitForExistence(timeout: 30) {
-            sidebarNewChat.tap()
-        } else {
-            app.buttons["sidebar.newChat"].tap()
-        }
-        XCTAssertTrue(close.waitForExistence(timeout: 10), "The sidebar's New chat should be the sheet too")
-        XCTAssertTrue(app.textViews["composer.text"].firstMatch.waitForExistence(timeout: 20))
+        tapSidebarNewChat(app)
+        XCTAssertTrue(app.navigationBars["New chat"].waitForExistence(timeout: 20))
         settle(2)
+        XCTAssertTrue(app.buttons["shell.sidebar"].exists, "The sidebar's New chat is a place, with the sidebar button")
+        XCTAssertFalse(backButton(app).exists, "A place has no back")
+        field = composerField(app)
+        XCTAssertEqual(field.value as? String, "Draft that should stay", "New chat should open with the words left in it")
         keep("sidebar-new-chat")
 
-        // Sending: the sheet closes and the chat replaces the root.
-        // The words left in it go out as they are (a tap puts the caret where it lands, so nothing is added).
-        field = focusSheetField(app)
-        XCTAssertEqual(field.value as? String, "Draft that should stay", "The sidebar's New chat should open with the words left in it too")
-        sheetButton(app, "composer.send").tap()
-        let sidebar = app.buttons["shell.sidebar"]
-        let closed = NSPredicate(format: "exists == false")
-        expectation(for: closed, evaluatedWith: close)
-        waitForExpectations(timeout: 20)
-        settle(3)
+        // Send: the page turns into the chat where it stands, the root still.
+        app.buttons["composer.send"].firstMatch.tap()
+        let question = app.webViews.staticTexts["Draft that should stay"].firstMatch
+        XCTAssertTrue(question.waitForExistence(timeout: 5), "The question should be on screen at once")
         keep("sent")
-        XCTAssertTrue(sidebar.exists, "The new chat should be the root, with the sidebar button")
-        XCTAssertFalse(backButton(app).exists, "The new chat should have no back")
-        print("NEWCHAT sent: title=\(app.navigationBars.firstMatch.identifier)")
-
-        // The sent words are gone from the next New chat.
-        newChat.tap()
-        XCTAssertTrue(app.textViews["composer.text"].firstMatch.waitForExistence(timeout: 20))
+        let titled = NSPredicate(format: "identifier != 'New chat'")
+        expectation(for: titled, evaluatedWith: app.navigationBars.firstMatch)
+        waitForExpectations(timeout: 40)
         settle(2)
-        field = focusSheetField(app)
-        XCTAssertNotEqual(field.value as? String, "Draft that should stay", "Sending should clear the draft")
-        keep("new-chat-after-send")
-        close.tap()
-        settle(1.5)
+        XCTAssertTrue(app.buttons["shell.sidebar"].exists, "The chat is the root, with the sidebar button")
+        XCTAssertFalse(backButton(app).exists, "The chat has no back")
+        let chatTitle = app.navigationBars.firstMatch.identifier
+        keep("chat")
 
-        // New bot, the same sheet, for comparison, through the app's own link.
-        app.open(URL(string: "chatwithwork://open?path=/bots/new")!)
-        XCTAssertTrue(close.waitForExistence(timeout: 15), "New bot should be the same sheet")
-        settle(4)
-        keep("new-bot-sheet")
-        close.tap()
+        // New chat over that chat: pushed, empty (Send cleared the draft), and Back returns to the chat.
+        newChat.tap()
+        XCTAssertTrue(app.navigationBars["New chat"].waitForExistence(timeout: 20))
+        field = composerField(app)
+        XCTAssertNotEqual(field.value as? String, "Draft that should stay", "Sending should clear the draft")
+        XCTAssertTrue(backButton(app).exists)
+        // The bar's New chat on New chat focuses it rather than stacking another.
+        newChat.tap()
         settle(1.5)
+        XCTAssertTrue(backButton(app).exists)
+        backButton(app).tap()
+        XCTAssertTrue(app.navigationBars[chatTitle].waitForExistence(timeout: 10), "Back should return to the chat New chat was opened from")
+        XCTAssertFalse(backButton(app).exists, "and that chat is the root")
+        keep("back-to-chat")
+
+        // New bot from Bots: a page pushed over Bots.
+        openBots(app)
+        let newBot = app.buttons.matching(NSPredicate(format: "identifier == 'bridge.button' AND label == 'New bot'")).firstMatch
+        XCTAssertTrue(newBot.waitForExistence(timeout: 20), "Bots should offer New bot in the bar")
+        newBot.tap()
+        XCTAssertTrue(app.navigationBars["New bot"].waitForExistence(timeout: 20), "New bot should open as a page")
+        XCTAssertFalse(app.buttons["sheet.close"].exists, "New bot isn't a sheet")
+        XCTAssertTrue(backButton(app).exists, "New bot from Bots has Back")
+        settle(2)
+        keep("new-bot")
+        backButton(app).tap()
+        XCTAssertTrue(app.navigationBars["Bots"].waitForExistence(timeout: 10))
+    }
+
+    // MARK: Measuring
+
+    /// One case, for the videos: every tap and send is marked with the time.
+    @MainActor
+    func testMeasure() throws {
+        let name = try XCTUnwrap(environment["CWW_UI_TEST_CASE"], "Set CWW_UI_TEST_CASE to measure a case")
+        try XCTSkipIf(name.isEmpty)
+        var app = launch(reset: true)
+        signIn(app)
+        mark("signed-in")
+
+        switch name {
+        case "sidebar":
+            // Two launches, each a cold New chat and then warm ones.
+            for launchIndex in 1...2 {
+                if launchIndex == 2 {
+                    app.terminate()
+                    app = launch(reset: false)
+                    XCTAssertTrue(app.buttons["shell.sidebar"].waitForExistence(timeout: 40))
+                    settle(4)
+                    mark("relaunched")
+                }
+                for run in 1...(launchIndex == 1 ? 4 : 2) {
+                    openSidebar(app)
+                    mark("tap-\(run == 1 ? "cold" : "warm")-\(launchIndex)-\(run)")
+                    tapSidebarNewChat(app)
+                    send(app, "In one short sentence, which planet is largest?")
+                    settle(12)
+                }
+            }
+        case "lost":
+            // Six sends from the sidebar's New chat, each a fresh question, to count answers that never show.
+            let questions = ["In one short sentence, which ocean is deepest?", "In one short sentence, which metal is lightest?",
+                             "In one short sentence, which bird is fastest?", "In one short sentence, which tree is tallest?",
+                             "In one short sentence, which mountain is highest?", "In one short sentence, which desert is largest?"]
+            for (run, question) in questions.enumerated() {
+                openSidebar(app)
+                mark("tap-lost-\(run + 1)")
+                tapSidebarNewChat(app)
+                send(app, question)
+                settle(30)
+                keep("lost-\(run + 1)")
+            }
+        case "decisions":
+            for run in 1...2 {
+                if run > 1 { openPlace(app, "Decisions") }
+                XCTAssertTrue(app.navigationBars["Decisions"].waitForExistence(timeout: 20))
+                settle(2)
+                mark("tap-decisions-\(run)")
+                app.buttons["shell.newChat"].tap()
+                send(app, "In one short sentence, what colour is the sky?")
+                settle(10)
+                mark("back-\(run)")
+                tapBack(app)
+                settle(3)
+                keep("decisions-back-\(run)")
+            }
+        case "bots":
+            for run in 1...2 {
+                openBots(app)
+                let newBot = app.buttons.matching(NSPredicate(format: "identifier == 'bridge.button' AND label == 'New bot'")).firstMatch
+                XCTAssertTrue(newBot.waitForExistence(timeout: 20))
+                settle(2)
+                mark("tap-bots-\(run)")
+                newBot.tap()
+                send(app, "Every weekday at 9, tell me the weather in Berlin.")
+                settle(12)
+                mark("back-\(run)")
+                tapBack(app)
+                settle(3)
+                keep("bots-back-\(run)")
+            }
+        case "chat":
+            // A chat to start from, opened from the sidebar.
+            openSidebar(app)
+            tapSidebarNewChat(app)
+            send(app, "In one short sentence, say hello.")
+            settle(10)
+            for run in 1...2 {
+                mark("tap-chat-\(run)")
+                app.buttons["shell.newChat"].tap()
+                send(app, "In one short sentence, which fruit is yellow?")
+                settle(10)
+                mark("back-\(run)")
+                tapBack(app)
+                settle(3)
+                keep("chat-back-\(run)")
+            }
+        case "rotate":
+            app.buttons["shell.newChat"].tap()
+            let field = composerField(app)
+            XCTAssertTrue(field.waitForExistence(timeout: 20))
+            settle(2)
+            mark("rotate-landscape")
+            XCUIDevice.shared.orientation = .landscapeLeft
+            settle(3)
+            keep("new-chat-landscape")
+            mark("rotate-portrait")
+            XCUIDevice.shared.orientation = .portrait
+            settle(3)
+            send(app, "In one short sentence, which river is longest?", tapField: true)
+            settle(0.6)
+            mark("rotate-after-turn")
+            XCUIDevice.shared.orientation = .landscapeLeft
+            settle(4)
+            keep("chat-landscape")
+            XCUIDevice.shared.orientation = .portrait
+            settle(4)
+            keep("chat-portrait")
+        case "offline":
+            app.buttons["shell.newChat"].tap()
+            XCTAssertTrue(composerField(app).waitForExistence(timeout: 20))
+            settle(3)
+            let flag = try XCTUnwrap(environment["CWW_UI_TEST_OFFLINE_FLAG"], "Needs the proxy's offline flag file")
+            FileManager.default.createFile(atPath: flag, contents: Data())
+            mark("offline")
+            settle(1)
+            send(app, "This should come back to the field.")
+            settle(8)
+            let field = composerField(app)
+            keep("offline-refused")
+            XCTAssertEqual(field.value as? String, "This should come back to the field.", "The words should come back to the field")
+            try? FileManager.default.removeItem(atPath: flag)
+            mark("online")
+            settle(3)
+        default:
+            XCTFail("Unknown case \(name)")
+        }
+        mark("done")
+    }
+
+    /// Types `question` into the composer that takes the keyboard and sends it, marking the send.
+    @MainActor
+    private func send(_ app: XCUIApplication, _ question: String, tapField: Bool = false) {
+        let field = composerField(app)
+        XCTAssertTrue(field.waitForExistence(timeout: 30), "New chat should show its composer")
+        mark("composer")
+        if tapField || !waitForFocus(field, timeout: 3) {
+            field.tap()
+            XCTAssertTrue(waitForFocus(field))
+        }
+        field.typeText(question)
+        settle(1.5)
+        let send = app.buttons.matching(identifier: "composer.send").allElementsBoundByIndex.last(where: \.isHittable)
+            ?? app.buttons["composer.send"].firstMatch
+        mark("send")
+        send.tap()
     }
 
     // MARK: Steps
+
+    @MainActor
+    private func launch(reset: Bool) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = (reset ? ["-CWWResetState", "YES"] : []) + [
+            "-CWWBaseURL", environment["CWW_UI_TEST_BASE_URL"] ?? "http://localhost:3000",
+            "-CWWAskForNotifications", "NO", "-CWWToastSeconds", "2"
+        ]
+        app.launch()
+        return app
+    }
 
     @MainActor
     private func signIn(_ app: XCUIApplication) {
@@ -153,28 +290,26 @@ final class LocalServerNewChatTests: XCTestCase {
         settle(4)
     }
 
-    /// The sheet's composer field, focused: the app's composer that takes
-    /// the keyboard, once the page has connected it (the place's own is
-    /// under the sheet, out of reach).
+    /// The app's composer field on top: the last one that can be reached
+    /// (a sheet's, where New chat is one, over the place's own).
     @MainActor
-    private func focusSheetField(_ app: XCUIApplication) -> XCUIElement {
+    private func composerField(_ app: XCUIApplication) -> XCUIElement {
         let fields = app.textViews.matching(identifier: "composer.text")
-        for _ in 0..<40 {
-            for field in fields.allElementsBoundByIndex.reversed() where field.isHittable {
-                field.tap()
-                settle(0.8)
-                if (field.value(forKey: "hasKeyboardFocus") as? Bool) == true { return field }
-            }
-            settle(0.5)
+        for _ in 0..<60 {
+            if let field = fields.allElementsBoundByIndex.last(where: \.isHittable) { return field }
+            settle(0.25)
         }
-        XCTFail("The sheet's composer never took the keyboard")
         return fields.firstMatch
     }
 
     @MainActor
-    private func sheetButton(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
-        let all = app.buttons.matching(identifier: identifier).allElementsBoundByIndex
-        return all.last(where: \.isHittable) ?? all.last ?? app.buttons[identifier]
+    private func waitForFocus(_ field: XCUIElement, timeout: TimeInterval = 10) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if field.exists, (field.value(forKey: "hasKeyboardFocus") as? Bool) == true { return true }
+            settle(0.2)
+        }
+        return false
     }
 
     @MainActor
@@ -183,12 +318,62 @@ final class LocalServerNewChatTests: XCTestCase {
         XCTAssertTrue(sidebar.waitForExistence(timeout: 10))
         settle(1)
         sidebar.tap()
-        settle(3)
+        settle(2)
+    }
+
+    /// The sidebar page's New chat, or the native sidebar's.
+    @MainActor
+    private func tapSidebarNewChat(_ app: XCUIApplication) {
+        let link = app.links.matching(NSPredicate(format: "label CONTAINS 'New chat'")).firstMatch
+        if link.waitForExistence(timeout: 20) {
+            link.tap()
+        } else {
+            app.buttons["sidebar.newChat"].tap()
+        }
+    }
+
+    /// A place from the sidebar page: Decisions is a link; Bots is Recent's
+    /// filter, whose option chosen again opens its page. (Not the app's own
+    /// link: XCUITest relaunches the app for it, without its launch arguments.)
+    @MainActor
+    private func openPlace(_ app: XCUIApplication, _ name: String) {
+        openSidebar(app)
+        let bar = app.navigationBars.matching(NSPredicate(format: "identifier CONTAINS %@", name)).firstMatch
+        let page = app.webViews.descendants(matching: .any)
+        let named = page.matching(NSPredicate(format: "label == %@", name)).allElementsBoundByIndex
+        for _ in 0..<3 where !bar.exists {
+            guard let target = named.first(where: { $0.exists && $0.isHittable }) ?? page.matching(NSPredicate(format: "label == %@", name)).allElementsBoundByIndex.first(where: \.isHittable)
+            else { settle(1); continue }
+            target.tap()
+            _ = bar.waitForExistence(timeout: 3)
+        }
+        if !bar.waitForExistence(timeout: 15) { keep("no-\(name.lowercased())") }
+        XCTAssertTrue(bar.exists, "\(name) should open")
+    }
+
+    @MainActor
+    private func openBots(_ app: XCUIApplication) {
+        openPlace(app, "Bots")
+        settle(2)
+    }
+
+    /// Back, or a sheet's close where New chat is one.
+    @MainActor
+    private func tapBack(_ app: XCUIApplication) {
+        if backButton(app).exists {
+            backButton(app).tap()
+        } else if app.buttons["sheet.close"].exists {
+            app.buttons["sheet.close"].tap()
+        }
     }
 
     @MainActor
     private func backButton(_ app: XCUIApplication) -> XCUIElement {
         app.navigationBars.buttons.matching(NSPredicate(format: "identifier == 'BackButton' OR label == 'Back'")).firstMatch
+    }
+
+    private func mark(_ event: String) {
+        print(String(format: "CWWMARK %@ %.3f", event, Date().timeIntervalSince1970))
     }
 
     private func settle(_ seconds: TimeInterval) {

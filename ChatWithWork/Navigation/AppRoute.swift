@@ -75,6 +75,17 @@ nonisolated struct AppRoute: Equatable, Sendable {
         }
     }
 
+    /// New bot's sentence page, a page like New chat from path configuration v4.
+    var isNewBot: Bool { path == AppPath.newBot }
+
+    /// The pages whose composer starts a chat, which turn into that chat in
+    /// place as the question goes: New chat, New bot, and the home or
+    /// Decisions, whose All clear carries New chat's composer
+    /// (NewChatHandOff).
+    var startsChats: Bool {
+        kind == .newChat || isNewBot || path == AppPath.home || path == AppPath.decisions
+    }
+
     private static func classify(_ segments: [String]) -> Kind {
         switch segments.count {
         case 0:

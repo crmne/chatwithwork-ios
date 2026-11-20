@@ -25,7 +25,7 @@ struct AppEnvironmentTests {
     @Test("introduces itself with the user agent prefix the server parses")
     func userAgentPrefix() {
         let environment = AppEnvironment.load(info: info(), arguments: defaults(), variables: [:])
-        #expect(environment.userAgentPrefix == "Chat with Work; platform=ios; version=1.2.0; build=10200;")
+        #expect(environment.userAgentPrefix == "Chat with Work; platform=ios; version=1.2.0; build=10200; new-chat=page;")
     }
 
     @Test("reads the server from Info.plist")
@@ -33,7 +33,7 @@ struct AppEnvironmentTests {
         let environment = AppEnvironment.load(info: info(environment: "staging", baseURL: "https://staging.chatwithwork.com"), arguments: defaults(), variables: [:])
         #expect(environment.name == .staging)
         #expect(environment.baseURL.absoluteString == "https://staging.chatwithwork.com")
-        #expect(environment.remotePathConfigurationURL.absoluteString == "https://staging.chatwithwork.com/configurations/ios_v3.json")
+        #expect(environment.remotePathConfigurationURL.absoluteString == "https://staging.chatwithwork.com/configurations/ios_v4.json")
     }
 
     @Test("lets development builds be pointed elsewhere at launch")

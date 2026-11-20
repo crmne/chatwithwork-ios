@@ -34,7 +34,7 @@ struct PageSkeletonTests {
         ("/482139075/projects", .list),
         ("/482139075/settings", .settings),
         ("/482139075/settings?tab=profile", .settings),
-        ("/482139075/bots/new", .form),
+        ("/482139075/bots/new", .newChat),
         ("/482139075/projects/3/edit", .form),
         ("/482139075/bots/5", .page),
         ("/482139075/bots/5?tab=setup", .page),

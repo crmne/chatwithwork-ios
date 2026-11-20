@@ -9,7 +9,8 @@ import UIKit
 /// the left and pushes the root aside. The sidebar is the server's sidebar
 /// page in a web view of its own (`SidebarWebController`) where the server
 /// names one, else the native one drawn from its JSON. Drill-downs from a place (a bot from
-/// Bots) are pushed over it with back; forms come up as sheets.
+/// Bots, New chat from the bar) are pushed over it with back; forms come up
+/// as sheets.
 ///
 /// Opened by the bar's sidebar button or a swipe from the screen's left
 /// edge, on the root; closed by a tap or a swipe on the screen, or by
@@ -36,6 +37,11 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     private var sidebarWidthConstraint: NSLayoutConstraint!
     private var progress: CGFloat = 0
     private var panStart: CGFloat = 0
+    /// Counts the drawer's slides, so only the latest one's end is its end.
+    private var motion = 0
+    private var isMoving = false
+    /// What waits for the drawer to come to rest.
+    private var afterMotion: [() -> Void] = []
     nonisolated(unsafe) private var pollTask: Task<Void, Never>?
     nonisolated(unsafe) private var foregroundObserver: NSObjectProtocol?
 
@@ -70,25 +76,24 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     }
 
     /// The organization's home, which lands on Decisions (docs/server-contract.md,
-    /// "Where the app starts"), or the server's pick of organization. Never
-    /// New chat: it's a sheet, which needs a place under it.
+    /// "Where the app starts"), or the server's pick of organization.
     static func startURL(environment: AppEnvironment, account: AccountSlug?, memory: SessionMemory) -> URL {
         environment.url(path: AppPath.path(AppPath.home, in: account))
     }
 
     /// Where to start instead when the organization's home answers 404: a
     /// server older than it (self-hosted releases before 2026-11-17) starts
-    /// on the organization's chat list, a place there, with New chat a tap
-    /// away in the bar. Not New chat itself, a sheet in the bundled
-    /// configuration such a server leaves in charge, which would have
-    /// nothing under it. None for any other page.
+    /// on the new chat last chosen in that organization, a place, as builds
+    /// before the home did. None for any other page.
     static func startURLWithoutHome(failed url: URL, environment: AppEnvironment, account: AccountSlug?, memory: SessionMemory) -> URL? {
         let route = AppRoute(url: url)
         guard route.path == AppPath.home else { return nil }
-        return environment.url(path: AppPath.path(AppList.chats.path, in: route.account ?? account))
+        let account = route.account ?? account
+        let path = account.flatMap { memory.newChatPath(in: $0) } ?? AppPath.path(AppPath.newChat, in: account)
+        return environment.url(path: path)
     }
 
-    /// Opens the chat list in place of a home the server doesn't have, as
+    /// Opens New chat in place of a home the server doesn't have, as
     /// the place at the root. False when `url` isn't the home. A sidebar
     /// opened while the home loaded stays open: the person didn't pick this.
     func startWithoutHome(failed url: URL) -> Bool {
@@ -222,8 +227,9 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         }
     }
 
-    /// Starts the navigator at `url` when a notification launched the app
-    /// onto it (a form, New chat among them, comes up over the home), else at
+    /// Starts the navigator at `url` when a notification, a shortcut or a
+    /// share launched the app onto it (New chat among them; a form comes up
+    /// over the home), else at
     /// the home, or reopens a chat left moments ago that is still answering
     /// or waiting for the person.
     func start(at url: URL? = nil) {
@@ -295,7 +301,7 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     private var actions: SidebarActions {
         SidebarActions(
             open: { [weak self] path in self?.open(path: path) },
-            newChat: { [weak self] in self?.startNewChat() },
+            newChat: { [weak self] in self?.openNewChat() },
             chooseList: { [weak self] key in
                 guard let self else { return }
                 Task {
@@ -342,22 +348,53 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         open(url: environment.url(path: path))
     }
 
+    /// New chat and New bot wait for the drawer to slide shut and the screen
+    /// without it to be drawn, so their page and its keyboard don't arrive
+    /// while it moves (docs/server-contract.md, "New chat and New bot").
     private func open(url: URL, closingSidebar: Bool = true) {
-        if closingSidebar { setOpen(false, animated: true) }
         let properties = navigator.session.pathConfiguration?.properties(for: url) ?? PathProperties()
-        navigator.route(VisitProposal(url: url, options: VisitOptions(action: .advance), properties: Places.opening(properties)))
+        let place = VisitProposal(url: url, options: VisitOptions(action: .advance), properties: Places.opening(properties))
+        let route = AppRoute(url: url)
+        guard closingSidebar else {
+            navigator.route(place)
+            return
+        }
+        guard route.kind == .newChat || route.isNewBot, progress > 0 || isMoving else {
+            setOpen(false, animated: true)
+            navigator.route(place)
+            return
+        }
+        setOpen(false, animated: true) { [weak self] in
+            DispatchQueue.main.async { self?.navigator.route(place) }
+        }
     }
 
-    /// New chat, a sheet over the place on screen (the path configuration).
-    /// One already up keeps its words, rather than another stacking on it.
+    /// New chat from the bar: pushed over the page on screen, with back to it
+    /// (the path configuration). One already on top takes the keyboard,
+    /// keeping its words, rather than another stacking on it.
     func startNewChat() {
         setOpen(false, animated: true)
-        if ComposerController.onNewChat(navigator.rootViewController) != nil { return }
+        if let composer = ComposerController.onNewChat(navigator.rootViewController) {
+            composer.focus()
+            return
+        }
         navigator.route(environment.url(path: newChatPath))
     }
 
+    /// New chat as a place, the root: the sidebar's, a shortcut's, a share's
+    /// (`url`, with what it brings in its query), opened once the drawer has
+    /// shut. One already on top takes the keyboard instead.
+    func openNewChat(_ url: URL? = nil) {
+        if let composer = ComposerController.onNewChat(navigator.rootViewController), url?.query() == nil {
+            setOpen(false, animated: true)
+            composer.focus()
+            return
+        }
+        open(url: url ?? environment.url(path: newChatPath))
+    }
+
     /// The organization's home as the place at the root: where a chat that
-    /// went away leaves the person, since New chat is a sheet.
+    /// went away leaves the person.
     func openHome() {
         open(url: Self.startURL(environment: environment, account: account, memory: memory))
     }
@@ -495,7 +532,9 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
         setOpen(!isOpen, animated: true)
     }
 
-    func setOpen(_ open: Bool, animated: Bool) {
+    /// `completion` runs once the drawer is at rest, after this slide or any
+    /// that takes over from it.
+    func setOpen(_ open: Bool, animated: Bool, completion: (() -> Void)? = nil) {
         if open {
             view.endEditing(true)
             if !showsSidebarPage {
@@ -507,17 +546,31 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
             releaseSidebarFocus()
         }
         let target: CGFloat = open ? 1 : 0
+        if let completion { afterMotion.append(completion) }
+        motion += 1
         guard animated else {
             apply(progress: target)
+            settle()
             return
         }
+        let slide = motion
+        isMoving = true
         prepareForMotion()
         UIView.animate(withDuration: 0.32, delay: 0, usingSpringWithDamping: 0.92, initialSpringVelocity: 0, options: [.allowUserInteraction, .beginFromCurrentState]) {
             self.apply(progress: target, settled: false)
             self.view.layoutIfNeeded()
         } completion: { _ in
+            guard slide == self.motion else { return }
             self.apply(progress: self.progress)
+            self.settle()
         }
+    }
+
+    private func settle() {
+        isMoving = false
+        let waiting = afterMotion
+        afterMotion = []
+        waiting.forEach { $0() }
     }
 
     private func prepareForMotion() {

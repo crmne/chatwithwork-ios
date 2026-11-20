@@ -1,8 +1,8 @@
 import Testing
 @testable import ChatWithWork
 
-/// What's typed in New chat's sheet, kept while it's closed (path
-/// configuration v3), per organization, until Send or signing out.
+/// What's typed in New chat, kept when it's left without sending (Back,
+/// another place), per organization, until Send or signing out.
 @MainActor
 @Suite("New chat's draft", .serialized)
 struct NewChatDraftTests {
