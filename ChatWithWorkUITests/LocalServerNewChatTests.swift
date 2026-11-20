@@ -48,8 +48,9 @@ final class LocalServerNewChatTests: XCTestCase {
         let native = drawsComposer(app)
         if native {
             XCTAssertTrue(waitForFocus(field), "New chat opened by a tap takes the keyboard")
-        } else if !waitForFocus(field, timeout: 3) {
+        } else {
             field.tap()
+            settle(1)
         }
         keep("new-chat-pushed")
 
@@ -71,7 +72,8 @@ final class LocalServerNewChatTests: XCTestCase {
             XCTAssertEqual(field.value as? String, "Draft that should stay", "New chat should open with the words left in it")
         } else {
             // The web composer keeps no draft for a chat that doesn't exist yet.
-            if !waitForFocus(field, timeout: 3) { field.tap() }
+            field.tap()
+            settle(1)
             if (field.value as? String)?.contains("Draft that should stay") != true { field.typeText("Draft that should stay") }
         }
         keep("sidebar-new-chat")
@@ -126,8 +128,10 @@ final class LocalServerNewChatTests: XCTestCase {
     func testMeasure() throws {
         let name = environment["CWW_UI_TEST_CASE"] ?? ""
         try XCTSkipIf(name.isEmpty, "Set CWW_UI_TEST_CASE to measure a case")
-        var app = launch(reset: true)
-        signIn(app)
+        // Signed in already where a run before left the app so: the server throttles sign-ins in quick succession.
+        var app = launch(reset: environment["CWW_UI_TEST_RESET"] == "1")
+        if !app.buttons["shell.sidebar"].waitForExistence(timeout: 15) { signIn(app) }
+        settle(2)
         mark("signed-in")
 
         switch name {
@@ -363,11 +367,22 @@ final class LocalServerNewChatTests: XCTestCase {
         let field = composerField(app)
         XCTAssertTrue(field.waitForExistence(timeout: 30), "New chat should show its composer")
         mark("composer")
-        if tapField || !waitForFocus(field, timeout: 3) {
-            field.tap()
-            XCTAssertTrue(waitForFocus(field))
+        let native = field.identifier == "composer.text"
+        if native {
+            if tapField || !waitForFocus(field, timeout: 3) {
+                field.tap()
+                XCTAssertTrue(waitForFocus(field))
+            }
+        } else {
+            // WebKit doesn't report the web composer's focus to XCUITest; the keyboard says it took the tap (a tap
+            // while the page's skeleton still covers it lands on the skeleton).
+            for _ in 0..<10 where !app.keyboards.firstMatch.exists {
+                composerField(app).tap()
+                _ = app.keyboards.firstMatch.waitForExistence(timeout: 1.5)
+            }
+            XCTAssertTrue(app.keyboards.firstMatch.exists, "The web composer should take the keyboard")
         }
-        field.typeText(question)
+        (native ? field : composerField(app)).typeText(question)
         settle(1.5)
         let send = sendButton(app)
         mark("send")
@@ -416,7 +431,7 @@ final class LocalServerNewChatTests: XCTestCase {
         for _ in 0..<60 {
             if let field = fields.allElementsBoundByIndex.last(where: \.isHittable) { return field }
             // The web composer, where the app doesn't draw its own.
-            if !fields.firstMatch.exists, let field = web.allElementsBoundByIndex.last(where: \.isHittable) { return field }
+            if !fields.firstMatch.exists, let field = web.allElementsBoundByIndex.first(where: \.isHittable) { return field }
             settle(0.25)
         }
         return fields.firstMatch.exists ? fields.firstMatch : web.firstMatch
