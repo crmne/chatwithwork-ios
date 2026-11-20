@@ -1995,7 +1995,7 @@ page.
   HTTPS, or `http://localhost`.
 - **Files from the + menu.** The composer's file input
   (`<input type=file multiple>`, no `accept`) gets WebKit's own menu: Photo
-  Library, Take Photo or Video, and Choose File
+  Library and Choose Files, and Take Photo or Video where there's a camera
   (`NSCameraUsageDescription`; the photo picker runs outside the app and
   needs no library access).
 
