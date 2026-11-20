@@ -101,7 +101,10 @@ enum NewChatHandOff {
     /// is up, with no skeleton.
     static func screen(for url: URL, replacing leaving: UIViewController?) -> VisitableViewController {
         let controller = WebScreen.make(url: url, skeleton: false)
-        controller.navigationItem.title = leaving?.navigationItem.title
+        // The page's own title as it turned ("New chat", which Decisions' All clear also takes as it turns), not the
+        // leaving screen's bar, which can still say what it was before ("Decisions").
+        let turned = (leaving as? VisitableViewController)?.visitableView.webView?.title.flatMap { $0.isEmpty ? nil : $0 }
+        controller.navigationItem.title = turned ?? leaving?.navigationItem.title
         // As it's drawn now; a screen not drawn yet has nothing to show but its views.
         guard let leaving, leaving.isViewLoaded,
               let picture = leaving.view.snapshotView(afterScreenUpdates: false) ?? leaving.view.snapshotView(afterScreenUpdates: true)
