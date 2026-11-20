@@ -25,13 +25,19 @@ final class WebComposerComponent: BridgeComponent {
     /// a later visit wait for one after it.
     private var connectedAt: Int?
     private var url: URL?
+    /// Whether the latest `state` hasn't had files handed under it yet: an
+    /// answer hands back what came back locked or unavailable at once only
+    /// once per state, so a page that says `unavailable` straight away
+    /// (no attachments controller) isn't sent the same files in a loop.
+    private var stateUnused = false
 
     override func onReceive(message: Message) {
         if message.event == "attached" {
             if let answer: AttachedAnswer = message.data() {
                 ComposerInbox.settle(id: answer.id, results: answer.files)
-                // What came back locked or unavailable goes now if the composer already said it takes files.
-                if state?.acceptsFiles == true, !ComposerInbox.files.isEmpty { takeInbox() }
+                // What came back locked or unavailable goes now if the composer already said it takes
+                // files, once per state: the page's next state lets it go again.
+                if stateUnused, state?.acceptsFiles == true, !ComposerInbox.files.isEmpty { takeInbox() }
             }
             return
         }
@@ -40,6 +46,7 @@ final class WebComposerComponent: BridgeComponent {
         let url = message.metadata.flatMap { URL(string: $0.url) }
         self.state = state
         self.url = url
+        stateUnused = true
         LiveActivities.shared.noteState(state, chatURL: url)
         // Files a page went quiet on for too long wait again for the next New chat.
         ComposerInbox.returnUnanswered(olderThan: Date().addingTimeInterval(-ComposerInbox.unansweredAfter))
@@ -63,6 +70,7 @@ final class WebComposerComponent: BridgeComponent {
     func takeInbox() {
         guard let state else { return }
         for action in ComposerInbox.take(for: state, at: url, connectedAt: connectedAt) {
+            if case .attach = action { stateUnused = false }
             Task {
                 // Files wait for a composer that takes them; a Dictate it can't start is dropped (`take`).
                 guard stillTakes(action) else {
