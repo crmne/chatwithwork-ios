@@ -421,9 +421,15 @@ final class SidebarShell: UIViewController, UIGestureRecognizerDelegate {
     }
 
     /// Runs `action` once the drawer is shut and at rest: at once if it is.
+    /// Dropped when the drawer comes to rest open instead (opened again
+    /// while it shut), or another visit started meanwhile.
     func whenDrawerShut(_ action: @escaping () -> Void) {
         guard progress > 0 || isMoving else { return action() }
-        afterMotion.append(action)
+        let visit = visits
+        afterMotion.append { [weak self] in
+            guard let self, self.progress == 0, visit == self.visits else { return }
+            action()
+        }
     }
 
     /// Notes a visit the shell or a link starts, which a New chat still

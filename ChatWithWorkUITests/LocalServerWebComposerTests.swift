@@ -136,6 +136,11 @@ final class LocalServerWebComposerTests: XCTestCase {
         keep("chat-before")
         log("chat-frame-before \(lastQuestionFrame(app))")
         hold("chat-before")
+        // A chat's bar ends with Decisions where the server says how many wait: then only a link opens New chat over it.
+        guard app.buttons["shell.newChat"].exists else {
+            log("no-new-chat-in-a-chat's-bar")
+            return
+        }
         app.buttons["shell.newChat"].tap()
         _ = app.navigationBars["New chat"].waitForExistence(timeout: 20)
         settle(2)

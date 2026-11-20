@@ -13,8 +13,13 @@ import WebKit
 @MainActor
 enum KeyboardHandOff {
     static let limit: Duration = .seconds(10)
+    /// How long it holds on to words already typed into it, for a slow page.
+    static let limitWithWords: Duration = .seconds(60)
 
     private static var holder: Holder?
+    /// Words typed into the field that no page took in time: the next New
+    /// chat's composer gets them, before anything typed then.
+    private(set) static var leftover = ""
 
     /// Takes the keyboard for New chat's composer, still on its way in
     /// `webView`, and hands it over as soon as that page has drawn its
@@ -32,7 +37,9 @@ enum KeyboardHandOff {
         Task { [weak webView] in
             let clock = ContinuousClock()
             let deadline = clock.now + limit
-            while clock.now < deadline, holder === field, field.raised == raised, field.isFirstResponder {
+            let deadlineWithWords = clock.now + limitWithWords
+            while clock.now < deadline || (field.hasText && clock.now < deadlineWithWords),
+                  holder === field, field.raised == raised, field.isFirstResponder {
                 if let webView, webView.window != nil, !webView.isHidden,
                    (try? await webView.evaluateJavaScript(focusScript)) as? Bool == true {
                     handOver(to: webView)
@@ -53,7 +60,8 @@ enum KeyboardHandOff {
             release()
             return false
         }
-        let typed = field.text ?? ""
+        let typed = leftover + (field.text ?? "")
+        leftover = ""
         let taken = webView.becomeFirstResponder()
         holder = nil
         field.text = nil
@@ -82,6 +90,7 @@ enum KeyboardHandOff {
     static func release() {
         guard let field = holder else { return }
         holder = nil
+        leftover += field.text ?? ""
         field.text = nil
         if field.isFirstResponder { field.resignFirstResponder() }
         field.removeFromSuperview()
