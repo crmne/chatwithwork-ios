@@ -8,20 +8,30 @@ import { BridgeComponent } from "@hotwired/hotwire-native-bridge"
 // composer connect.
 //
 // Web to app: connect {state}, then state {state} whenever it changes:
-//   state = { working, waiting, run, revision, startedAt, mark, csrfToken, acceptsFiles, dictates, menu }
+//   state = { working, waiting, run, revision, startedAt, mark, csrfToken, acceptsFiles, confirmsAttach, dictates, menu }
 // +working+, +waiting+, +run+, +revision+, +startedAt+ and +mark+ are bridge--composer's own (the server's
 // LiveActivity::Run and Chat#live_mark, opaque and nothing from the chat). +acceptsFiles+ is false while the composer is
-// locked. +dictates+ is whether the composer's microphone is offered now (an install with a model to transcribe with,
-// and the person's yes to their words going to models). +menu+ is whether one of the composer's menus is open (the +
-// menu, the model picker, the mode picker, the slash menu): Android's Back closes it then, as Back closes a menu there,
-// rather than leaving the page under it.
+// locked. +confirmsAttach+ is always true: this page answers every attach with attached (below), so an app can keep
+// the files until it hears, where builds before it dropped them as they replied. +dictates+ is whether the composer's
+// microphone is offered now (an install with a model to transcribe with, and the person's yes to their words going to
+// models). +menu+ is whether one of the composer's menus is open (the + menu, the model picker, the mode picker, the
+// slash menu): Android's Back closes it then, as Back closes a menu there, rather than leaving the page under it.
 // The chat draws its composer again as an answer starts and ends, and each new one connects again.
 //
 // App to web, as replies to connect: {action, ...}
-//   attach {files: [{name, type, data}]}  files shared into the app, base64, uploaded here like any file the composer
-//                                         takes (bridge--composer's attach)
+//   attach {id, files: [{name, type, data}]}
+//                                         files shared into the app, base64, uploaded here like any file the composer
+//                                         takes (bridge--composer's attach); +id+ is the app's own, optional
 //   dictate                               starts the composer's dictation, as its microphone button does
 //   closeMenus                            closes the composer's open menus (Android's Back while +menu+)
+//
+// Web to app, once per attach when every file in it is settled:
+//   attached {id, taken, files: [{name, taken, reason}]}
+// +id+ is the attach's, when it had one. +files+ follow the attach's order; a file is taken once its upload is stored
+// (attachments#take), and +reason+ says why one wasn't: "locked" or "unavailable" (worth handing again to a later
+// composer), "refused" (the composer doesn't take it, and its dialog said so), "failed" (the upload failed, and the
+// chip says so), "removed" (the person removed it). +taken+ is whether every file was. A file can take a while: the
+// answer comes as its upload ends, not as the attach arrives.
 export default class extends BridgeComponent {
   static component = "web-composer"
 
@@ -76,18 +86,33 @@ export default class extends BridgeComponent {
 
   #perform({ action, ...data } = {}) {
     switch (action) {
-      case "attach": return (data.files || []).forEach(file => this.#attach(file))
+      case "attach": return this.#attach(data)
       case "dictate": return this.#dictate()
       case "closeMenus": return this.#closeMenus()
     }
   }
 
-  #attach({ name, type, data }) {
-    const attachments = this.#controller("attachments")
-    if (!attachments || !data || this.element.classList.contains("composer--locked")) return
+  async #attach({ id, files } = {}) {
+    const results = await Promise.all((Array.isArray(files) ? files : []).map(file => this.#take(file || {})))
+    this.send("attached", { ...(id === undefined ? {} : { id }), taken: results.every(result => result.taken), files: results })
+  }
 
-    const bytes = Uint8Array.from(atob(data), character => character.charCodeAt(0))
-    attachments.upload(new File([ bytes ], name || "file", { type: type || "application/octet-stream" }))
+  async #take({ name, type, data }) {
+    const settled = result => ({ name: name ?? null, ...result })
+    const attachments = this.#controller("attachments")
+    if (!attachments || !await attachments.whenEditorReady()) return settled({ taken: false, reason: "unavailable" })
+    if (this.element.classList.contains("composer--locked")) return settled({ taken: false, reason: "locked" })
+    if (!data) return settled({ taken: false, reason: "refused" })
+
+    let file
+    try {
+      const bytes = Uint8Array.from(atob(data), character => character.charCodeAt(0))
+      file = new File([ bytes ], name || "file", { type: type || "application/octet-stream" })
+    } catch {
+      return settled({ taken: false, reason: "refused" })
+    }
+
+    return settled(await attachments.take(file))
   }
 
   // The microphone's own click, so everything it checks (the yes to models, credits, a recording already going) holds.
@@ -125,6 +150,7 @@ export default class extends BridgeComponent {
       mark: element.dataset.liveMark || null,
       csrfToken: document.querySelector("meta[name=csrf-token]")?.content || null,
       acceptsFiles: !locked,
+      confirmsAttach: true,
       dictates: Boolean(element.dataset.dictationUrlValue && element.querySelector("[data-dictation-target=button]")) && !consentNeeded && !locked,
       menu: Boolean(element.querySelector("[aria-expanded=true], [data-slash-menu-target=list]:not([hidden]), :popover-open, .dropdown:focus-within"))
     }

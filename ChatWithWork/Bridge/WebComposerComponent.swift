@@ -39,10 +39,10 @@ final class WebComposerComponent: BridgeComponent {
 
         if message.event == "connect" {
             Self.connected.add(self)
-            takeInbox()
+            takeInbox(connecting: true)
         } else if state.acceptsFiles, !ComposerInbox.files.isEmpty {
             // Shared files that waited for this composer to unlock.
-            takeInbox()
+            takeInbox(connecting: false)
         }
     }
 
@@ -52,9 +52,9 @@ final class WebComposerComponent: BridgeComponent {
     /// reply goes: the page drops an `attach` while locked, saying nothing.
     /// A lock that comes between the reply and the page acting on it can't
     /// be seen from here; only the page could say it took the files.
-    func takeInbox() {
+    func takeInbox(connecting: Bool = true) {
         guard let state else { return }
-        for action in ComposerInbox.take(for: state, at: url) {
+        for action in ComposerInbox.take(for: state, at: url, connecting: connecting) {
             Task {
                 // Files wait for a composer that takes them; a Dictate it can't start is dropped (`take`).
                 guard stillTakes(action) else {

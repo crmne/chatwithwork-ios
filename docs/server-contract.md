@@ -1986,11 +1986,14 @@ page.
   - **Web to app, `attached`** `{id, taken, files: [{name, taken, reason}]}`,
     once per attach after every upload has settled, `files` in the attach's
     order: a file taken, `refused` (a kind or size it doesn't take) or
-    `removed` (the person took it out) leaves the inbox; `locked`,
-    `unavailable`, `failed` and any reason the app doesn't know wait for the
-    next New chat. Files in flight go back to the inbox when a visit starts
-    or ten minutes pass with no answer, and a late answer still takes out
-    what the page took. This closes the gap where a lock between the reply
+    `removed` (the person took it out) leaves the inbox; `locked` and
+    `unavailable` wait to be handed again, to this composer once a `state`
+    says it takes files; `failed` and any reason the app doesn't know wait
+    for a New chat after another visit, so a failing upload isn't retried
+    on the same page. Files in flight go back to the inbox when a visit
+    starts or ten minutes pass with no answer, for a New chat after it. Each
+    shared file keeps an identity of its own, so an answer that comes late
+    still takes out what the page took, even after the file was sent again. This closes the gap where a lock between the reply
     and the page acting on it lost the files (`ComposerInbox`).
   - `{action: "dictate"}`: the page clicks its microphone, so everything the
     button checks (the yes to models, credits, a recording already going)

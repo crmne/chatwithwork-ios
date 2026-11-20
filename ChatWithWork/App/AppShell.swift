@@ -185,7 +185,7 @@ final class AppShell: NSObject {
         case "new-chat":
             if value("dictate") == "1" { ComposerInbox.dictates = true }
             if let shared = value("shared") {
-                ComposerInbox.files = SharedInbox.take(shared).map { ComposerFile(name: $0.name, type: $0.type, bytes: $0.data) }
+                ComposerInbox.share(SharedInbox.take(shared).map { ComposerFile(name: $0.name, type: $0.type, bytes: $0.data) })
             }
             // The words wait in the native composer too, whatever the page does with them.
             // Joined as the server joins them for `/chats/new`, so a composer it filled is recognized.
@@ -394,7 +394,7 @@ extension AppShell: NavigatorDelegate {
     func handle(proposal: VisitProposal, from navigator: Navigator) -> ProposalResult {
         let route = AppRoute(url: proposal.url)
         // A page that held shared files is going: they wait again for the next New chat.
-        ComposerInbox.returnUnanswered()
+        ComposerInbox.visitStarted()
 
         if case .historicalLocation(let location) = route.kind {
             showNotice(in: proposal.url)

@@ -97,6 +97,18 @@ application.register("composer", class extends Controller {
   }
 })
 
+// Stands in for attachments_controller.js's part in files handed over by the
+// app (bridge--web-composer's attach): the editor is ready at once, and every
+// file is taken, as a stored upload would be. The page says so in `attached`.
+application.register("attachments", class extends Controller {
+  async whenEditorReady() { return true }
+
+  async take(file) {
+    console.log(`attachments: took ${file.name}`)
+    return { taken: true }
+  }
+})
+
 // Stands in for the parts of the web app's chat controller that the
 // composer bridge uses: the field, whether files are uploading, and sending.
 application.register("chat", class extends Controller {

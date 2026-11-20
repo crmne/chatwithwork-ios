@@ -65,84 +65,92 @@ struct ComposerInboxTests {
         #expect(ComposerInbox.take(for: try state(), at: newChat) == [.attach(files: [file])])
     }
 
-    private func confirming() throws -> WebComposerState {
-        try JSONDecoder().decode(WebComposerState.self, from: Data(#"{"acceptsFiles":true,"dictates":false,"confirmsAttach":true}"#.utf8))
+    private func confirming(acceptsFiles: Bool = true) throws -> WebComposerState {
+        try JSONDecoder().decode(WebComposerState.self, from: Data(#"{"acceptsFiles":\#(acceptsFiles),"dictates":false,"confirmsAttach":true}"#.utf8))
     }
 
-    private func sent(_ actions: [WebComposerAction]) throws -> (id: String, files: [ComposerFile]) {
-        guard case .attach(let files, let id?) = try #require(actions.first) else {
-            Issue.record("no attach with an id")
-            return ("", [])
-        }
+    private func sent(_ actions: [WebComposerAction]) -> (id: String, files: [ComposerFile])? {
+        guard case .attach(let files, let id?) = actions.first else { return nil }
         return (id, files)
     }
 
-    @Test("a page that answers keeps the files in flight, and they leave only as it says, by reason")
-    func confirmed() throws {
-        reset()
+    private func emptied() {
         ComposerInbox.returnUnanswered()
+        ComposerInbox.visitStarted()
         reset()
-        let photo = ComposerFile(name: "photo.jpg", type: "image/jpeg", bytes: Data("p".utf8))
-        let plan = ComposerFile(name: "plan.pdf", type: "application/pdf", bytes: Data("q".utf8))
-        let other = ComposerFile(name: "other.txt", type: "text/plain", bytes: Data("o".utf8))
-        ComposerInbox.files = [file, photo, plan, other, file]
-        let (id, files) = try sent(ComposerInbox.take(for: try confirming(), at: newChat))
-        #expect(files.count == 5)
+    }
+
+    private let photo = ComposerFile(name: "photo.jpg", type: "image/jpeg", bytes: Data("p".utf8))
+    private let plan = ComposerFile(name: "plan.pdf", type: "application/pdf", bytes: Data("q".utf8))
+
+    @Test("each reason: gone, again on this page once it unlocks, or for the next New chat")
+    func confirmed() throws {
+        emptied()
+        ComposerInbox.files = [file, photo, plan, file, photo, plan]
+        let (id, files) = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
+        #expect(files.count == 6)
         #expect(ComposerInbox.files.isEmpty)
-        #expect(ComposerInbox.unanswered == 5)
+        #expect(ComposerInbox.unanswered == 6)
 
         ComposerInbox.settle(id: id, results: [
             AttachedFile(name: "notes.txt", taken: true),
             AttachedFile(name: "photo.jpg", taken: false, reason: "locked"),
             AttachedFile(name: "plan.pdf", taken: false, reason: "refused"),
-            AttachedFile(name: "other.txt", taken: false, reason: "removed"),
-            AttachedFile(name: nil, taken: false, reason: "a later reason")
+            AttachedFile(name: "notes.txt", taken: false, reason: "failed"),
+            AttachedFile(name: nil, taken: false, reason: "removed"),
+            AttachedFile(name: "plan.pdf", taken: false, reason: "a later reason")
         ])
         #expect(ComposerInbox.unanswered == 0)
-        #expect(ComposerInbox.files == [photo, file], "Kept: locked, and a reason not known yet")
-        reset()
+        #expect(ComposerInbox.files == [photo, file, plan])
+        // A state saying it unlocked gets only the locked one; the rest wait for the next New chat.
+        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat, connecting: false))?.files == [photo])
+        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat))?.files == nil, "Not before another visit")
+        // Another visit gives back the one still in flight too, and the next New chat gets all three.
+        ComposerInbox.visitStarted()
+        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat))?.files == [photo, file, plan])
+        emptied()
     }
 
-    @Test("an older page, without confirmsAttach, is trusted with the files as before")
+    @Test("an older page, without confirmsAttach, is trusted with the files as before, and shares join those waiting")
     func unconfirmed() throws {
-        reset()
+        emptied()
         ComposerInbox.files = [file]
-        #expect(ComposerInbox.take(for: try state(), at: newChat) == [.attach(files: [file])])
+        ComposerInbox.share([photo])
+        #expect(ComposerInbox.take(for: try state(), at: newChat) == [.attach(files: [file, photo])])
         #expect(ComposerInbox.unanswered == 0)
+        #expect(ComposerInbox.files.isEmpty)
     }
 
-    @Test("a page gone, or quiet for ten minutes, gives its files back, and a late answer still takes out what it took")
-    func unanswered() throws {
-        reset()
-        ComposerInbox.returnUnanswered()
-        reset()
+    @Test("a late answer counts wherever the file is now, and the same bytes shared twice stay two")
+    func lateAnswer() throws {
+        emptied()
         let start = Date(timeIntervalSince1970: 0)
-        ComposerInbox.files = [file]
-        let old = try sent(ComposerInbox.take(for: try confirming(), at: newChat, now: start))
-        let photo = ComposerFile(name: "photo.jpg", type: "image/jpeg", bytes: Data("p".utf8))
-        ComposerInbox.files = [photo]
-        let recent = try sent(ComposerInbox.take(for: try confirming(), at: newChat, now: start.addingTimeInterval(ComposerInbox.unansweredAfter)))
+        ComposerInbox.files = [file, file]
+        let first = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat, now: start)))
+        // Ten minutes without a word: they wait for the next New chat, which takes them again.
+        ComposerInbox.returnUnanswered(olderThan: start.addingTimeInterval(ComposerInbox.unansweredAfter))
+        #expect(ComposerInbox.files == [file, file])
+        ComposerInbox.visitStarted()
+        let second = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
 
-        ComposerInbox.returnUnanswered(olderThan: start.addingTimeInterval(ComposerInbox.unansweredAfter - 1))
-        #expect(ComposerInbox.files == [file])
+        // The first page did take the first copy; the second page's upload of it then fails.
+        ComposerInbox.settle(id: first.id, results: [AttachedFile(name: "notes.txt", taken: true), AttachedFile(name: "notes.txt", taken: false, reason: "unavailable")])
         #expect(ComposerInbox.unanswered == 1)
-        ComposerInbox.settle(id: old.id, results: [AttachedFile(name: "notes.txt", taken: true)])
-        #expect(ComposerInbox.files.isEmpty)
-
-        ComposerInbox.returnUnanswered()
-        #expect(ComposerInbox.files == [photo])
-        ComposerInbox.settle(id: recent.id, results: [AttachedFile(name: "photo.jpg", taken: true)])
-        #expect(ComposerInbox.files.isEmpty)
+        ComposerInbox.settle(id: second.id, results: [AttachedFile(name: "notes.txt", taken: false, reason: "failed"), AttachedFile(name: "notes.txt", taken: false, reason: "failed")])
+        #expect(ComposerInbox.files == [file], "Only the copy no page took comes back")
+        emptied()
     }
 
-    @Test("an attach the reply couldn't carry leaves flight and waits again")
+    @Test("an attach the reply couldn't carry waits again at once, never twice")
     func replyFailed() throws {
-        reset()
+        emptied()
         ComposerInbox.files = [file]
         let actions = ComposerInbox.take(for: try confirming(), at: newChat)
-        ComposerInbox.putBack(try #require(actions.first))
+        let action = try #require(actions.first)
+        ComposerInbox.putBack(action)
+        ComposerInbox.putBack(action)
         #expect(ComposerInbox.unanswered == 0)
         #expect(ComposerInbox.files == [file])
-        reset()
+        emptied()
     }
 }

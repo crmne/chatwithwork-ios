@@ -14,27 +14,47 @@ enum ComposerInbox {
     /// Words shared into the app, for the app's own composer. The web one
     /// gets them in New chat's address (`/chats/new?text=`).
     static var text: String?
-    /// Files shared into the app, handed to the next composer that connects.
-    static var files: [ComposerFile] = []
+    /// Files shared into the app that wait for a composer, in order: those
+    /// in flight with a page that answers for them aren't among them. Setting
+    /// it replaces those waiting.
+    static var files: [ComposerFile] {
+        get { entries.filter { $0.attempt == nil }.map(\.file) }
+        set {
+            entries.removeAll { $0.attempt == nil }
+            entries += newValue.map(Entry.init)
+        }
+    }
 
-    /// What the web composer on `url` takes now, emptying the inbox of it:
-    /// files when it takes files, Dictate when its microphone is offered. A
-    /// Dictate it can't start (no yes to models yet, locked) is dropped, so
-    /// it doesn't start a later New chat listening out of the blue; files
-    /// wait for one that takes them.
-    static func take(for state: WebComposerState, at url: URL?, now: Date = Date()) -> [WebComposerAction] {
+    /// Files shared in, after any still waiting.
+    static func share(_ shared: [ComposerFile]) {
+        entries += shared.map(Entry.init)
+    }
+
+    /// What the web composer on `url` takes now: files when it takes files,
+    /// Dictate when its microphone is offered. A Dictate it can't start (no
+    /// yes to models yet, locked) is dropped, so it doesn't start a later New
+    /// chat listening out of the blue; files wait for one that takes them.
+    /// Files kept for the next New chat go only to a composer connecting
+    /// after a later visit (`connecting`), never to one that just changed.
+    static func take(for state: WebComposerState, at url: URL?, connecting: Bool = true, now: Date = Date()) -> [WebComposerAction] {
         guard let url, AppRoute(url: url).kind == .newChat else { return [] }
         var actions: [WebComposerAction] = []
-        if !files.isEmpty, state.acceptsFiles {
+        let ready = entries.filter { $0.attempt == nil && ($0.afterVisit < 0 || connecting && $0.afterVisit < visits) }
+        if !ready.isEmpty, state.acceptsFiles {
             if state.confirmsAttach {
                 // The page answers for them (`attached`): they're in flight until it does.
                 let id = UUID().uuidString
-                inFlight[id] = InFlight(files: files, sentAt: now)
-                actions.append(.attach(files: files, id: id))
+                for entry in ready {
+                    entry.attempt = id
+                    entry.sentAt = now
+                }
+                attempts.append((id, ready.map(\.key)))
+                if attempts.count > 50 { attempts.removeFirst(attempts.count - 50) }
+                actions.append(.attach(files: ready.map(\.file), id: id))
             } else {
-                actions.append(.attach(files: files))
+                entries.removeAll { entry in ready.contains { $0 === entry } }
+                actions.append(.attach(files: ready.map(\.file)))
             }
-            files = []
         }
         if dictates {
             dictates = false
@@ -43,71 +63,94 @@ enum ComposerInbox {
         return actions
     }
 
-    /// What a composer was handed and didn't take, for the next one.
+    /// What a composer was handed and didn't take, for the next one: an
+    /// attach that never reached the page waits again at once, files as they
+    /// were.
     static func putBack(_ action: WebComposerAction) {
         switch action {
         case .attach(let taken, let id):
-            if let id { inFlight[id] = nil }
-            files = taken + files
+            if let id {
+                attempts.removeAll { $0.id == id }
+                for entry in entries where entry.attempt == id { entry.attempt = nil }
+            } else {
+                entries.insert(contentsOf: taken.map(Entry.init), at: 0)
+            }
         case .dictate: dictates = true
         }
     }
 
     // MARK: Files the page answers for
 
-    /// Files handed to a page that says which it took (`confirmsAttach`), by
-    /// the id their `attach` carried, until its `attached` arrives
-    /// (`settle`). The page answers every attach while it lives, so only a
-    /// page gone away leaves them unanswered (`returnUnanswered`).
-    private struct InFlight {
-        let files: [ComposerFile]
-        let sentAt: Date
+    /// A file shared in, with an identity of its own while it waits, so two
+    /// shares of the same bytes stay two, and a late answer about one attempt
+    /// finds it wherever it is now.
+    private final class Entry {
+        let key = UUID().uuidString
+        let file: ComposerFile
+        /// The attach it's in flight with, until the page answers for it.
+        var attempt: String?
+        var sentAt = Date.distantPast
+        /// Kept for a New chat after this visit: an upload that failed, or
+        /// came back unanswered, isn't tried again on the same page.
+        var afterVisit = -1
+
+        init(_ file: ComposerFile) { self.file = file }
     }
 
-    private static var inFlight: [String: InFlight] = [:]
-    /// Files given back before their answer came, so a late answer can still
-    /// take out what the page took.
-    private static var returned: [(id: String, files: [ComposerFile])] = []
+    private static var entries: [Entry] = []
+    /// Each attach's files by key, in its order, for the page's answer: kept
+    /// a while after they came back unanswered.
+    private static var attempts: [(id: String, keys: [String])] = []
+    private static var visits = 0
 
     /// How long files wait for a page's answer: long enough for a large
     /// upload on a slow network; a duplicate after it beats a loss.
     static let unansweredAfter: TimeInterval = 10 * 60
 
     /// Files in flight, waiting for a page's answer.
-    static var unanswered: Int { inFlight.values.reduce(0) { $0 + $1.files.count } }
+    static var unanswered: Int { entries.count(where: { $0.attempt != nil }) }
 
-    /// The page's answer for the attach `id`: each file it took, or let go
-    /// (`refused`, `removed`), leaves; any other waits again for the next New
-    /// chat, ahead of newer ones. An answer for files already given back
-    /// takes the same files out of those waiting.
+    /// The page's answer for the attach `id`, file by file in its order.
+    /// Taken, `refused` and `removed` leave, wherever the file is now (an
+    /// answer that comes after it was given back, or sent again, still
+    /// counts). `locked` and `unavailable` wait to be handed again, on this
+    /// page once it unlocks; `failed`, a reason not known yet, or no word
+    /// wait for the next New chat.
     static func settle(id: String?, results: [AttachedFile]) {
-        guard let id else { return }
-        if let sent = inFlight.removeValue(forKey: id) {
-            files = sent.files.enumerated().filter { keeps(results[safe: $0.offset]) }.map(\.element) + files
-            return
-        }
-        guard let index = returned.firstIndex(where: { $0.id == id }) else { return }
-        let given = returned.remove(at: index).files
-        for (offset, file) in given.enumerated() where !keeps(results[safe: offset]) {
-            if let at = files.firstIndex(of: file) { files.remove(at: at) }
+        guard let id, let index = attempts.firstIndex(where: { $0.id == id }) else { return }
+        let keys = attempts.remove(at: index).keys
+        for (offset, key) in keys.enumerated() {
+            guard let entry = entries.first(where: { $0.key == key }) else { continue }
+            let result = offset < results.count ? results[offset] : nil
+            if let result, result.taken || ["refused", "removed"].contains(result.reason ?? "") {
+                entries.removeAll { $0 === entry }
+            } else if entry.attempt != id {
+                // Given back or sent again since: its newer attempt decides.
+                continue
+            } else if ["locked", "unavailable"].contains(result?.reason ?? "") {
+                entry.attempt = nil
+            } else {
+                entry.attempt = nil
+                entry.afterVisit = visits
+            }
         }
     }
 
-    /// Gives back files in flight that no answer can come for: all of them
-    /// (the page went away), or those sent before `olderThan`.
+    /// Gives back files in flight that no answer can come for: all of them,
+    /// or those sent before `olderThan`. They wait for the next New chat; a
+    /// late answer still takes out what the page took.
     static func returnUnanswered(olderThan: Date? = nil) {
-        let stale = inFlight.filter { olderThan == nil || $0.value.sentAt < olderThan! }
-        for (id, flight) in stale.sorted(by: { $0.value.sentAt < $1.value.sentAt }) {
-            inFlight[id] = nil
-            returned.append((id, flight.files))
-            files = flight.files + files
+        for entry in entries where entry.attempt != nil && (olderThan.map { entry.sentAt < $0 } ?? true) {
+            entry.attempt = nil
+            entry.afterVisit = visits
         }
-        if returned.count > 20 { returned.removeFirst(returned.count - 20) }
     }
 
-    private static func keeps(_ result: AttachedFile?) -> Bool {
-        guard let result else { return true }
-        return !result.taken && !["refused", "removed"].contains(result.reason ?? "")
+    /// A visit starts: the page that held files in flight may be going, and
+    /// every file kept for the next New chat may go to the page it draws.
+    static func visitStarted() {
+        returnUnanswered()
+        visits += 1
     }
 }
 
@@ -142,8 +185,4 @@ nonisolated struct AttachedAnswer: Decodable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case id, taken, files
     }
-}
-
-private extension Array {
-    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
 }
