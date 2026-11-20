@@ -8,6 +8,13 @@ import UIKit
 /// the keyboard and the conversation above it keeps its full height. Where
 /// the app draws the composer itself (ComposerController), it floats over
 /// the web view and the page leaves room to scroll its last answer clear.
+///
+/// With the keyboard down the page ends at the bottom of the safe area, never
+/// under the home indicator. WebKit's own inset for it can't be relied on:
+/// after the keyboard went down, and on some pages from the start, it laid
+/// the page out to the screen's edge (`innerHeight` 758 rather than 724 on an
+/// iPhone 17 Pro, with the same frame and insets), so the web composer, fixed
+/// to the page's bottom, ran into the screen's rounded corners.
 enum KeyboardAvoidance {
     private nonisolated(unsafe) static var key: UInt8 = 0
     private nonisolated(unsafe) static var dockKey: UInt8 = 0
@@ -34,7 +41,7 @@ enum KeyboardAvoidance {
         guard let bottom else { return }
 
         let guide = container.keyboardLayoutGuide
-        guide.usesBottomSafeArea = false
+        guide.usesBottomSafeArea = true
         bottom.isActive = false
         let toKeyboard = visitableView.bottomAnchor.constraint(equalTo: guide.topAnchor)
         toKeyboard.isActive = true
