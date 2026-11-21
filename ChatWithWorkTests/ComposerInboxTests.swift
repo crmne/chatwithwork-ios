@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import WebKit
 @testable import ChatWithWork
 
 /// What a share or a widget leaves for the web composer: only New chat's
@@ -63,5 +64,148 @@ struct ComposerInboxTests {
         #expect(ComposerInbox.files == [file], "Shared files aren't lost to a locked composer")
         #expect(!ComposerInbox.dictates, "A later New chat doesn't start listening out of the blue")
         #expect(ComposerInbox.take(for: try state(), at: newChat) == [.attach(files: [file])])
+    }
+
+    private func confirming(acceptsFiles: Bool = true) throws -> WebComposerState {
+        try JSONDecoder().decode(WebComposerState.self, from: Data(#"{"acceptsFiles":\#(acceptsFiles),"dictates":false,"confirmsAttach":true}"#.utf8))
+    }
+
+    private func sent(_ actions: [WebComposerAction]) -> (id: String, files: [ComposerFile])? {
+        guard case .attach(let files, let id?) = actions.first else { return nil }
+        return (id, files)
+    }
+
+    private func emptied() {
+        ComposerInbox.returnUnanswered()
+        ComposerInbox.visitStarted()
+        reset()
+    }
+
+    private let photo = ComposerFile(name: "photo.jpg", type: "image/jpeg", bytes: Data("p".utf8))
+    private let plan = ComposerFile(name: "plan.pdf", type: "application/pdf", bytes: Data("q".utf8))
+
+    @Test("each reason: gone, again on this page once it unlocks, or for the next New chat")
+    func confirmed() throws {
+        emptied()
+        ComposerInbox.files = [file, photo, plan, file, photo, plan]
+        let (id, files) = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
+        #expect(files.count == 6)
+        #expect(ComposerInbox.files.isEmpty)
+        #expect(ComposerInbox.unanswered == 6)
+
+        ComposerInbox.settle(id: id, results: [
+            AttachedFile(name: "notes.txt", taken: true),
+            AttachedFile(name: "photo.jpg", taken: false, reason: "locked"),
+            AttachedFile(name: "plan.pdf", taken: false, reason: "refused"),
+            AttachedFile(name: "notes.txt", taken: false, reason: "failed"),
+            AttachedFile(name: nil, taken: false, reason: "removed"),
+            AttachedFile(name: "plan.pdf", taken: false, reason: "a later reason")
+        ])
+        #expect(ComposerInbox.unanswered == 0)
+        #expect(ComposerInbox.files == [photo, file, plan])
+        // A state saying it unlocked gets only the locked one; the rest wait for the next New chat.
+        let connected = ComposerInbox.visit
+        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat, connectedAt: connected))?.files == [photo])
+        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat, connectedAt: connected))?.files == nil, "Not before another visit")
+        // Another visit gives back the one still in flight too, and the next New chat gets all three.
+        ComposerInbox.visitStarted()
+        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat))?.files == [photo, file, plan])
+        emptied()
+    }
+
+    @Test("an older page, without confirmsAttach, is trusted with the files as before, and shares join those waiting")
+    func unconfirmed() throws {
+        emptied()
+        ComposerInbox.files = [file]
+        ComposerInbox.share([photo])
+        #expect(ComposerInbox.take(for: try state(), at: newChat) == [.attach(files: [file, photo])])
+        #expect(ComposerInbox.unanswered == 0)
+        #expect(ComposerInbox.files.isEmpty)
+    }
+
+    @Test("a late answer counts wherever the file is now, and the same bytes shared twice stay two")
+    func lateAnswer() throws {
+        emptied()
+        let start = Date(timeIntervalSince1970: 0)
+        ComposerInbox.files = [file, file]
+        let first = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat, now: start)))
+        // Ten minutes without a word: they wait for the next New chat, which takes them again.
+        ComposerInbox.returnUnanswered(olderThan: start.addingTimeInterval(ComposerInbox.unansweredAfter))
+        #expect(ComposerInbox.files == [file, file])
+        ComposerInbox.visitStarted()
+        let second = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
+
+        // The first page did take the first copy; the second page's upload of it then fails.
+        ComposerInbox.settle(id: first.id, results: [AttachedFile(name: "notes.txt", taken: true), AttachedFile(name: "notes.txt", taken: false, reason: "unavailable")])
+        #expect(ComposerInbox.unanswered == 1)
+        ComposerInbox.settle(id: second.id, results: [AttachedFile(name: "notes.txt", taken: false, reason: "failed"), AttachedFile(name: "notes.txt", taken: false, reason: "failed")])
+        #expect(ComposerInbox.files == [file], "Only the copy no page took comes back")
+        emptied()
+    }
+
+    @Test("a page loaded from scratch, or a web view that goes, gives back what it had in flight")
+    func pageGoes() async throws {
+        emptied()
+        var webView: WKWebView? = WKWebView(frame: .zero)
+        PageLoads.follow(try #require(webView))
+        ComposerInbox.files = [file]
+        _ = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
+        webView?.loadHTMLString("<p>again</p>", baseURL: nil)
+        #expect(await settles { ComposerInbox.unanswered == 0 }, "A reload")
+        #expect(ComposerInbox.files == [file])
+
+        _ = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
+        webView = nil
+        #expect(await settles { ComposerInbox.unanswered == 0 }, "The web view going")
+        #expect(ComposerInbox.files == [file])
+        emptied()
+    }
+
+    private func settles(_ condition: () -> Bool) async -> Bool {
+        for _ in 0..<100 {
+            if condition() { return true }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return condition()
+    }
+
+    @Test("a file that failed before, then comes back locked, goes again on this page once it unlocks")
+    func failedThenLocked() throws {
+        emptied()
+        ComposerInbox.files = [file]
+        let first = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
+        ComposerInbox.settle(id: first.id, results: [AttachedFile(name: "notes.txt", taken: false, reason: "failed")])
+        ComposerInbox.visitStarted()
+        let second = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
+        ComposerInbox.settle(id: second.id, results: [AttachedFile(name: "notes.txt", taken: false, reason: "locked")])
+        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat, connectedAt: ComposerInbox.visit))?.files == [file])
+        emptied()
+    }
+
+    @Test("a failed file goes to the next New chat even if it connects locked and unlocks later")
+    func failedThenNextLocked() throws {
+        emptied()
+        ComposerInbox.files = [file]
+        let first = try #require(sent(ComposerInbox.take(for: try confirming(), at: newChat)))
+        ComposerInbox.settle(id: first.id, results: [AttachedFile(name: "notes.txt", taken: false, reason: "failed")])
+        ComposerInbox.visitStarted()
+        // The next New chat connects locked, so nothing goes then; its unlock later is only a state.
+        let connected = ComposerInbox.visit
+        #expect(ComposerInbox.take(for: try confirming(acceptsFiles: false), at: newChat, connectedAt: connected).isEmpty)
+        #expect(sent(ComposerInbox.take(for: try confirming(), at: newChat, connectedAt: connected))?.files == [file])
+        emptied()
+    }
+
+    @Test("an attach the reply couldn't carry waits again at once, never twice")
+    func replyFailed() throws {
+        emptied()
+        ComposerInbox.files = [file]
+        let actions = ComposerInbox.take(for: try confirming(), at: newChat)
+        let action = try #require(actions.first)
+        ComposerInbox.putBack(action)
+        ComposerInbox.putBack(action)
+        #expect(ComposerInbox.unanswered == 0)
+        #expect(ComposerInbox.files == [file])
+        emptied()
     }
 }

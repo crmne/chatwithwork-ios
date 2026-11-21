@@ -46,6 +46,7 @@ enum WebScreen {
         NetworkCost.shared.follow(webView)
         PageTitle.follow(webView)
         PinchZoom.resetOnNewPage(webView)
+        PageLoads.follow(webView)
         // No white flash before the first paint in dark mode.
         webView.isOpaque = false
         webView.backgroundColor = Palette.canvas
@@ -117,6 +118,37 @@ enum PinchZoom {
     static func reset(_ webView: WKWebView?) {
         guard let scrollView = webView?.scrollView, scrollView.zoomScale > scrollView.minimumZoomScale + 0.001 else { return }
         scrollView.setZoomScale(scrollView.minimumZoomScale, animated: false)
+    }
+}
+
+/// A page that goes without a Turbo visit can't answer for the shared files
+/// it had in flight (`ComposerInbox`): a page loaded from scratch (a reload,
+/// a web content process that died and was loaded again) or a web view
+/// that goes. A Turbo visit keeps the document, whose composer says
+/// `unavailable` as it goes; a visit the app proposes says so itself
+/// (`AppShell`). So does any document load starting, and the web view
+/// going, here.
+enum PageLoads {
+    private nonisolated(unsafe) static var key: UInt8 = 0
+
+    static func follow(_ webView: WKWebView) {
+        objc_setAssociatedObject(webView, &key, Watch(webView), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+
+    private final class Watch {
+        private let observation: NSKeyValueObservation
+
+        init(_ webView: WKWebView) {
+            observation = webView.observe(\.isLoading, options: [.old, .new]) { _, change in
+                guard change.newValue == true, change.oldValue != true else { return }
+                MainActor.assumeIsolated { ComposerInbox.visitStarted() }
+            }
+        }
+
+        // Goes with its web view; the observation stops with it.
+        deinit {
+            Task { @MainActor in ComposerInbox.visitStarted() }
+        }
     }
 }
 

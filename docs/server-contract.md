@@ -548,7 +548,7 @@ Android ignores, are marked "iOS". Every message the bridge sends also carries
 | `notification-token` | `connect`; `get`; `offer` `{reason}` (`approval` or `answer`); `openSettings`; `key` `{key, token}` | reply to `connect`, `get` and `offer`: `{status, token?, platform, environment, appId, needsKey}` | `bridge--notification-token` |
 | `sidebar` | `connect` `{}`; `changed` `{}` | reply to `connect` `{action: "perform", url, method, confirm?, destructive?}`: send a chat's action from the sidebar | `bridge--sidebar` (section 11) |
 | `composer` | `connect` and `state` with the composer's state | reply to the latest `connect` `{action, ...}` | `bridge--composer` (section 12) |
-| `web-composer` | `connect` and `state` `{working, waiting, run, revision, startedAt, mark, csrfToken, acceptsFiles, dictates}` | reply to the latest `connect`: `{action: "attach", files}` or `{action: "dictate"}` | `bridge--web-composer` ([The web composer](#the-web-composer-2026-11-20)) |
+| `web-composer` | `connect` and `state` `{working, waiting, run, revision, startedAt, mark, csrfToken, acceptsFiles, dictates, confirmsAttach}`, and `attached` `{id, taken, files}` | reply to the latest `connect`: `{action: "attach", id?, files}` or `{action: "dictate"}` | `bridge--web-composer` ([The web composer](#the-web-composer-2026-11-20)) |
 | `file` | `connect` `{files: [{url, name, contentType?, title?}]}`; `disconnect` | none | `bridge--file` ([A file](#a-file-chatsfilesshow)) |
 | `decisions` | `connect` `{waiting, here, url}`; `count` `{waiting}` | none | `bridge--decisions` ([Decisions in the bar](#decisions-in-the-bar-2026-11-20)) |
 
@@ -1976,12 +1976,34 @@ page.
 - **App to web**, replies to the latest `connect`:
   - `{action: "attach", files: [{name, type, data}]}`: files shared into the
     app (base64, as the composer's `attach`), uploaded like any file the
-    composer takes. Ignored while it's locked, saying nothing: the app
-    sends files only while the composer's latest `state` says
-    `acceptsFiles`, and keeps them for the next New chat when it doesn't by
-    the time the reply goes. A lock between the reply and the page acting on
-    it still loses them; only an answer from the page that it took them
-    would close that.
+    composer takes. The app sends files only while the composer's latest
+    `state` says `acceptsFiles`, and keeps them for the next New chat when
+    it doesn't by the time the reply goes. A page whose state says
+    `confirmsAttach: true` answers for them: the app adds an `id` to the
+    attach and keeps the files in flight until the page's `attached`
+    (below). A page without it (a server before 2026-11-20) is trusted
+    with them as the reply goes, as before.
+  - **Web to app, `attached`** `{id, taken, files: [{name, taken, reason}]}`,
+    once per attach after every upload has settled, `files` in the attach's
+    order: a file taken, `refused` (a kind or size it doesn't take) or
+    `removed` (the person took it out) leaves the inbox; `locked` and
+    `unavailable` wait to be handed again, to this composer once a `state`
+    says it takes files (an answer that comes after that state hands them
+    again at once, but only once per state, so a page that answers
+    `unavailable` straight away isn't sent them in a loop); `failed` and
+    any reason the app doesn't know wait
+    for a New chat after another visit, so a failing upload isn't retried
+    on the same page. The page answers while it stays alive, so files in
+    flight go back to the inbox, for a New chat after it, when a
+    visit starts, a page loads from scratch (a reload, a web content
+    process loaded again after it died), its web view goes
+    (`PageLoads`), or any web composer's `connect` or `state` comes once
+    ten minutes have passed since the attach with no answer (each one
+    checks; there's no timer, so until a message, a visit or a load, they
+    stay in flight). Each
+    shared file keeps an identity of its own, so an answer that comes late
+    still takes out what the page took, even after the file was sent again. This closes the gap where a lock between the reply
+    and the page acting on it lost the files (`ComposerInbox`).
   - `{action: "dictate"}`: the page clicks its microphone, so everything the
     button checks (the yes to models, credits, a recording already going)
     holds.
